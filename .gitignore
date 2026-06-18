@@ -39,3 +39,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env
+
+# npm lockfile — this workspace is pnpm-only
+package-lock.json
