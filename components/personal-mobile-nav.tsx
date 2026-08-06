@@ -7,8 +7,6 @@ import { A, Icons } from "@/lib/splito-design";
 
 const NAV_ITEMS = [
   { key: "home",     label: "Home",     href: "/",        icon: Icons.home     },
-  { key: "groups",   label: "Groups",   href: "/groups",  icon: Icons.groups   },
-  { key: "friends",  label: "Friends",  href: "/friends", icon: Icons.friends  },
   { key: "settings", label: "Settings", href: "/settings",icon: Icons.settings },
 ];
 

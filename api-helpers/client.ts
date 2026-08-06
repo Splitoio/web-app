@@ -2,6 +2,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { QueryClient } from "@tanstack/react-query";
 import Cookies from "js-cookie";
+import { isAuthRoute, isPublicRoute } from "@/lib/middleware-session";
 
 const API_TIMEOUT = 30000;
 // Track if we're already redirecting to prevent loops
@@ -14,6 +15,8 @@ const PUBLIC_ROUTES = [
   "/api/auth/verify",
   "/api/auth/reset-password",
   "/api/auth/forgot-password",
+  // Public payer flow — no account, ever. See .specs/2026-08-06-request-money-api-contract.md
+  "/api/public/requests",
 ];
 
 // Helper function to handle redirects to login page
@@ -89,9 +92,17 @@ apiClient.interceptors.response.use(
       name: error.response?.data?.name || "ApiError",
     };
     console.log("error", normalizedError);
-    // Handle 401 (Unauthorized) responses - this is the only place we redirect
-    if (normalizedError.code === 401) {
-      redirectToLogin();
+    // Handle 401 (Unauthorized) responses - this is the only place we redirect.
+    // Never redirect off a public page (e.g. "/", "/pay/*") — an anonymous
+    // visitor getting a 401 from a background query (any component can fire
+    // one, e.g. Sidebar's groups query) there is expected, not an auth
+    // failure. See lib/middleware-session.ts for the canonical route list.
+    if (normalizedError.code === 401 && typeof window !== "undefined") {
+      const currentPath = window.location.pathname;
+      const isPublicPage = isAuthRoute(currentPath) || isPublicRoute(currentPath);
+      if (!isPublicPage) {
+        redirectToLogin();
+      }
     }
 
     return Promise.reject(normalizedError);

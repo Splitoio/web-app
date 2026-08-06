@@ -7,6 +7,7 @@ import { useGetAllOrganizations } from "@/features/business/hooks/use-organizati
 import { OnboardingModal } from "./onboarding-modal";
 import { OnboardingTutorial, type OnboardingMode, type OrganizationOnboardingPhase } from "./onboarding-tutorial";
 import { APP_MODE } from "@/lib/app-mode";
+import { isAuthRoute } from "@/lib/middleware-session";
 
 function isOrgAdmin(
   org: { userId: string; groupUsers?: { userId: string; role?: string | null }[] },
@@ -45,7 +46,7 @@ export function OnboardingGate() {
     return inOrgRoute ? "in-org" : "no-org";
   }, [mode, pathname]);
 
-  const isAuthPage = pathname?.match(/^\/login|^\/signup|^\/forgot-password|^\/reset-password/);
+  const isAuthPage = isAuthRoute(pathname ?? "");
   const hasNoDisplayName =
     !userData?.name || (typeof userData.name === "string" && userData.name.trim() === "");
   const nameIsEmail =

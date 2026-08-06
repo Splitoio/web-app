@@ -260,37 +260,9 @@ export function Sidebar() {
               </>
             )}
 
-            {/* ── Personal mode links (My Groups, Friends, Settings) ── */}
+            {/* ── Personal mode links (Settings) ── */}
             {!isOrganizationMode && (
               <>
-                <Link
-                  id="sidebar-groups-link"
-                  href="/groups"
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === "/groups" || pathname.startsWith("/groups/")
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === "/groups" || pathname.startsWith("/groups/") ? "text-[#22D3EE]" : "inherit"}>{Icons.groups({})}</span>
-                  My Groups
-                </Link>
-                <Link
-                  id="sidebar-friends-link"
-                  href="/friends"
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === "/friends"
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === "/friends" ? "text-[#22D3EE]" : "inherit"}>{Icons.friends({})}</span>
-                  Friends
-                </Link>
                 <Link
                   id="sidebar-settings-link"
                   href="/settings"
@@ -309,48 +281,11 @@ export function Sidebar() {
             )}
           </nav>
 
-          {/* Personal mode: GROUPS section + New group + user card */}
-          {!isOrganizationMode && (
+          {/* Personal mode: user card — anonymous visitors have no account,
+              so there is nothing real to show here. Never render placeholder
+              identity ("You" / "you@email.com"). */}
+          {!isOrganizationMode && user && (
             <>
-              <div className="mt-7 flex-1 overflow-y-auto min-h-0">
-                <p className="text-[10px] font-extrabold tracking-[0.12em] uppercase px-[13px] mb-2" style={{ color: "#777" }}>GROUPS</p>
-                <div className="flex flex-col gap-px">
-                  {groups.map((g) => {
-                    const isActive = pathname.startsWith(`/groups/${g.id}`);
-                    return (
-                      <Link
-                        key={g.id}
-                        href={`/groups/${g.id}`}
-                        onClick={close}
-                        className={cn(
-                          "splito-nav-item flex items-center py-[9px] px-[13px] rounded-[12px] transition-all",
-                          isActive ? "bg-white/[0.09] text-white font-bold" : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                        )}
-                      >
-                        <span className="text-[13px] truncate flex-1">
-                          {g.name}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      close();
-                      if (pathname === "/groups") {
-                        document.dispatchEvent(new CustomEvent("open-create-group-modal"));
-                      } else {
-                        router.push("/groups?openCreate=1");
-                      }
-                    }}
-                    className="w-full flex items-center gap-[9px] rounded-[12px] py-[9px] px-[13px] bg-transparent my-1.5 transition-all cursor-pointer"
-                    style={{ border: "1.5px dashed rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}
-                  >
-                    <span className="text-[15px] leading-none">+</span>
-                    <span className="text-[13px] font-medium">New group</span>
-                  </button>
-                </div>
-              </div>
               <div className="mt-auto">
                 <div className="flex items-center gap-2.5 py-3 px-[13px] rounded-2xl bg-white/[0.05] border border-white/[0.08]">
                   <div

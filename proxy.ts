@@ -9,7 +9,7 @@ import {
   validateSessionWithAuthServer,
 } from "./lib/middleware-session";
 
-const PERSONAL_ROUTE_PREFIXES = ["/", "/groups", "/friends", "/create", "/settings"];
+const PERSONAL_ROUTE_PREFIXES = ["/", "/settings"];
 
 function isPersonalRoute(pathname: string): boolean {
   if (pathname === "/") return true;
