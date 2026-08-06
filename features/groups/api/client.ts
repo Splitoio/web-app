@@ -85,23 +85,12 @@ export const joinGroup = async (groupId: string) => {
   return GroupSchema.parse(response);
 };
 
-export const createGroupInviteLink = async (
-  groupId: string
-): Promise<{ inviteLink: string; expiresAt: string }> => {
-  const response = await apiClient.post<{ inviteLink: string; expiresAt: string }>(
-    `/groups/${groupId}/invite-link`
-  );
-  return response as unknown as { inviteLink: string; expiresAt: string };
-};
-
-export const joinGroupByToken = async (
-  token: string
-): Promise<{ groupId: string; message?: string }> => {
-  const response = await apiClient.post<{ groupId: string; message?: string }>("/groups/join", {
-    token,
-  });
-  return response as unknown as { groupId: string; message?: string };
-};
+// createGroupInviteLink / joinGroupByToken were removed with the /join route.
+// The invite link they produced pointed at /join, which redirected to
+// /groups/<id> — a route that no longer exists (hard 404). /pay/[token]
+// replaced that flow entirely: a link now names a payment, not a group.
+// The backend endpoints (POST /groups/join, POST /groups/:id/invite-link) are
+// still registered but no longer reachable from this app.
 
 export const addMembersToGroup = async (
   groupId: string,

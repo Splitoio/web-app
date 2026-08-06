@@ -86,19 +86,38 @@ function useRecentActivity(
   }, [groups, userId]);
 }
 
+/**
+ * One inline "blank" in the fill-in-the-sentence create form.
+ *
+ * Height is FIXED (h-10 / sm:h-[46px]) and the content is centred inside it
+ * with `leading-none`. It used to be `py-1.5` on top of the paragraph's
+ * inherited 1.9 line-height, so each pill grew to 67px inside a 53px line box
+ * and consecutive lines' pills touched edge to edge. Padding now hangs off the
+ * fixed height, so every pill on the screen is exactly the same height and sits
+ * on the same baseline regardless of what it contains.
+ *
+ * `px` is a prop rather than a className override because the previous caller
+ * passed `p-0.5`, which collided with the base `px-3 py-1.5` and silently made
+ * the chain pill a different height from the others.
+ */
 function SentenceField({
   children,
-  className = "",
+  px = "px-3",
+  gap = "gap-1.5",
 }: {
   children: React.ReactNode;
-  className?: string;
+  px?: string;
+  gap?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 align-middle ${className}`}
+      className={`inline-flex h-10 sm:h-[46px] items-center rounded-xl align-middle leading-none ${px} ${gap}`}
       style={{
-        background: "rgba(34,211,238,0.08)",
-        border: "1px solid rgba(34,211,238,0.28)",
+        // The old rgba(34,211,238,0.08) fill was invisible against the #0e0e0e
+        // card — only the border read, so the pills looked like empty boxes.
+        background: "rgba(34,211,238,0.17)",
+        border: "1px solid rgba(34,211,238,0.42)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
       }}
     >
       {children}
@@ -155,73 +174,84 @@ function CreateRequestForm({
 
   return (
     <Card className="p-6 sm:p-9">
+      {/* leading is set so the line box always clears the fixed 40/46px pill
+          height with breathing room — 22*2.05 = 45.1 on mobile, 28*1.95 = 54.6
+          on desktop. Drop it below the pill height and consecutive rows touch. */}
       <p
-        className="text-[22px] sm:text-[28px] leading-[1.9] font-semibold"
+        className="text-[22px] sm:text-[28px] leading-[2.05] sm:leading-[1.95] font-semibold"
         style={{ color: T.body }}
       >
-        Ask for{" "}
-        <SentenceField>
-          <span style={{ color: T.muted }}>$</span>
-          <input
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-            className="bg-transparent outline-none font-mono font-extrabold w-[5.5ch]"
-            style={{ color: "#fff" }}
-            aria-label="Amount in US dollars"
-          />
-        </SentenceField>
+        <span className="whitespace-nowrap">
+          Ask for{" "}
+          <SentenceField gap="gap-1">
+            <span style={{ color: T.muted }}>$</span>
+            <input
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              className="bg-transparent outline-none font-mono font-extrabold"
+              // Sized to the value, not a fixed 5.5ch — "500" left ~42px of dead
+              // space inside the pill. +0.5ch keeps the caret from clipping.
+              style={{ color: "#fff", width: `${Math.max(amount.length, 1) + 0.5}ch` }}
+              aria-label="Amount in US dollars"
+            />
+          </SentenceField>
+        </span>
         <br />
-        <span className="sm:whitespace-nowrap">
+        <span className="whitespace-nowrap">
           from{" "}
-          <SentenceField>
+          <SentenceField px="px-1.5" gap="gap-0.5">
             <button
               type="button"
               onClick={() => setPayerCount((n) => Math.max(1, n - 1))}
-              className="opacity-70 hover:opacity-100"
+              className="flex h-7 w-6 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
               aria-label="Fewer people"
             >
-              <Minus size={14} />
+              <Minus size={17} strokeWidth={2.5} />
             </button>
-            <span className="font-mono font-extrabold min-w-[1.5ch] text-center" style={{ color: "#fff" }}>
+            <span className="font-mono font-extrabold min-w-[1.2ch] text-center" style={{ color: "#fff" }}>
               {payerCount}
             </span>
             <button
               type="button"
               onClick={() => setPayerCount((n) => Math.min(50, n + 1))}
-              className="opacity-70 hover:opacity-100"
+              className="flex h-7 w-6 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
               aria-label="More people"
             >
-              <Plus size={14} />
+              <Plus size={17} strokeWidth={2.5} />
             </button>
           </SentenceField>{" "}
           {payerCount === 1 ? "person" : "people"}
         </span>
         <br />
-        <span className="sm:whitespace-nowrap">
-        receive{" "}
-        <SentenceField>
-          <span className="font-mono font-extrabold" style={{ color: "#fff" }}>
-            USDC
-          </span>
-        </SentenceField>{" "}
-        on{" "}
-        <SentenceField className="p-0.5">
-          {CHAINS.map((c, i) => (
-            <button
-              key={c.chain}
-              type="button"
-              onClick={() => setChainIdx(i)}
-              className="rounded-lg px-2.5 py-1 font-mono font-extrabold text-[15px] sm:text-[17px] transition-colors"
-              style={{
-                background: i === chainIdx ? A : "transparent",
-                color: i === chainIdx ? "#0a0a0a" : T.muted,
-              }}
-            >
-              {c.label}
-            </button>
-          ))}
-        </SentenceField>
+        <span className="whitespace-nowrap">
+          receive{" "}
+          <SentenceField>
+            <span className="font-mono font-extrabold" style={{ color: "#fff" }}>
+              USDC
+            </span>
+          </SentenceField>
+        </span>{" "}
+        {/* "on" and the chain pill are one nowrap unit: at 390px the pill used
+            to wrap alone and orphan the word "on" at the end of the line. */}
+        <span className="whitespace-nowrap">
+          on{" "}
+          <SentenceField px="px-1">
+            {CHAINS.map((c, i) => (
+              <button
+                key={c.chain}
+                type="button"
+                onClick={() => setChainIdx(i)}
+                className="flex h-8 sm:h-9 items-center rounded-lg px-3 font-mono font-extrabold text-[16px] sm:text-[19px] leading-none transition-colors"
+                style={{
+                  background: i === chainIdx ? A : "transparent",
+                  color: i === chainIdx ? "#0a0a0a" : T.muted,
+                }}
+              >
+                {c.label}
+              </button>
+            ))}
+          </SentenceField>
         </span>
       </p>
 
@@ -267,12 +297,25 @@ function CreateRequestForm({
         />
       </div>
 
+      {/* Disabled affordance, not a dimmer. `disabled:opacity-50` on a #22D3EE
+          fill just read as a dull button and gave no reason — the real blocker
+          is almost always the missing destination address. Disabled renders as
+          an outline with a live hint underneath; the accent hex is unchanged
+          and submission still requires a valid address. */}
       <button
         type="button"
         onClick={handleSubmit}
         disabled={!canSubmit}
-        className="w-full mt-6 flex items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-extrabold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ background: A, color: "#0a0a0a" }}
+        className="w-full mt-6 flex items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-extrabold transition-all enabled:hover:opacity-90 disabled:cursor-not-allowed"
+        style={
+          canSubmit || submitting
+            ? { background: A, color: "#0a0a0a", border: "1px solid transparent" }
+            : {
+                background: "transparent",
+                color: "rgba(34,211,238,0.65)",
+                border: "1px dashed rgba(34,211,238,0.45)",
+              }
+        }
       >
         {submitting ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -282,6 +325,15 @@ function CreateRequestForm({
           </>
         )}
       </button>
+      {!canSubmit && !submitting && (
+        <p className="text-[12px] font-semibold mt-2.5 text-center" style={{ color: T.dim }}>
+          {!amountValid
+            ? "Enter an amount to get your link"
+            : !destinationAddress.trim()
+              ? `Enter a ${destination.label} address above to get your link`
+              : `That doesn’t look like a ${destination.label} address`}
+        </p>
+      )}
     </Card>
   );
 }

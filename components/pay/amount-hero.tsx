@@ -18,7 +18,8 @@ export function AmountHero({
 }: {
   requesterName: string | null;
   amount: number;
-  requestName: string;
+  /** null / empty when the request has no description — the line is omitted. */
+  requestName: string | null;
   paidCount: number;
   totalCount: number;
 }) {

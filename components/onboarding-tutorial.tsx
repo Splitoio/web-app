@@ -13,43 +13,13 @@ interface Step {
   position: "top" | "bottom" | "left" | "right" | "center";
 }
 
-const PERSONAL_STEPS: Step[] = [
-  {
-    id: "welcome",
-    title: "Welcome to Splito!",
-    content: "Let's take a quick tour of Personal mode — where you manage splits with friends and flatmates.",
-    targetId: "",
-    position: "center",
-  },
-  {
-    id: "dashboard",
-    title: "Dashboard",
-    content: "Your dashboard gives you an overview of all your balances — who you owe and who owes you.",
-    targetId: "sidebar-dashboard-link",
-    position: "right",
-  },
-  {
-    id: "groups",
-    title: "My Groups",
-    content: "Create groups for trips, shared apartments, or any situation where you split expenses with others.",
-    targetId: "sidebar-groups-link",
-    position: "right",
-  },
-  {
-    id: "friends",
-    title: "Friends",
-    content: "Add friends to quickly invite them into groups and keep track of balances across all your splits.",
-    targetId: "sidebar-friends-link",
-    position: "right",
-  },
-  {
-    id: "finish",
-    title: "You're all set!",
-    content: "Start by creating a group or adding friends.",
-    targetId: "",
-    position: "center",
-  },
-];
+// There is deliberately NO personal-mode tour. The personal surface is the
+// request form — amount, currency, get link — which needs no explanation, and
+// the tour that used to live here taught groups/friends/balances (the framing
+// the product moved off) while pointing at sidebar targets that no longer
+// exist. See .specs/2026-08-06-request-money-design.md → "What gets deleted
+// from app/" and "Rules that protect the framing". This component is now
+// organization-only.
 
 const ORG_STEPS_BEFORE_FIRST: Step[] = [
   {
@@ -165,6 +135,7 @@ const ORG_STEPS_MEMBER: Step[] = [
   },
 ];
 
+/** "personal" is still a valid *gate* mode — it simply renders no tutorial. */
 export type OnboardingMode = "personal" | "organization";
 export type OrganizationOnboardingPhase = "no-org" | "in-org";
 
@@ -172,8 +143,6 @@ export type OrganizationOnboardingPhase = "no-org" | "in-org";
 const STEP_ICONS: Record<string, string> = {
   welcome: "👋",
   dashboard: "🏠",
-  groups: "👥",
-  friends: "🤝",
   invoices: "📄",
   streams: "💰",
   activity: "📊",
@@ -196,13 +165,11 @@ export function OnboardingTutorial({
   organizationPhase?: OrganizationOnboardingPhase;
 }) {
   const steps =
-    mode === "organization"
-      ? organizationPhase === "no-org"
-        ? ORG_STEPS_BEFORE_FIRST
-        : isOrgAdmin
-          ? ORG_STEPS_ADMIN
-          : ORG_STEPS_MEMBER
-      : PERSONAL_STEPS;
+    organizationPhase === "no-org"
+      ? ORG_STEPS_BEFORE_FIRST
+      : isOrgAdmin
+        ? ORG_STEPS_ADMIN
+        : ORG_STEPS_MEMBER;
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);

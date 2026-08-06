@@ -34,9 +34,11 @@ export interface SettingsPageContentProps {
   handleImageUpload: (file: File) => void;
   onLogout?: () => void;
   isLoggingOut?: boolean;
-  groupCount?: number;
-  friendCount?: number;
-  settledCount?: number;
+  // NOTE: there is deliberately no stat row here. The old "Groups / Friends /
+  // Settled" counters were the visual centrepiece of this screen and framed the
+  // product as bill-splitting. There is no requests-created/paid/received
+  // endpoint yet, so rather than invent numbers the row is simply gone; add it
+  // back only when a real requests summary exists to populate it.
   settlementPrefs: SettlementPreference[];
   isLoadingPref: boolean;
   isSavingPref: boolean;
@@ -196,7 +198,7 @@ function SettlementPrefDisplay({ prefs, isLoading, isRemoving, onEdit, onEditWal
   if (prefs.length === 0) {
     return (
       <Row style={{ borderBottom: "none", cursor: "pointer" }} onClick={onAdd}>
-        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
+        <p style={{ color: T.muted, fontSize: 13 }}>No payout wallet set yet.</p>
         <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
       </Row>
     );
@@ -376,14 +378,14 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
               <p style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
-                {mode === "edit-wallet" ? "Edit Wallet" : "Settlement Preference"}
+                {mode === "edit-wallet" ? "Edit Wallet" : "Where you get paid"}
               </p>
               <button onClick={onClose} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", color: "#bbb", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>&times;</button>
             </div>
             <p style={{ color: T.muted, fontSize: 13, marginBottom: 22, lineHeight: 1.5 }}>
               {mode === "edit-wallet"
-                ? "Update the wallet address where you\u2019ll receive settlements."
-                : "Select a chain, choose currencies, and provide a wallet address to receive split settlements."}
+                ? "Update the wallet address where you\u2019ll receive payments."
+                : "Choose a chain, the assets you’ll accept, and the wallet address your requests get paid into."}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -543,7 +545,7 @@ function MobileSettlementPref({ prefs, isLoading, onEdit, onEditWallet, onRemove
   if (prefs.length === 0) {
     return (
       <MobileRow last onClick={onAdd}>
-        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
+        <p style={{ color: T.muted, fontSize: 13 }}>No payout wallet set yet.</p>
         <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
       </MobileRow>
     );
@@ -579,7 +581,6 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
     onCurrencyChange, hasChanges: _hasChanges, handleSaveChanges, isUpdatatingUser,
     isUploadingImage, uploadProgress, uploadError, handleImageUpload,
     onLogout, isLoggingOut = false,
-    groupCount = 0, friendCount = 0, settledCount = 0,
     settlementPrefs, isLoadingPref, isSavingPref, isRemovingPref, isUpdatingWallet,
     onSaveSettlementPref, onRemoveSettlementPref, onUpdateSettlementWallet,
     allCurrencies,
@@ -633,12 +634,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, textAlign: "center", paddingBottom: 16, paddingInline: 80 }}>
-          {[[String(groupCount), "Groups"], [String(friendCount), "Friends"], [String(settledCount), "Settled"]].map(([num, label]) => (
-            <div key={label}><p style={{ fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{num}</p><p style={{ fontSize: 11, fontWeight: 600, color: T.muted, marginTop: 1 }}>{label}</p></div>
-          ))}
-        </div>
-        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", marginBottom: 4 }} />
+        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", marginTop: 4, marginBottom: 4 }} />
 
         <MSLabel>Preferences</MSLabel>
         <MobileCard>
@@ -653,7 +649,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
           <MobileRow>
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Show amounts in</p>
-              <p style={{ fontSize: 13, color: T.muted, marginTop: 2, fontWeight: 500 }}>When an expense was paid in a different currency</p>
+              <p style={{ fontSize: 13, color: T.muted, marginTop: 2, fontWeight: 500 }}>When a request was made in a currency you don’t hold</p>
               <div style={{ marginTop: 12 }}>
                 <Segmented value={currencyDisplay} onChange={onCurrencyDisplayChange} fullWidth />
               </div>
@@ -665,7 +661,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
           </MobileRow>
         </MobileCard>
 
-        <MSLabel>Settlement Preference</MSLabel>
+        <MSLabel>Where you get paid</MSLabel>
         <MobileCard>
           <MobileSettlementPref
             prefs={settlementPrefs}
@@ -719,13 +715,13 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
           <Row style={{ borderBottom: "none", alignItems: "center" }}>
             <div>
               <p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Show amounts in</p>
-              <p style={{ color: T.muted, fontSize: 12, marginTop: 2, fontWeight: 500 }}>When an expense was paid in a different currency</p>
+              <p style={{ color: T.muted, fontSize: 12, marginTop: 2, fontWeight: 500 }}>When a request was made in a currency you don’t hold</p>
             </div>
             <Segmented value={currencyDisplay} onChange={onCurrencyDisplayChange} />
           </Row>
         </Card>
 
-        <SLabel>Settlement Preference</SLabel>
+        <SLabel>Where you get paid</SLabel>
         <Card style={{ padding: "0 22px" }}>
           <SettlementPrefDisplay
             prefs={settlementPrefs}

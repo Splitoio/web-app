@@ -61,10 +61,13 @@ export function OnboardingGate() {
     if (mode === "organization" && !orgsFetched) return;
     if (isNewProfile) return;
 
-    if (mode === "personal") {
-      if (!userData.onboardedPersonal) setShowTutorial(true);
-      return;
-    }
+    // Personal mode has NO first-run tour. First run is "amount, currency, get
+    // link" — a request form that needs no explanation, and the old 5-step tour
+    // taught groups/friends/balances, i.e. exactly the framing the product moved
+    // off. See .specs/2026-08-06-request-money-design.md ("What gets deleted
+    // from app/" — the existing first-run flow; "Rules that protect the
+    // framing" #3). The organization surface keeps its tour.
+    if (mode === "personal") return;
 
     if (mode === "organization" && organizationPhase) {
       const seen =
@@ -78,10 +81,9 @@ export function OnboardingGate() {
   const handleTutorialComplete = () => {
     setShowTutorial(false);
 
-    // Persist to backend so the tutorial never shows again across devices
-    if (mode === "personal") {
-      updateUser({ onboardedPersonal: true });
-    } else if (mode === "organization") {
+    // Persist to backend so the tutorial never shows again across devices.
+    // Organization-only — personal mode has no tour, so no flag to set.
+    if (mode === "organization") {
       if (organizationPhase === "no-org") {
         updateUser({ onboardedOrgNoOrg: true });
       } else {
@@ -95,7 +97,7 @@ export function OnboardingGate() {
   if (isNewProfile) {
     return (
       <OnboardingModal
-        onComplete={() => setShowTutorial(true)}
+        onComplete={() => setShowTutorial(mode === "organization")}
       />
     );
   }

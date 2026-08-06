@@ -219,9 +219,13 @@ export default function PayRequestPage() {
 
   const payerShare = request?.payers.find((p) => p.payerId === selectedPayerId)?.shareAmount;
 
+  // Vertically centred: this is a single-purpose screen a payer lands on cold,
+  // and top-anchoring it left ~60% of the viewport empty below the card.
+  // flex-col + justify-center centres it when it fits and still scrolls
+  // normally once the quote panel makes the content taller than the viewport.
   return (
-    <div className="min-h-screen w-full bg-[#0b0b0b]">
-    <div className="w-full max-w-md mx-auto px-4 py-10 sm:py-16">
+    <div className="min-h-screen w-full bg-[#0b0b0b] flex flex-col justify-center">
+    <div className="w-full max-w-md mx-auto px-4 py-10 sm:py-12">
       {phase === "loading" && (
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-7 w-7 animate-spin" style={{ color: T.muted }} />

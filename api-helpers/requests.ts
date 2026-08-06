@@ -28,7 +28,8 @@ export interface RequestPayerView {
 
 export interface GetRequestResponse {
   requestId: string;
-  name: string;
+  /** null when the requester gave no description — the payer UI omits the line. */
+  name: string | null;
   amount: number;
   denominationCurrency: "USD";
   destinationAsset: string;
