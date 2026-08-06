@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn, slideVariants } from "@/utils/animations";
 import { toast } from "sonner";
 import Image from "next/image";
-import { GroupBalance, User, Expense, ExpenseParticipant } from "@/api-helpers/modelSchema";
+import { GroupBalance, User, Request, RequestPayer } from "@/api-helpers/modelSchema";
 import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
@@ -24,7 +24,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { useGetSettlementPreference, useGetUserSettlementPreference } from "@/features/user/hooks/use-update-profile";
 
-type ExpenseWithParticipants = Expense & { expenseParticipants?: ExpenseParticipant[] };
+type ExpenseWithParticipants = Request & { expenseParticipants?: RequestPayer[] };
 
 interface SettleDebtsModalProps {
   isOpen: boolean;

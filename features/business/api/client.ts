@@ -1,6 +1,6 @@
 import { apiClient } from "@/api-helpers/client";
 import {
-  ExpenseSchema,
+  RequestSchema,
   GroupBalanceSchema,
   GroupSchema,
   GroupUserSchema,
@@ -17,7 +17,7 @@ export const GetAllGroupsSchema = z.object({
   }),
   groupBalances: z.array(GroupBalanceSchema).optional().default([]),
   groupUsers: z.array(z.any()).optional().default([]),
-  expenses: z.array(ExpenseSchema).optional().default([]),
+  expenses: z.array(RequestSchema).optional().default([]),
 });
 
 export const DetailGroupSchema = z.object({
@@ -28,7 +28,7 @@ export const DetailGroupSchema = z.object({
       user: UserSchema,
     })
   ),
-  expenses: z.array(ExpenseSchema),
+  expenses: z.array(RequestSchema),
   groupBalances: z.array(GroupBalanceSchema),
   createdBy: z.object({
     id: z.string(),
