@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -13,17 +14,18 @@ import {
 } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
-import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { formatCurrency } from "@/utils/formatters";
 import { formatRelativeTime } from "@/lib/utils";
-import { DualAmount } from "@/components/dual-amount";
 import {
   createRequest,
+  listRequests,
   type CreateRequestPayerLink,
   type DestinationAsset,
   type DestinationChain,
+  type RequestListItem,
 } from "@/api-helpers/requests";
-import { A, Card, SectionLabel, T } from "@/lib/splito-design";
+import { A, Card, SectionLabel, T, Icons } from "@/lib/splito-design";
+import { StatusChip, progressLabel } from "@/components/requests/request-bits";
 
 // ─── Chain destinations — Stellar and Solana only. Exact lowercase literals
 // per the API contract (.specs/2026-08-06-request-money-api-contract.md §0.1).
@@ -40,50 +42,38 @@ function isValidAddress(chain: DestinationChain, address: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed);
 }
 
-/** Recent activity from groups' expenses — the only history data available
- * today for an authenticated user until a dedicated requests-list endpoint
- * exists. Kept as a flat list, not the groups/friends dashboard, so this
- * screen never leads with splitting framing. */
-function useRecentActivity(
-  groups: {
-    name: string;
-    expenses?: { id: string; name: string; amount: number; currency: string; paidBy: string; createdAt: Date; splitType: string }[];
-    groupUsers?: { user: { id: string; name?: string | null } }[];
-  }[],
-  userId: string | null
-) {
-  return useMemo(() => {
-    if (!userId || !groups?.length) return [];
-    const items: {
-      id: string;
-      lead: string;
-      label: string | null;
-      amount: number;
-      currency: string;
-      subtext: string;
-      date: Date;
-    }[] = [];
-    for (const group of groups) {
-      const expenses = group.expenses ?? [];
-      const groupUsers = group.groupUsers ?? [];
-      const paidByName = (paidBy: string) =>
-        paidBy === userId ? "You" : (groupUsers.find((gu) => gu.user.id === paidBy)?.user?.name ?? "Someone");
-      for (const exp of expenses) {
-        const date = exp.createdAt instanceof Date ? exp.createdAt : new Date(exp.createdAt);
-        items.push({
-          id: exp.id,
-          lead: exp.splitType === "SETTLEMENT" ? `${paidByName(exp.paidBy)} settled` : `${paidByName(exp.paidBy)} requested`,
-          label: exp.splitType === "SETTLEMENT" ? null : exp.name,
-          amount: Math.abs(exp.amount),
-          currency: exp.currency || "USD",
-          subtext: `${formatRelativeTime(date)} · ${group.name}`,
-          date,
-        });
-      }
+/**
+ * The signed-in requester's most recent requests. Real data from
+ * GET /api/requests — the previous groups-derived version showed nothing
+ * because this product never creates groups. Capped at 4; the full list
+ * lives at /requests.
+ */
+const RECENT_COUNT = 4;
+
+function useRecentRequests(userId: string | null, reloadKey: number) {
+  const [items, setItems] = useState<RequestListItem[]>([]);
+
+  useEffect(() => {
+    if (!userId) {
+      setItems([]);
+      return;
     }
-    items.sort((a, b) => b.date.getTime() - a.date.getTime());
-    return items.slice(0, 8);
-  }, [groups, userId]);
+    let cancelled = false;
+    listRequests({ limit: RECENT_COUNT })
+      .then((res) => {
+        if (!cancelled) setItems(res.requests);
+      })
+      .catch(() => {
+        // A failed history fetch must never break the create form — the
+        // section simply stays hidden.
+        if (!cancelled) setItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, reloadKey]);
+
+  return items;
 }
 
 /**
@@ -511,8 +501,9 @@ function LinkCreated({
 export default function Page() {
   const { user } = useAuthStore();
   const [createdLinks, setCreatedLinks] = useState<CreateRequestPayerLink[] | null>(null);
-  const { data: groups = [] } = useGetAllGroups();
-  const recentActivity = useRecentActivity(groups, user?.id ?? null);
+  // Bumped after a successful create so the Recent list picks the new one up.
+  const [reloadKey, setReloadKey] = useState(0);
+  const recentRequests = useRecentRequests(user?.id ?? null, reloadKey);
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -535,12 +526,28 @@ export default function Page() {
           {createdLinks ? (
             <LinkCreated payers={createdLinks} onCreateAnother={() => setCreatedLinks(null)} />
           ) : (
-            <CreateRequestForm onCreated={setCreatedLinks} />
+            <CreateRequestForm
+              onCreated={(links) => {
+                setCreatedLinks(links);
+                setReloadKey((k) => k + 1);
+              }}
+            />
           )}
 
-          {user && recentActivity.length > 0 && (
+          {/* Recent — rendered only when there is something real to show.
+              An empty section here is worse than no section. */}
+          {user && recentRequests.length > 0 && (
             <div className="mt-8">
-              <SectionLabel>Recent</SectionLabel>
+              <div className="flex items-center justify-between">
+                <SectionLabel>Recent</SectionLabel>
+                <Link
+                  href="/requests"
+                  className="text-[12px] font-semibold"
+                  style={{ color: A, marginBottom: 14 }}
+                >
+                  See all
+                </Link>
+              </div>
               <div
                 style={{
                   background: "rgba(255,255,255,0.03)",
@@ -549,45 +556,41 @@ export default function Page() {
                   overflow: "hidden",
                 }}
               >
-                {recentActivity.map((a, i) => (
-                  <div
-                    key={a.id}
-                    className="flex items-start gap-3"
-                    style={{
-                      padding: "14px 16px",
-                      borderBottom: i < recentActivity.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                    }}
-                  >
-                    <div
+                {recentRequests.map((r, i) => {
+                  const progress = progressLabel(r.paidCount, r.payerCount);
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/requests/${r.id}`}
+                      className="flex items-center gap-3 transition-colors hover:bg-white/[0.03]"
                       style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: A,
-                        flexShrink: 0,
-                        marginTop: 5,
+                        padding: "14px 16px",
+                        borderBottom:
+                          i < recentRequests.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
                       }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p style={{ fontSize: 13, color: T.body, lineHeight: 1.5 }}>
-                        {a.lead}
-                        {a.label && (
-                          <>
-                            {" "}
-                            <span style={{ color: T.bright, fontWeight: 600 }}>{a.label}</span>
-                          </>
-                        )}{" "}
-                        <DualAmount
-                          amount={a.amount}
-                          currency={a.currency}
-                          style={{ fontWeight: 700, color: T.bright }}
-                          secondaryStyle={{ fontWeight: 500, color: T.muted }}
-                        />
-                      </p>
-                      <p style={{ fontSize: 11, color: T.sub, marginTop: 3, fontWeight: 600 }}>{a.subtext}</p>
-                    </div>
-                  </div>
-                ))}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className="font-mono font-extrabold"
+                            style={{ fontSize: 14, color: T.bright }}
+                          >
+                            {formatCurrency(r.amount, r.denominationCurrency || "USD")}
+                          </span>
+                          <StatusChip status={r.status} />
+                        </div>
+                        <p
+                          className="truncate"
+                          style={{ fontSize: 11.5, color: T.sub, marginTop: 3, fontWeight: 600 }}
+                        >
+                          {r.name ? `${r.name} · ` : ""}
+                          {progress ?? formatRelativeTime(new Date(r.createdAt))}
+                        </p>
+                      </div>
+                      <span style={{ color: T.dim }}>{Icons.chevR({ size: 15 })}</span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           )}

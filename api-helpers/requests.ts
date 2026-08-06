@@ -117,6 +117,82 @@ export async function createRequest(body: CreateRequestBody): Promise<CreateRequ
   return apiClient.post(`/requests`, body);
 }
 
+// ─── The requester's own view (authenticated) ────────────────────────────────
+
+export interface RequestListItem {
+  id: string;
+  /** null when the requester gave no description. */
+  name: string | null;
+  amount: number;
+  denominationCurrency: string | null;
+  destinationAsset: string | null;
+  destinationChain: string | null;
+  status: RequestStatus;
+  expiresAt: string | null;
+  createdAt: string;
+  payerCount: number;
+  paidCount: number;
+  /** Sum of the shares already paid, in the denomination currency. */
+  receivedAmount: number;
+}
+
+export interface ListRequestsResponse {
+  requests: RequestListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface RequestDetailPayer {
+  payerId: string;
+  /** Positional label (1-based) — no payer names are ever collected. */
+  index: number;
+  shareAmount: number;
+  isPaid: boolean;
+  status: RequestPayerStatus;
+  attemptStatus: string | null;
+  transactionHash: string | null;
+  /** Built server-side from the deployment's real network config. */
+  explorerUrl: string | null;
+  paidAt: string | null;
+}
+
+export interface RequestDetailResponse {
+  id: string;
+  name: string | null;
+  amount: number;
+  denominationCurrency: string | null;
+  destinationAsset: string | null;
+  destinationChain: string | null;
+  destinationAddress: string | null;
+  status: RequestStatus;
+  expiresAt: string | null;
+  createdAt: string;
+  /** RequestLink token — rebuild links as `${origin}/pay/${token}?payer=${payerId}`. */
+  token: string | null;
+  payers: RequestDetailPayer[];
+  payerCount: number;
+  paidCount: number;
+  receivedAmount: number;
+}
+
+/** GET /api/requests — authenticated. Requests created by the current user, newest first. */
+export async function listRequests(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<ListRequestsResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit != null) search.set("limit", String(params.limit));
+  if (params?.offset != null) search.set("offset", String(params.offset));
+  const qs = search.toString();
+  return apiClient.get(`/requests${qs ? `?${qs}` : ""}`);
+}
+
+/** GET /api/requests/:id — authenticated, creator only (403 otherwise). */
+export async function getRequestDetail(id: string): Promise<RequestDetailResponse> {
+  return apiClient.get(`/requests/${encodeURIComponent(id)}`);
+}
+
 /** GET /api/public/requests/:token — public, no auth. */
 export async function getRequestByToken(token: string): Promise<GetRequestResponse> {
   return apiClient.get(`/public/requests/${encodeURIComponent(token)}`);

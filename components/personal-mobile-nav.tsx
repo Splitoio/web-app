@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 import { A, Icons } from "@/lib/splito-design";
 
 const NAV_ITEMS = [
-  { key: "home",     label: "Home",     href: "/",        icon: Icons.home     },
-  { key: "settings", label: "Settings", href: "/settings",icon: Icons.settings },
+  { key: "new",      label: "New",      href: "/",         icon: Icons.plus     },
+  { key: "requests", label: "Requests", href: "/requests", icon: Icons.link     },
+  { key: "settings", label: "Settings", href: "/settings", icon: Icons.settings },
 ];
 
 export function PersonalMobileNav() {

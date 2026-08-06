@@ -119,8 +119,8 @@ export function Sidebar() {
                     : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                 )}
               >
-                <span className={pathname === "/" ? "text-[#22D3EE]" : "inherit"}>{Icons.home({})}</span>
-                Dashboard
+                <span className={pathname === "/" ? "text-[#22D3EE]" : "inherit"}>{Icons.plus({ size: 16 })}</span>
+                New request
               </Link>
             ) : (
               <Link
@@ -260,9 +260,32 @@ export function Sidebar() {
               </>
             )}
 
-            {/* ── Personal mode links (Settings) ── */}
+            {/* ── Personal mode links (Requests, Settings) ── */}
             {!isOrganizationMode && (
               <>
+                <Link
+                  id="sidebar-requests-link"
+                  href="/requests"
+                  onClick={close}
+                  className={cn(
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
+                    pathname === "/requests" || pathname.startsWith("/requests/")
+                      ? "bg-white/[0.09] text-white font-bold"
+                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
+                  )}
+                >
+                  <span
+                    className={
+                      pathname === "/requests" || pathname.startsWith("/requests/")
+                        ? "text-[#22D3EE]"
+                        : "inherit"
+                    }
+                  >
+                    {Icons.link({ size: 16 })}
+                  </span>
+                  Requests
+                </Link>
+
                 <Link
                   id="sidebar-settings-link"
                   href="/settings"
