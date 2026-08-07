@@ -185,6 +185,17 @@ export async function signAndBroadcastSolanaUnsignedTx(
 // precede the "transfer" leg, so the payer can be prompted more than once.
 // The direct path is unaffected and still single-signature.
 //
+// Jupiter (same-chain Solana conversion) is TWO legs: "swap" (Jupiter's
+// ExactOut tx, converts payer -> payer, inside the payer's OWN wallet) then
+// "transfer" (an ordinary SPL/SOL transfer of the exact destination amount,
+// payer -> recipient). The loop below does not special-case "swap" beyond
+// dispatching on `tx.chain` — it signs and broadcasts every leg through the
+// same per-chain helper, in order, and only remembers the hash of the leg
+// whose `kind === "transfer"`. That means: (a) both legs ARE broadcast on
+// Solana, sequentially, before this function returns, and (b) the hash hunted
+// down for the backend is always the transfer leg's, never the swap leg's —
+// see the `transferHash` bookkeeping below.
+//
 // On a routed payment the CLIENT broadcasts on every chain, including Stellar.
 // The backend's routed submit branch holds no verifier for an arbitrary source
 // chain: it records what it is handed as `transactionHash` and gives it to the
@@ -271,12 +282,20 @@ export interface RoutedSigningContext {
  * Sign and broadcast every leg of a routed payment, in order.
  *
  * Returns the tx id of the "transfer" leg — the one that actually moves the
- * funds and the only one the backend can track. An "approve" leg is broadcast
- * and awaited but its hash is not what submit wants.
+ * funds and the only one the backend can track. "approve" and "swap" legs are
+ * broadcast and awaited but their hash is not what submit wants.
  *
- * A throw partway through is honest and important: if leg 1 (approve) went out
- * and leg 2 (transfer) did not, NO funds moved — an allowance is not a
- * payment. The caller can safely offer a retry.
+ * A throw partway through is honest and important, and means something
+ * different depending on the leg that failed:
+ * - if leg 1 is "approve" and it never went out, NO funds moved — an
+ *   allowance is not a payment.
+ * - if leg 1 is "swap" (Jupiter) and it succeeded but leg 2 ("transfer")
+ *   then throws, the payer is NOT out of pocket — the swap converted inside
+ *   their OWN wallet — but they now HOLD the swapped asset instead of what
+ *   they started with. The caller must not describe this as "nothing
+ *   happened"; see the disclosure copy in quote-panel.tsx.
+ * The caller can safely offer a retry in the "approve" case; in the "swap"
+ * case a retry re-quotes from the wallet's new balance.
  */
 export async function signRoutedTransactions(
   ctx: RoutedSigningContext,

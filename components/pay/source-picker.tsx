@@ -17,7 +17,12 @@ import {
  * the list, accented, and the only one that can honestly promise an exact
  * amount (".specs/2026-08-06-request-money-design.md" → "Direct path first";
  * ".specs/2026-08-06-router-selection.md" → "The direct path is the only
- * exact one"). Everything else routes, and routing is an estimate.
+ * exact one"). Everything else converts on the way; whether that conversion
+ * is an ESTIMATE (Allbridge) or exact-output with the payer bearing a
+ * ceiling instead (Stellar path payment / Jupiter,
+ * ".specs/2026-08-07-router-alternatives.md") is decided per-quote, not
+ * per-source, so this screen — which only ever sees a `{chain, asset}` pair,
+ * never a quote — must not claim either; see the per-source copy below.
  *
  * This screen is only shown when there is a real choice to make. When the
  * payer connects a wallet on the destination chain and the direct pair is
@@ -113,7 +118,7 @@ export function SourcePicker({
                   <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: direct ? A : T.dim }}>
                     {direct
                       ? "Direct — lands as the exact amount. Network fee only."
-                      : "Converted on the way — the amount that lands is an estimate."}
+                      : "Converted on the way — exact amount and any tolerance are confirmed on the next screen."}
                   </p>
                 </div>
                 {direct ? (

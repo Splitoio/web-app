@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, PenLine, RefreshCw, ShieldAlert, Zap } from "lucide-react";
+import { Loader2, PenLine, RefreshCw, ShieldAlert, ShieldCheck, Zap } from "lucide-react";
 import { Card, T, A } from "@/lib/splito-design";
 import type { Quote } from "@/api-helpers/requests";
 import { assetSymbol, chainName, DEFAULT_SLIPPAGE_PCT } from "@/lib/pay-sources";
@@ -24,13 +24,28 @@ function formatEta(ms: number | null | undefined): string | null {
 }
 
 /**
+ * Names the on-chain mechanism honestly for the converted-exact state
+ * (`.specs/2026-08-07-router-alternatives.md` → "This fixes the firm-quote
+ * problem"). Both are same-chain, exact-output providers, so the chain the
+ * conversion happens on identifies which one — Stellar path payments enforce
+ * `Destination amount` via `sendMax`; Jupiter enforces it via
+ * `swapMode=ExactOut` / `otherAmountThreshold`. Falls back to a neutral label
+ * rather than guessing when the chain is neither.
+ */
+function conversionMechanism(chain: string): string {
+  if (chain === "stellar") return "a Stellar path payment";
+  if (chain === "solana" || chain === "mainnet-beta") return "a Jupiter swap";
+  return "an on-chain conversion";
+}
+
+/**
  * The cost breakdown, shown AFTER wallet connect and BEFORE signing — never
  * hidden, never skipped (".plans/2026-08-06-request-money.md" → "UI direction
  * — settled": "The rate lock is the product; it has to be visible at the
  * moment of commitment"). On expiry we re-quote; we never submit a stale
  * quote (design, "Edge cases, decided").
  *
- * ── Direct vs routed is the load-bearing distinction in this file ──
+ * ── Three states, driven by `isRouted` / `isEstimate` — never re-derived ──
  *
  * The test is `quote.isRouted` / `quote.isEstimate` — the server's explicit
  * statement of which path this is (contract §3, changed 2026-08-07). It is NOT
@@ -43,8 +58,19 @@ function formatEta(ms: number | null | undefined): string | null {
  * on the destination chain. Nothing converts between assets, so the amount
  * that lands IS the amount sent. This path may — and does — say "exactly".
  *
- * ROUTED (`isRouted === true`, and then `isEstimate` is always true too): a
- * third-party router converts on the way.
+ * CONVERTED & EXACT (`isRouted === true`, `isEstimate === false`, ADDED
+ * 2026-08-07 — `.specs/2026-08-07-router-alternatives.md`): a same-chain,
+ * exact-output provider (Stellar path payment `sendMax`, Jupiter
+ * `swapMode=ExactOut`) converts on the way. The recipient's landed amount is
+ * protocol-enforced exact — guaranteed on-chain, or the transaction reverts.
+ * The uncertainty moves to the PAYER's side: `sourceAmountMax` is the ceiling
+ * they authorize, not an estimate. This panel says "exactly"/"guaranteed"
+ * about what LANDS, "up to" about what the payer SPENDS, and never uses
+ * amber estimate styling here — it is a confident state, visually closer to
+ * direct than to the routed estimate below.
+ *
+ * ROUTED ESTIMATE (`isRouted === true`, `isEstimate === true`): a
+ * third-party router (Allbridge Core) converts on the way.
  * Allbridge Core exposes *calculation* endpoints, NOT a reservable quote, and
  * documents no validity window at all (".specs/2026-08-06-router-selection.md"
  * → "⚠️ There is no firm quote"). Our 60 seconds bounds how long WE will hold
@@ -121,8 +147,16 @@ export function QuotePanel({
   // why this is not derived from `route` or from the chain pair.
   const isRouted = quote.isRouted;
   const isEstimate = quote.isEstimate;
+  // Converted, but exact-output: a same-chain provider (Stellar path payment /
+  // Jupiter ExactOut) converts on the way and still guarantees the landed
+  // amount. Never amber — see file header.
+  const isConvertedExact = isRouted && !isEstimate;
   const srcSymbol = assetSymbol(quote.sourceAsset ?? sourceAsset);
   const dstSymbol = assetSymbol(quote.destinationAsset ?? destinationAsset);
+  // Never fabricated: degrade to the calculated `sourceAmount` when the
+  // backend omits the ceiling rather than inventing one.
+  const sourceCeiling = isConvertedExact ? quote.sourceAmountMax : null;
+  const mechanismLabel = conversionMechanism(quote.destinationChain ?? destinationChain);
 
   // Band shown on routed payments. Backend-supplied bps wins; otherwise the
   // design's documented ±0.5% starting tolerance. Never a made-up number.
@@ -168,7 +202,7 @@ export function QuotePanel({
           className="text-[11px] font-bold tracking-[0.08em] uppercase"
           style={{ color: T.muted }}
         >
-          {isRouted ? "Estimate held for" : "Rate locked for"}
+          {isEstimate ? "Estimate held for" : "Rate locked for"}
         </p>
         <div className="flex items-center gap-2">
           <div
@@ -204,7 +238,7 @@ export function QuotePanel({
         <div className="flex items-center gap-2 py-6 justify-center">
           <RefreshCw className="h-4 w-4 animate-spin" style={{ color: A }} />
           <p className="text-[13px] font-medium" style={{ color: T.muted }}>
-            {isRouted
+            {isEstimate
               ? "Estimate expired — recalculating…"
               : "Quote expired — getting a fresh rate…"}
           </p>
@@ -213,12 +247,19 @@ export function QuotePanel({
         <>
           {/* Path badge — the payer should never have to infer which one they're on. */}
           <div className="flex items-center justify-between gap-2 mb-3.5">
-            {isRouted ? (
+            {isEstimate ? (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.06em]"
                 style={{ background: "rgba(251,191,36,0.13)", color: "#FBBF24" }}
               >
                 Routed · estimate
+              </span>
+            ) : isConvertedExact ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.06em]"
+                style={{ background: "rgba(34,211,238,0.14)", color: A }}
+              >
+                <ShieldCheck className="h-3 w-3" /> Converted · exact
               </span>
             ) : (
               <span
@@ -243,10 +284,10 @@ export function QuotePanel({
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[13px]" style={{ color: T.muted }}>
-                You send
+                {sourceCeiling ? "You pay up to" : "You send"}
               </span>
               <span className="text-[15px] font-bold font-mono text-right" style={{ color: T.bright }}>
-                {quote.sourceAmount} {srcSymbol}
+                {sourceCeiling ?? quote.sourceAmount} {srcSymbol}
               </span>
             </div>
             <div className="flex items-center justify-between gap-3">
@@ -306,7 +347,7 @@ export function QuotePanel({
                 </span>
               </div>
             )}
-            {isRouted && (
+            {isEstimate && (
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[13px]" style={{ color: T.muted }}>
                   Tolerance
@@ -345,17 +386,31 @@ export function QuotePanel({
           <div
             className="flex items-start gap-2 mt-4 p-3 rounded-xl"
             style={{
-              background: isRouted ? "rgba(251,191,36,0.06)" : "rgba(255,255,255,0.03)",
-              border: `1px solid ${isRouted ? "rgba(251,191,36,0.18)" : "rgba(255,255,255,0.06)"}`,
+              background: isEstimate
+                ? "rgba(251,191,36,0.06)"
+                : isConvertedExact
+                  ? "rgba(34,211,238,0.06)"
+                  : "rgba(255,255,255,0.03)",
+              border: `1px solid ${
+                isEstimate
+                  ? "rgba(251,191,36,0.18)"
+                  : isConvertedExact
+                    ? "rgba(34,211,238,0.18)"
+                    : "rgba(255,255,255,0.06)"
+              }`,
             }}
           >
-            <ShieldAlert
-              className="h-3.5 w-3.5 flex-shrink-0 mt-0.5"
-              style={{ color: isRouted ? "#FBBF24" : T.dim }}
-            />
+            {isConvertedExact ? (
+              <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: A }} />
+            ) : (
+              <ShieldAlert
+                className="h-3.5 w-3.5 flex-shrink-0 mt-0.5"
+                style={{ color: isEstimate ? "#FBBF24" : T.dim }}
+              />
+            )}
             <p
               className="text-[11.5px] leading-relaxed"
-              style={{ color: isRouted ? "#D8C89A" : T.dim }}
+              style={{ color: isEstimate ? "#D8C89A" : isConvertedExact ? T.body : T.dim }}
             >
               {isEstimate ? (
                 <>
@@ -369,6 +424,19 @@ export function QuotePanel({
                   {onChangeSource
                     ? ` Paying with ${dstSymbol} on ${chainName(destinationChain)} avoids all of this and lands the exact amount.`
                     : ""}
+                </>
+              ) : isConvertedExact ? (
+                <>
+                  This converts through <strong style={{ color: A }}>{mechanismLabel}</strong> —
+                  the recipient receives exactly {quote.destinationAmount} {dstSymbol}, guaranteed
+                  on-chain. If the price moves too far before you sign, the transaction{" "}
+                  <strong style={{ color: T.bright }}>reverts rather than underpaying</strong> —
+                  there is no partial fill. What varies is what you spend:{" "}
+                  {sourceCeiling
+                    ? `your wallet authorizes up to ${sourceCeiling} ${srcSymbol}, and only what the conversion actually needs is used.`
+                    : `the amount above is what the conversion needs at today's rate.`}{" "}
+                  If this quote expires before you sign we&rsquo;ll get a fresh one; we never
+                  submit a stale rate.
                 </>
               ) : (
                 <>
@@ -391,11 +459,21 @@ export function QuotePanel({
           )}
 
           {/* MULTI-SIGNATURE, DISCLOSED BEFORE THE BUTTON. A routed payment can
-              need an allowance ("approve") signed before the transfer, so the
-              wallet prompts more than once. An unannounced second prompt reads
-              as a duplicate charge and is exactly when a payer abandons or
-              double-pays — so the count is stated up front and the button
-              counts the steps off. */}
+              need an allowance ("approve") signed before the transfer, or —
+              for a same-chain Jupiter conversion — a "swap" leg (converts
+              inside the payer's OWN wallet) before the "transfer" leg that
+              actually pays the recipient. Either way the wallet prompts more
+              than once, and an unannounced second prompt reads as a duplicate
+              charge — so the count is stated up front and the button counts
+              the steps off.
+
+              The "swap" case gets its OWN copy, not the "approve" one: an
+              approve that never completes truly leaves nothing sent, but a
+              swap that completes and is followed by a failed transfer is NOT
+              a no-op — the payer is not out of pocket, but they now hold a
+              different asset than they started with. Saying "nothing is
+              sent" here would be false, and calling this atomic would be
+              worse. */}
           {multiSig && (
             <div
               className="flex items-start gap-2 mt-2.5 p-3 rounded-xl"
@@ -409,11 +487,22 @@ export function QuotePanel({
                 <strong style={{ color: T.bright }}>
                   Your wallet will ask you to sign {signatureCount} times.
                 </strong>{" "}
-                {signatureKinds[0] === "approve"
-                  ? "The first approves the router to move your funds; the last one actually sends them. "
-                  : ""}
-                This is one payment, not {signatureCount} — you are only charged once. Approve every
-                prompt, or nothing is sent.
+                {signatureKinds[0] === "approve" ? (
+                  "The first approves the router to move your funds; the last one actually sends them. This is one payment, not " +
+                  String(signatureCount) +
+                  " — you are only charged once. Approve every prompt, or nothing is sent."
+                ) : signatureKinds[0] === "swap" ? (
+                  <>
+                    The first converts {srcSymbol} inside your OWN wallet; the second sends the
+                    converted amount to the recipient. <strong style={{ color: T.bright }}>These
+                    two steps are not one atomic action.</strong> If the first succeeds and the
+                    second fails, you are not out of pocket — but you will be holding the
+                    converted asset in your wallet instead of {srcSymbol}, not a completed
+                    payment. Approve every prompt to complete the payment in one go.
+                  </>
+                ) : (
+                  `This is one payment, not ${signatureCount} — you are only charged once. Approve every prompt, or nothing is sent.`
+                )}
               </p>
             </div>
           )}
@@ -433,7 +522,11 @@ export function QuotePanel({
                   : "Confirming…"}
               </>
             ) : multiSig ? (
-              `Sign ${signatureCount}× & pay ${quote.sourceAmount} ${srcSymbol}`
+              sourceCeiling
+                ? `Sign ${signatureCount}× & pay up to ${sourceCeiling} ${srcSymbol}`
+                : `Sign ${signatureCount}× & pay ${quote.sourceAmount} ${srcSymbol}`
+            ) : sourceCeiling ? (
+              `Sign & pay up to ${sourceCeiling} ${srcSymbol}`
             ) : (
               `Sign & pay ${quote.sourceAmount} ${srcSymbol}`
             )}

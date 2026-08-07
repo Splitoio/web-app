@@ -112,12 +112,33 @@ export interface Quote {
   /** The config-capped band we commit to (50 = ±0.5%). null on the direct
    * path, which is exact. */
   slippageBps: number | null;
+  /**
+   * ADDED 2026-08-07 (`.specs/2026-08-07-router-alternatives.md`). Present on
+   * exact-output same-chain conversions (Stellar path payment `sendMax`,
+   * Jupiter `otherAmountThreshold`) — `isRouted: true` with `isEstimate:
+   * false`. This is the payer's ceiling, not a guess: the protocol enforces it
+   * on-chain (the tx reverts rather than exceeding it), so it is the number
+   * the payer actually commits to. null on every other path — degrade to
+   * `sourceAmount` rather than rendering a placeholder.
+   */
+  sourceAmountMax: string | null;
 }
 
 /** One transaction the payer must sign, in ARRAY ORDER (contract §3). */
 export interface UnsignedTransaction {
-  /** "approve" must be signed before "transfer"; "transfer" moves the funds. */
-  kind: "approve" | "transfer";
+  /**
+   * "approve" (EVM allowance) and "swap" are preparation legs; "transfer" is
+   * ALWAYS the funds-delivering leg and the one `submit` tracks.
+   *
+   * "swap" (ADDED 2026-08-07, contract §3) is Jupiter's ExactOut transaction —
+   * it converts inside the PAYER'S OWN wallet (payer -> payer), so it does not
+   * move funds to the recipient. It is followed by a "transfer" leg (an
+   * ordinary SPL/SOL transfer of the exact destination amount, payer ->
+   * recipient). Both legs are signed AND broadcast by the client on Solana
+   * (contract §0.2) — the hash reported to the backend is the "transfer"
+   * leg's, never the "swap" leg's.
+   */
+  kind: "approve" | "swap" | "transfer";
   /** The SOURCE chain for a routed payment. */
   chain: string;
   /** Encoding depends on the chain family — the wallet layer branches on `chain`. */
