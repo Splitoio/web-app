@@ -7,10 +7,10 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   StellarWalletsKit,
-  WalletNetwork,
   allowAllModules,
   XBULL_ID,
 } from "@creit.tech/stellar-wallets-kit";
+import { STELLAR_WALLET_NETWORK } from "@/lib/chain-network";
 import {
   useAvailableChains,
   useAddWallet,
@@ -77,7 +77,8 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
   useEffect(() => {
     if (!walletKitRef.current) {
       walletKitRef.current = new StellarWalletsKit({
-        network: WalletNetwork.PUBLIC, // Use testnet for development, PUBLIC for production
+        // Driven by NEXT_PUBLIC_CHAIN_NETWORK, mirroring the backend's CHAIN_NETWORK.
+        network: STELLAR_WALLET_NETWORK,
         selectedWalletId: XBULL_ID, // Default selected wallet
         modules: allowAllModules(),
       });

@@ -13,10 +13,10 @@ import type { User } from "@/api-helpers/modelSchema/UserSchema";
 import { Card, Btn, T, Icons, A, getUserColor } from "@/lib/splito-design";
 import {
   StellarWalletsKit,
-  WalletNetwork,
   allowAllModules,
   XBULL_ID,
 } from "@creit.tech/stellar-wallets-kit";
+import { STELLAR_WALLET_NETWORK } from "@/lib/chain-network";
 
 export interface SettingsPageContentProps {
   user: User;
@@ -254,7 +254,8 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
   React.useEffect(() => {
     if (!walletKitRef.current) {
       walletKitRef.current = new StellarWalletsKit({
-        network: WalletNetwork.PUBLIC,
+        // Driven by NEXT_PUBLIC_CHAIN_NETWORK, mirroring the backend's CHAIN_NETWORK.
+        network: STELLAR_WALLET_NETWORK,
         selectedWalletId: XBULL_ID,
         modules: allowAllModules(),
       });

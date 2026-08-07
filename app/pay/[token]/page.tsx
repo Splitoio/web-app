@@ -1,32 +1,43 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { T } from "@/lib/splito-design";
 import {
   getRequestByToken,
+  getSupportedSources,
+  getPaymentAttempt,
   createRequestQuote,
   submitRequestPayment,
   type GetRequestResponse,
   type QuoteRequestResponse,
   type SubmitRequestResponse,
+  type PublicPaymentAttemptResponse,
 } from "@/api-helpers/requests";
+import {
+  directSourceFor,
+  isDirectSource,
+  type PaySource,
+} from "@/lib/pay-sources";
 import {
   AmountHero,
 } from "@/components/pay/amount-hero";
 import { PayerPicker } from "@/components/pay/payer-picker";
 import { WalletConnect, type ConnectedWallet } from "@/components/pay/wallet-connect";
+import { SourcePicker } from "@/components/pay/source-picker";
 import { QuotePanel } from "@/components/pay/quote-panel";
 import {
   PaymentConfirmed,
   PaymentFailed,
+  PaymentRouting,
   PaymentStuck,
   RequestClosed,
 } from "@/components/pay/status-banner";
 import {
   signAndBroadcastSolanaUnsignedTx,
+  signRoutedTransactions,
   signStellarUnsignedTx,
 } from "@/components/pay/pay-wallet";
 
@@ -37,12 +48,16 @@ type Phase =
   | "already-paid"
   | "select-payer"
   | "connect-wallet"
+  | "select-source"
   | "quoting"
   | "ready"
   | "requoting"
   | "submitting"
   | "confirmed"
   | "failed"
+  // Contract §4: submit's ROUTING status. Broadcast on the source chain,
+  // nothing settled. Distinct from `stuck`, which only §5 can declare.
+  | "routing"
   | "stuck";
 
 const STATUS_POLL_MS = 6000;
@@ -68,8 +83,25 @@ export default function PayRequestPage() {
   );
   const [selectedPayerId, setSelectedPayerId] = useState<string | null>(null);
   const [wallet, setWallet] = useState<ConnectedWallet | null>(null);
+  // No hardcoded starting list: until the server answers, the only source we
+  // can honestly offer is the request's own destination pair (always quotable,
+  // routing on or off). GET /sources then replaces it wholesale.
+  const [sources, setSources] = useState<PaySource[]>([]);
+  const [selectedSource, setSelectedSource] = useState<PaySource | null>(null);
   const [quote, setQuote] = useState<QuoteRequestResponse | null>(null);
   const [submitResult, setSubmitResult] = useState<SubmitRequestResponse | null>(null);
+  // Set independently of `submitResult` because the STUCK state is often
+  // reached WITHOUT a submit response — see handleConfirmSign.
+  const [stuckHash, setStuckHash] = useState<string | null>(null);
+  // The attempt being tracked, and the last §5 read of it. `attemptId` is set
+  // the moment we sign, NOT when submit returns — if submit never answers we
+  // still need something to poll.
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState<PublicPaymentAttemptResponse | null>(null);
+  // 1-based wallet-prompt counter for routed multi-signature payments.
+  const [signatureStep, setSignatureStep] = useState(1);
+  const [isChecking, setIsChecking] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -77,6 +109,9 @@ export default function PayRequestPage() {
     try {
       const data = await getRequestByToken(token);
       setRequest(data);
+      // Guaranteed-quotable baseline, derived from this request rather than
+      // guessed. GET /sources widens it if routing is on.
+      setSources((current) => (current.length ? current : [directSourceFor(data)]));
 
       if (data.status === "EXPIRED" || data.status === "CANCELLED" || data.status === "SETTLED") {
         setClosedReason(data.status);
@@ -114,94 +149,274 @@ export default function PayRequestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // Poll while STUCK — the poller resolves this without the payer doing anything.
+  // What the payer may pay WITH — server-owned and request-specific
+  // (contract §2b). Failure keeps the direct pair set above rather than
+  // widening to a guess, so the payer can always still pay.
   useEffect(() => {
-    if (phase !== "stuck" || !selectedPayerId) {
+    if (!token) return;
+    let cancelled = false;
+    getSupportedSources(token)
+      .then((res) => {
+        if (!cancelled && res?.sources?.length) setSources(res.sources);
+      })
+      .catch(() => {
+        // Never block the payer on it; the direct pair is already offered.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  /**
+   * Poll the ATTEMPT (contract §5), not the request.
+   *
+   * The request-level endpoint only reports whether a payer's share is paid;
+   * it cannot tell in-flight from stuck, carries no destination hash, and has
+   * no recovery copy. §5 has all three, so it is the only thing worth polling
+   * once a payment is in flight — and STUCK now comes from here alone, never
+   * from submit.
+   */
+  const checkStatus = useCallback(async () => {
+    if (!attemptId) return;
+    setIsChecking(true);
+    try {
+      const data = await getPaymentAttempt(token, attemptId);
+      setAttempt(data);
+      setLastCheckedAt(Date.now());
+
+      // CONFIRMED = direct success, DELIVERED = routed success. Both are paid.
+      if (data.status === "CONFIRMED" || data.status === "DELIVERED") {
+        setPhase("confirmed");
+      } else if (data.status === "FAILED") {
+        setPhase("failed");
+      } else if (data.status === "STUCK") {
+        setPhase("stuck");
+      } else if (data.status === "BROADCAST" || data.status === "ROUTING") {
+        // STUCK -> ROUTING is a legal backend transition: a transfer that was
+        // stuck and started moving again must stop saying it is stuck.
+        setPhase((current) => (current === "stuck" ? "routing" : current));
+      }
+    } catch {
+      // Transient network errors shouldn't flip the UI or claim an outcome.
+    } finally {
+      setIsChecking(false);
+    }
+  }, [attemptId, token]);
+
+  // Poll while the payment is in flight or stuck — the backend resolves both
+  // without the payer doing anything, and the page must reflect it without a
+  // manual reload.
+  useEffect(() => {
+    if ((phase !== "stuck" && phase !== "routing") || !attemptId) {
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
       return;
     }
-    pollRef.current = setInterval(async () => {
-      try {
-        const data = await getRequestByToken(token);
-        const payer = data.payers.find((p) => p.payerId === selectedPayerId);
-        if (payer?.status === "CONFIRMED") {
-          setPhase("confirmed");
-        } else if (payer?.status === "FAILED") {
-          setPhase("failed");
-        }
-      } catch {
-        // keep polling silently — transient network errors shouldn't flip the UI
-      }
-    }, STATUS_POLL_MS);
+    checkStatus();
+    pollRef.current = setInterval(checkStatus, STATUS_POLL_MS);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [phase, selectedPayerId, token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, attemptId, token]);
 
   const requestQuote = useCallback(
-    async (w: ConnectedWallet) => {
+    async (w: ConnectedWallet, source: PaySource) => {
       if (!request || !selectedPayerId) return;
-      const sourceChain = w.chain;
-      const sourceAsset = w.chain === "stellar" ? "usdc-stellar" : "usdc-solana";
       try {
         const q = await createRequestQuote(token, {
           payerId: selectedPayerId,
           sourceAddress: w.address,
-          sourceChain,
-          sourceAsset,
+          sourceChain: source.chain,
+          sourceAsset: source.asset,
         });
         setQuote(q);
         setPhase("ready");
       } catch (err) {
         toast.error(errorMessage(err));
-        setPhase("connect-wallet");
+        setPhase("select-source");
       }
     },
     [request, selectedPayerId, token]
   );
 
+  /** Sources the connected wallet can actually sign for. */
+  const signableSources = useMemo(
+    () => (wallet ? sources.filter((s) => s.chain === wallet.chain) : []),
+    [sources, wallet]
+  );
+
   const handleWalletConnected = useCallback(
     (w: ConnectedWallet) => {
       setWallet(w);
-      setPhase("quoting");
-      requestQuote(w);
+
+      const available = sources.filter((s) => s.chain === w.chain);
+      const direct = request
+        ? available.find((s) =>
+            isDirectSource(s, request.destinationChain, request.destinationAsset)
+          )
+        : undefined;
+
+      // Direct path is the happy path: if the payer already holds exactly what
+      // was asked for, they never see a source picker or a word about routing.
+      if (direct) {
+        setSelectedSource(direct);
+        setPhase("quoting");
+        requestQuote(w, direct);
+        return;
+      }
+
+      // Exactly one thing they could pay with — a picker with one option is a
+      // speed bump, not a choice. Quote it and let the panel disclose it.
+      if (available.length === 1) {
+        setSelectedSource(available[0]);
+        setPhase("quoting");
+        requestQuote(w, available[0]);
+        return;
+      }
+
+      setSelectedSource(null);
+      setPhase("select-source");
     },
-    [requestQuote]
+    [sources, request, requestQuote]
   );
 
+  const handleSourceSelected = useCallback(
+    (source: PaySource) => {
+      if (!wallet) return;
+      setSelectedSource(source);
+      setPhase("quoting");
+      requestQuote(wallet, source);
+    },
+    [wallet, requestQuote]
+  );
+
+  const handleSwitchWallet = useCallback(() => {
+    setWallet(null);
+    setSelectedSource(null);
+    setQuote(null);
+    setPhase("connect-wallet");
+  }, []);
+
   const handleQuoteExpired = useCallback(() => {
-    if (!wallet) return;
+    if (!wallet || !selectedSource) return;
     setPhase("requoting");
-    requestQuote(wallet);
-  }, [wallet, requestQuote]);
+    requestQuote(wallet, selectedSource);
+  }, [wallet, selectedSource, requestQuote]);
 
   const handleConfirmSign = useCallback(async () => {
     if (!wallet || !quote) return;
+
+    // `quote.chain` — NOT the request's destination chain and not the wallet's
+    // own idea of itself — is what selects the adapter. Contract §3 (changed
+    // 2026-08-07): it is the destination chain when direct and the SOURCE
+    // chain when routed. Signing a routed payment with the destination
+    // adapter would hand a source-chain payload to the wrong wallet.
+    const signingChain = quote.chain;
+    if (wallet.chain !== signingChain) {
+      toast.error(
+        `This payment must be signed on ${signingChain}, but your wallet is connected to ${wallet.chain}.`
+      );
+      return;
+    }
+
     setPhase("submitting");
+    setSignatureStep(1);
+    // Set BEFORE signing: if submit never answers we still have something to
+    // poll, and the attempt already exists server-side from the quote call.
+    setAttemptId(quote.paymentAttemptId);
+
+    // Whether the funds leave the payer's wallet before our server is
+    // involved. True for every routed leg (the browser broadcasts on the
+    // source chain) and for direct Solana (contract §0.2). When it is true, a
+    // later failure can NEVER be reported as "nothing left your wallet".
+    const clientBroadcast = quote.isRouted || signingChain === "solana";
+
+    // ── Step 1: sign. On the direct path a throw here means nothing left the
+    // wallet. On a routed multi-leg payment a throw after an "approve" leg
+    // also means no funds moved — an allowance is not a payment. ──
+    let signedTx: string;
     try {
-      let signedTx: string;
-      if (wallet.chain === "stellar") {
+      if (quote.isRouted) {
+        // ORDERED ARRAY (contract §3): approve may precede transfer, so the
+        // payer can be prompted more than once. Returns the transfer leg's id.
+        const legs = quote.unsignedTransactions;
+        if (!legs?.length) {
+          throw new Error("The router returned no transaction to sign");
+        }
+        signedTx = await signRoutedTransactions(
+          {
+            chain: signingChain,
+            address: wallet.address,
+            stellarKit: wallet.stellarKit,
+            onStep: (step) => setSignatureStep(step),
+          },
+          legs
+        );
+      } else if (signingChain === "stellar") {
         if (!wallet.stellarKit) throw new Error("Stellar wallet not connected");
         signedTx = await signStellarUnsignedTx(wallet.stellarKit, quote.unsignedTx);
       } else {
+        // NOTE: on Solana the client signs AND broadcasts (contract §0.2).
+        // Once this resolves, funds have moved.
         signedTx = await signAndBroadcastSolanaUnsignedTx(wallet.address, quote.unsignedTx);
       }
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setPhase("ready");
+      return;
+    }
 
+    // ── Step 2: hand it to the server. What a failure MEANS depends on who
+    // broadcast. Submit's union is CONFIRMED | FAILED | ROUTING — STUCK is no
+    // longer returned here at all (contract §4, changed 2026-08-07). ──
+    try {
       const result = await submitRequestPayment(token, {
         paymentAttemptId: quote.paymentAttemptId,
         signedTx,
       });
       setSubmitResult(result);
-      if (result.status === "CONFIRMED") setPhase("confirmed");
-      else if (result.status === "STUCK") setPhase("stuck");
-      else setPhase("failed");
+
+      if (result.status === "CONFIRMED") {
+        setPhase("confirmed");
+      } else if (result.status === "ROUTING") {
+        // Broadcast on the source chain, nothing settled. Poll §5 from here;
+        // that poll is the only thing that can declare STUCK.
+        setStuckHash(result.hash ?? signedTx);
+        setPhase("routing");
+      } else if (clientBroadcast) {
+        // FAILED, but the funds already left the payer's wallet before our
+        // server saw anything. "Nothing left your wallet" would be false, so
+        // this is STUCK-with-a-hash: on-chain, outcome not yet known.
+        setStuckHash(signedTx);
+        setPhase("stuck");
+      } else {
+        setPhase("failed");
+      }
     } catch (err) {
+      const code = (err as { code?: number })?.code;
+
+      if (clientBroadcast) {
+        // Already on-chain regardless of what the server said.
+        setStuckHash(signedTx);
+        setPhase("stuck");
+        return;
+      }
+
+      if (code == null) {
+        // Direct Stellar, and we never got a response: the server may or may
+        // not have broadcast the signed XDR. We genuinely do not know. STUCK
+        // with no hash says exactly that.
+        setStuckHash(null);
+        setPhase("stuck");
+        return;
+      }
+
+      // Direct Stellar with a real HTTP status: the server answered and
+      // rejected it before broadcasting. Nothing left the wallet; retry is safe.
       toast.error(errorMessage(err));
-      // Back to the quote screen — the countdown will force a re-quote if it
-      // has since expired; otherwise the payer can just try signing again.
       setPhase("ready");
     }
   }, [wallet, quote, token]);
@@ -209,13 +424,21 @@ export default function PayRequestPage() {
   const handleRetryAfterFailure = useCallback(() => {
     setQuote(null);
     setSubmitResult(null);
-    if (wallet) {
+    setStuckHash(null);
+    // A retry is a NEW attempt — keeping the old id would poll a dead one and
+    // re-render its terminal state over the fresh quote.
+    setAttemptId(null);
+    setAttempt(null);
+    setSignatureStep(1);
+    if (wallet && selectedSource) {
       setPhase("quoting");
-      requestQuote(wallet);
+      requestQuote(wallet, selectedSource);
+    } else if (wallet) {
+      setPhase("select-source");
     } else {
       setPhase("connect-wallet");
     }
-  }, [wallet, requestQuote]);
+  }, [wallet, selectedSource, requestQuote]);
 
   const payerShare = request?.payers.find((p) => p.payerId === selectedPayerId)?.shareAmount;
 
@@ -272,6 +495,7 @@ export default function PayRequestPage() {
       {request &&
         selectedPayerId &&
         (phase === "connect-wallet" ||
+          phase === "select-source" ||
           phase === "quoting" ||
           phase === "ready" ||
           phase === "requoting" ||
@@ -291,6 +515,18 @@ export default function PayRequestPage() {
               </div>
             )}
 
+            {phase === "select-source" && wallet && (
+              <SourcePicker
+                sources={sources}
+                destinationChain={request.destinationChain}
+                destinationAsset={request.destinationAsset}
+                connectedChain={wallet.chain}
+                selected={selectedSource}
+                onSelect={handleSourceSelected}
+                onSwitchWallet={handleSwitchWallet}
+              />
+            )}
+
             {phase === "quoting" && (
               <div className="flex items-center justify-center gap-2 py-8">
                 <Loader2 className="h-4 w-4 animate-spin" style={{ color: T.muted }} />
@@ -300,29 +536,82 @@ export default function PayRequestPage() {
               </div>
             )}
 
-            {quote && (phase === "ready" || phase === "requoting" || phase === "submitting") && (
-              <QuotePanel
-                quote={quote.quote}
-                quoteExpiry={quote.quoteExpiry}
-                sourceChain={wallet?.chain ?? quote.chain}
-                sourceAsset={wallet?.chain === "stellar" ? "usdc-stellar" : "usdc-solana"}
-                destinationChain={request.destinationChain}
-                destinationAsset={request.destinationAsset}
-                isSubmitting={phase === "submitting"}
-                isRequoting={phase === "requoting"}
-                onConfirm={handleConfirmSign}
-                onExpired={handleQuoteExpired}
-              />
-            )}
+            {quote &&
+              selectedSource &&
+              (phase === "ready" || phase === "requoting" || phase === "submitting") && (
+                <QuotePanel
+                  quote={quote.quote}
+                  quoteExpiry={quote.quoteExpiry}
+                  sourceChain={selectedSource.chain}
+                  sourceAsset={selectedSource.asset}
+                  destinationChain={request.destinationChain}
+                  destinationAsset={request.destinationAsset}
+                  denominationCurrency={request.denominationCurrency}
+                  // Direct is always one signature; a routed payment signs the
+                  // array in order and may need an approve leg first.
+                  signatureKinds={(quote.unsignedTransactions ?? []).map((t) => t.kind)}
+                  signatureStep={signatureStep}
+                  isSubmitting={phase === "submitting"}
+                  isRequoting={phase === "requoting"}
+                  onConfirm={handleConfirmSign}
+                  onExpired={handleQuoteExpired}
+                  onChangeSource={
+                    signableSources.length > 1
+                      ? () => {
+                          setQuote(null);
+                          setPhase("select-source");
+                        }
+                      : undefined
+                  }
+                />
+              )}
           </>
         )}
 
       {phase === "confirmed" && request && (
-        <PaymentConfirmed hash={submitResult?.hash ?? null} chain={request.destinationChain} />
+        <PaymentConfirmed
+          // Once a routed payment lands, the DESTINATION hash is the one that
+          // proves arrival; before we have it (direct path) the payer's own
+          // transaction is the destination transaction.
+          hash={attempt?.destinationTxHash ?? submitResult?.hash ?? attempt?.sourceTxHash ?? null}
+          chain={
+            attempt?.destinationTxHash
+              ? request.destinationChain
+              : (selectedSource?.chain ?? request.destinationChain)
+          }
+        />
       )}
       {phase === "failed" && <PaymentFailed onRetry={handleRetryAfterFailure} />}
+      {phase === "routing" && request && (
+        <PaymentRouting
+          hash={attempt?.sourceTxHash ?? stuckHash}
+          // The payer signed and broadcast on the SOURCE chain.
+          chain={quote?.chain ?? selectedSource?.chain ?? wallet?.chain ?? request.destinationChain}
+          destinationChain={request.destinationChain}
+          message={submitResult?.message ?? null}
+          onCheckNow={checkStatus}
+          isChecking={isChecking}
+          lastCheckedAt={lastCheckedAt}
+        />
+      )}
       {phase === "stuck" && request && (
-        <PaymentStuck hash={submitResult?.hash ?? null} chain={request.destinationChain} />
+        <PaymentStuck
+          hash={attempt?.sourceTxHash ?? stuckHash}
+          // The hash we hold is the one the payer's own wallet produced, so it
+          // belongs to the SOURCE chain, not the destination.
+          chain={quote?.chain ?? selectedSource?.chain ?? wallet?.chain ?? request.destinationChain}
+          isRouted={
+            attempt?.isRouted ??
+            quote?.isRouted ??
+            (!!selectedSource &&
+              !isDirectSource(selectedSource, request.destinationChain, request.destinationAsset))
+          }
+          // Server-owned copy from §5 — rendered verbatim when present.
+          recovery={attempt?.recovery ?? null}
+          onCheckNow={checkStatus}
+          isChecking={isChecking}
+          lastCheckedAt={lastCheckedAt}
+        />
       )}
     </div>
     </div>
