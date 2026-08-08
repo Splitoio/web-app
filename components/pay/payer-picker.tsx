@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, T } from "@/lib/splito-design";
+import { Card, T, BORDER } from "@/lib/splito-design";
 import { formatCurrency } from "@/utils/formatters";
 import type { RequestPayerView } from "@/api-helpers/requests";
 
@@ -35,7 +35,7 @@ export function PayerPicker({
             type="button"
             onClick={() => onSelect(p.payerId)}
             className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left transition-colors hover:bg-white/5"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "rgba(255,255,255,0.03)", border: BORDER }}
           >
             <span className="text-[13px] font-semibold" style={{ color: T.body }}>
               Share {i + 1}

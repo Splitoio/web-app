@@ -25,6 +25,7 @@ import {
   Eyebrow,
   Mono,
   statusColor,
+  INSET,
 } from "@/lib/splito-design";
 import { Row } from "@/components/shell/row";
 import { ActivityList, titleCaseStatus } from "@/components/dashboard/activity-list";
@@ -104,7 +105,7 @@ function OrgDashboard({ summary, streams }: { summary: WorkspaceSummary; streams
                 fontSize: 12,
                 fontWeight: 700,
                 flexShrink: 0,
-                background: "rgba(255,255,255,0.05)",
+                background: INSET,
                 border: "1px solid rgba(255,255,255,0.1)",
                 color: T.muted,
               }}

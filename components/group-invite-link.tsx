@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { createGroupInviteLink } from "@/features/groups/api/client";
-import { A, T, MONO, eyebrow } from "@/lib/splito-design";
+import { A, T, MONO, eyebrow, INSET } from "@/lib/splito-design";
 
 /**
  * Design's "Invite link" block (gSettings, ~1358-1366): a shareable,
@@ -45,7 +45,7 @@ export function GroupInviteLink({ groupId }: { groupId: string }) {
     fontSize: 12.5,
     fontWeight: 700,
     cursor: isLoading ? "default" : "pointer",
-    background: "rgba(255,255,255,0.05)",
+    background: INSET,
     color: T.body,
     border: "1px solid rgba(255,255,255,0.1)",
     fontFamily: "inherit",

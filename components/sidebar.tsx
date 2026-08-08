@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import {
   A,
   BORDER,
+  INSET,
   Icons,
   MONO,
   PANEL,
@@ -112,7 +113,7 @@ export function Sidebar() {
             style={{
               padding: "10px 11px",
               borderRadius: RADIUS.tile,
-              background: "rgba(255,255,255,0.05)",
+              background: INSET,
               border: "1px solid rgba(255,255,255,0.09)",
               marginBottom: 4,
             }}

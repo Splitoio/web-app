@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { Loader2 } from "lucide-react";
-import { T, A } from "@/lib/splito-design";
+import { T, A, INSET } from "@/lib/splito-design";
 
 const PLATFORM_DEFAULT_CURRENCY = "USD";
 
@@ -23,7 +23,7 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: "rgba(255,255,255,0.05)",
+  background: INSET,
   border: "1.5px solid rgba(255,255,255,0.09)",
   borderRadius: 14,
   padding: "12px 16px",
@@ -142,7 +142,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             style={{
               width: "100%",
               padding: "13px",
-              background: canSubmit ? A : "rgba(255,255,255,0.05)",
+              background: canSubmit ? A : INSET,
               color: canSubmit ? "#0a0a0a" : "#555",
               border: "none",
               borderRadius: 14,

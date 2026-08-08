@@ -2,7 +2,7 @@
 
 import { FriendsList } from "@/components/friends-list";
 import { useState } from "react";
-import { Icons, T, A } from "@/lib/splito-design";
+import { Icons, T, A, INSET } from "@/lib/splito-design";
 import { toast } from "sonner";
 import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useInviteFriend } from "@/features/friends/hooks/use-invite-friend";
@@ -87,7 +87,7 @@ function EmailActionModal({
           disabled={isPending}
           style={{
             width: "100%",
-            background: "rgba(255,255,255,0.05)",
+            background: INSET,
             border: "1.5px solid rgba(255,255,255,0.09)",
             borderRadius: 14,
             padding: "12px 16px",
@@ -107,7 +107,7 @@ function EmailActionModal({
           style={{
             width: "100%",
             padding: "13px",
-            background: email.trim() && isValidEmail(email.trim()) ? A : "rgba(255,255,255,0.05)",
+            background: email.trim() && isValidEmail(email.trim()) ? A : INSET,
             color: email.trim() && isValidEmail(email.trim()) ? "#0a0a0a" : "#555",
             border: "none",
             borderRadius: 14,

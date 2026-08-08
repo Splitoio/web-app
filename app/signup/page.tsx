@@ -219,9 +219,9 @@ export default function SignupPage() {
                   type="checkbox"
                   id="terms-desktop"
                   className="appearance-none rounded-[7px] border border-white/10 w-5 h-5 bg-[#0D0D0F] cursor-pointer relative
-                    checked:border-[#22D3EE] checked:bg-[#22D3EE]/20
+                    checked:border-splito-a checked:bg-splito-a/20
                     checked:after:content-['✓'] checked:after:absolute checked:after:left-1/2 checked:after:top-1/2
-                    checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:text-[#22D3EE] checked:after:text-sm"
+                    checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:text-splito-a checked:after:text-sm"
                   checked={formData.agreeToTerms}
                   onChange={(e) => setFormData({ ...formData, agreeToTerms: e.target.checked })}
                   required
@@ -237,7 +237,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >
@@ -363,7 +363,7 @@ export default function SignupPage() {
                 <input
                   type="checkbox"
                   id="terms-mobile"
-                  className="rounded border border-white/10 w-5 h-5 bg-[#0D0D0F] cursor-pointer accent-[#22D3EE]"
+                  className="rounded border border-white/10 w-5 h-5 bg-[#0D0D0F] cursor-pointer accent-splito-a"
                   checked={formData.agreeToTerms}
                   onChange={(e) => setFormData({ ...formData, agreeToTerms: e.target.checked })}
                   required
@@ -379,7 +379,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >

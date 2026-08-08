@@ -23,6 +23,8 @@ import {
   Icons,
   T,
   A,
+  R,
+  INSET,
 } from "@/lib/splito-design";
 
 const fieldStyle: React.CSSProperties = {
@@ -269,7 +271,7 @@ export default function GroupSettingsPage() {
             fontWeight: 700,
             cursor: "pointer",
             background: "rgba(248,113,113,0.07)",
-            color: "#F87171",
+            color: R,
             border: "1px solid rgba(248,113,113,0.2)",
           }}
         >
@@ -287,7 +289,7 @@ export default function GroupSettingsPage() {
               className="flex-1"
               style={{
                 padding: 11,
-                background: "rgba(255,255,255,0.05)",
+                background: INSET,
                 border: "1px solid rgba(255,255,255,0.09)",
                 color: T.main,
                 borderRadius: 12,
@@ -306,7 +308,7 @@ export default function GroupSettingsPage() {
               className="flex-1 flex items-center justify-center gap-2"
               style={{
                 padding: 11,
-                background: "#F87171",
+                background: R,
                 border: "none",
                 color: "#0a0a0a",
                 borderRadius: 12,

@@ -16,8 +16,8 @@ import { ChangePasswordModal } from "@/components/change-password-modal";
 import type { User } from "@/api-helpers/modelSchema/UserSchema";
 import type { Workspace } from "@/lib/workspace";
 import {
-  A, G, R, T, Icons, Btn, Toggle, Mono, Eyebrow, AvatarChip,
-  getUserColor, card, pill, fmt, SURFACE, BORDER,
+  A, G, R, P, T, Icons, Btn, Toggle, Mono, Eyebrow, AvatarChip,
+  getUserColor, card, pill, fmt, SURFACE, BORDER, INSET,
 } from "@/lib/splito-design";
 import { signOut } from "@/lib/auth";
 import { useAuthStore } from "@/stores/authStore";
@@ -57,8 +57,8 @@ type CurrencyDisplay = "both" | "real" | "converted";
 // ─── Chain metadata (settlement rows + wallets share the same palette) ───────
 
 const CHAIN_META: Record<string, { color: string; icon: string; label: string }> = {
-  stellar: { color: "#34D399", icon: "✦", label: "Stellar" },
-  solana: { color: "#A78BFA", icon: "◎", label: "Solana" },
+  stellar: { color: G, icon: "✦", label: "Stellar" },
+  solana: { color: P, icon: "◎", label: "Solana" },
   base: { color: "#3B82F6", icon: "\u{1F535}", label: "Base" },
 };
 
@@ -115,7 +115,7 @@ function TextInput({ value, onChange, placeholder }: { value: string; onChange: 
 
 function Segmented<Id extends string>({ options, value, onChange }: { options: { id: Id; label: string }[]; value: Id; onChange: (v: Id) => void }) {
   return (
-    <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, background: "rgba(255,255,255,0.05)", width: "fit-content" }}>
+    <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, background: INSET, width: "fit-content" }}>
       {options.map((o) => {
         const sel = value === o.id;
         return (
@@ -164,7 +164,7 @@ function textBtn(style: React.CSSProperties = {}): React.CSSProperties {
 function ghostButtonStyle(style: React.CSSProperties = {}): React.CSSProperties {
   return {
     display: "block", width: "100%", boxSizing: "border-box", borderRadius: 12, padding: 11,
-    textAlign: "center", fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,0.05)",
+    textAlign: "center", fontSize: 13, fontWeight: 700, cursor: "pointer", background: INSET,
     color: T.body, border: "1px solid rgba(255,255,255,0.1)", transition: "all .2s", fontFamily: "inherit",
     textDecoration: "none", margin: 0, ...style,
   };
@@ -251,7 +251,7 @@ function AvatarUpload({ id, size, isUploadingImage, uploadProgress, uploadError,
         </button>
         <input id={id} type="file" accept="image/png, image/jpeg" className="hidden" disabled={isUploadingImage} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); }} />
       </label>
-      {uploadError && <p style={{ fontSize: 11, color: "#F87171", marginTop: 4, textAlign: "center" }}>{uploadError}</p>}
+      {uploadError && <p style={{ fontSize: 11, color: R, marginTop: 4, textAlign: "center" }}>{uploadError}</p>}
     </div>
   );
 }
@@ -320,7 +320,7 @@ function ProfileSection({ user, displayName, setDisplayName, hasNameChange, isSa
       <Intro title="Profile" subtitle="Applies to every workspace you're in." />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
         <AvatarUpload id="settings-avatar" size={56} isUploadingImage={isUploadingImage} uploadProgress={uploadProgress} uploadError={uploadError} handleImageUpload={onImageUpload} userColor={userColor} userInitial={userInitial} userImage={user.image} />
-        <label htmlFor="settings-avatar" className="abtn" style={{ borderRadius: 11, padding: "9px 15px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,0.05)", color: T.body, border: "1px solid rgba(255,255,255,0.1)", transition: "all .2s" }}>
+        <label htmlFor="settings-avatar" className="abtn" style={{ borderRadius: 11, padding: "9px 15px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: INSET, color: T.body, border: "1px solid rgba(255,255,255,0.1)", transition: "all .2s" }}>
           Upload photo
         </label>
       </div>
@@ -428,13 +428,13 @@ function WalletsSection({ wallets, isLoading, chains, onSetDefault, isSettingDef
       )}
 
       {adding ? (
-        <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+        <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: BORDER, background: "rgba(255,255,255,0.02)" }}>
           <Eyebrow style={{ marginBottom: 8 }}>Chain</Eyebrow>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
             {enabledChains.map((c) => {
               const sel = chainId === c.id;
               return (
-                <button key={c.id} type="button" aria-pressed={sel} onClick={() => setChainId(c.id)} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${A}1a` : "rgba(255,255,255,0.05)", border: `1px solid ${sel ? `${A}55` : "rgba(255,255,255,0.09)"}`, color: sel ? A : T.body }}>
+                <button key={c.id} type="button" aria-pressed={sel} onClick={() => setChainId(c.id)} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${A}1a` : INSET, border: `1px solid ${sel ? `${A}55` : "rgba(255,255,255,0.09)"}`, color: sel ? A : T.body }}>
                   {c.name}
                 </button>
               );
@@ -719,7 +719,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                   <div style={{ position: "relative" }}>
                     <input
                       type="text" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)}
-                      style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: connectSupported ? "14px 140px 14px 16px" : "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" }}
+                      style={{ width: "100%", background: INSET, border: "1.5px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: connectSupported ? "14px 140px 14px 16px" : "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" }}
                       placeholder={`Enter ${meta.label} wallet address`}
                       autoFocus={mode === "edit-wallet"}
                     />
@@ -749,7 +749,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                 <p style={{ color: T.muted, fontSize: 11, lineHeight: 1.4 }}>Settlements owed to you will be sent to this wallet in the selected currencies.</p>
               </div>
 
-              <button onClick={handleSave} disabled={!canSave || isWorking} style={{ width: "100%", padding: "15px", background: canSave && !isWorking ? A : "rgba(255,255,255,0.05)", color: canSave && !isWorking ? "#0a0a0a" : "#555", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: canSave && !isWorking ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s" }}>
+              <button onClick={handleSave} disabled={!canSave || isWorking} style={{ width: "100%", padding: "15px", background: canSave && !isWorking ? A : INSET, color: canSave && !isWorking ? "#0a0a0a" : "#555", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: canSave && !isWorking ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s" }}>
                 {isWorking ? "Saving…" : mode === "edit-wallet" ? "Update wallet" : "Save preference"}
               </button>
             </div>
@@ -948,14 +948,14 @@ function WsTokensSection({ workspace, accountPrefs, groupTokens, isLoadingGroupT
       )}
 
       {showForm && (
-        <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+        <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: BORDER, background: "rgba(255,255,255,0.02)" }}>
           <Eyebrow style={{ marginBottom: 8 }}>Chain</Eyebrow>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
             {chainIds.map((cid) => {
               const meta = getChainMeta(cid);
               const sel = chainId === cid;
               return (
-                <button key={cid} type="button" aria-pressed={sel} onClick={() => { setChainId(cid); setTokenId(""); }} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${meta.color}1a` : "rgba(255,255,255,0.05)", border: `1px solid ${sel ? `${meta.color}55` : "rgba(255,255,255,0.09)"}`, color: sel ? meta.color : T.body }}>
+                <button key={cid} type="button" aria-pressed={sel} onClick={() => { setChainId(cid); setTokenId(""); }} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${meta.color}1a` : INSET, border: `1px solid ${sel ? `${meta.color}55` : "rgba(255,255,255,0.09)"}`, color: sel ? meta.color : T.body }}>
                   {meta.label}
                 </button>
               );

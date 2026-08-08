@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   Btn,
   T,
+  A,
   G,
   R,
   MONO,
@@ -174,7 +175,7 @@ export function GroupInfoHeader({
             type="button"
             onClick={onAddExpenseClick}
             className="flex-1 sm:flex-initial rounded-xl text-[13px] font-bold transition-opacity hover:opacity-90"
-            style={{ padding: "10px 18px", background: "#22D3EE", color: "#0a0a0a" }}
+            style={{ padding: "10px 18px", background: A, color: "#0a0a0a" }}
           >
             Request from this group
           </button>

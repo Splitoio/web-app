@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Check, Copy } from "lucide-react";
-import { A, P, T } from "@/lib/splito-design";
+import { A, P, G, T } from "@/lib/splito-design";
 import type { RequestStatus } from "@/api-helpers/requests";
 
 /** Human label for a destination asset id, e.g. "usdc-stellar" → "USDC". */
@@ -37,7 +37,7 @@ export function chainLabel(chain: string | null): string {
 export const STATUS_STYLE: Record<RequestStatus, { label: string; color: string }> = {
   OPEN: { label: "Open", color: A },
   PARTIALLY_PAID: { label: "Partly paid", color: "#FBBF24" },
-  SETTLED: { label: "Paid", color: "#34D399" },
+  SETTLED: { label: "Paid", color: G },
   EXPIRED: { label: "Expired", color: "#888" },
   CANCELLED: { label: "Cancelled", color: "#888" },
 };

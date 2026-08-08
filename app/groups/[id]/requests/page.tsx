@@ -14,6 +14,8 @@ import {
   Btn,
   Icons,
   G,
+  R,
+  A,
   T,
   getUserColor,
 } from "@/lib/splito-design";
@@ -97,7 +99,7 @@ function ExpenseRow({
   const statusLine: { node: React.ReactNode; color: string } | null = (() => {
     if (!isInvolved) return null;
     if (myShare > 0 && !iAmPayer && !myIsPaid)
-      return { node: <>you owe <DualAmount amount={myShare} currency={expense.currency} /></>, color: "#F87171" };
+      return { node: <>you owe <DualAmount amount={myShare} currency={expense.currency} /></>, color: R };
     if (myShare > 0 && !iAmPayer && myIsPaid) return { node: "paid ✓", color: G };
     if (iAmPayer && pending > 0)
       return { node: <>owed <DualAmount amount={pending} currency={expense.currency} /></>, color: G };
@@ -215,7 +217,7 @@ function ExpenseRow({
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span
                         style={{
-                          color: isSettled ? G : "#F87171",
+                          color: isSettled ? G : R,
                           fontSize: 13,
                           fontWeight: 700,
                           fontFamily: "'DM Mono',monospace",
@@ -228,7 +230,7 @@ function ExpenseRow({
                         />
                       </span>
                       {isInvolved && (
-                        <Tag color={isSettled ? G : "#F87171"}>
+                        <Tag color={isSettled ? G : R}>
                           {isSettled ? "settled" : "pending"}
                         </Tag>
                       )}
@@ -332,7 +334,7 @@ export default function GroupRequestsPage() {
             type="button"
             onClick={openAddExpense}
             className="mt-4 inline-flex items-center gap-2 rounded-xl text-[13px] font-extrabold text-[#0a0a0a] transition-opacity hover:opacity-90"
-            style={{ background: "#22D3EE", padding: "10px 18px", gap: 6 }}
+            style={{ background: A, padding: "10px 18px", gap: 6 }}
           >
             <Icons.plus /> Request money
           </button>

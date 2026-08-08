@@ -7,7 +7,7 @@ import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { formatRelativeTime } from "@/lib/utils";
-import { A, G, T, Card, SectionLabel, AvatarChip, Btn, Icons, FRIEND_COLORS } from "@/lib/splito-design";
+import { A, G, R, O, T, Card, SectionLabel, AvatarChip, Btn, Icons, FRIEND_COLORS, INSET } from "@/lib/splito-design";
 import {
   getRequestDetail,
   type RequestDetailResponse,
@@ -107,7 +107,7 @@ function StatusStepper({ current }: { current: RequestStatus }) {
                   width: 24,
                   height: 24,
                   borderRadius: "50%",
-                  background: done ? color : active ? `${color}1a` : "rgba(255,255,255,0.05)",
+                  background: done ? color : active ? `${color}1a` : INSET,
                   border: `2px solid ${lit ? color : "rgba(255,255,255,0.14)"}`,
                   color: "#0a0a0a",
                 }}
@@ -240,13 +240,13 @@ function PayerRow({
           </p>
           <p className="mt-0.5" style={{ fontSize: 11.5, color: T.sub, fontWeight: 600 }}>
             {payer.isPaid ? (
-              <span style={{ color: "#34D399" }}>
+              <span style={{ color: G }}>
                 Paid{payer.paidAt ? ` · ${formatRelativeTime(new Date(payer.paidAt))}` : ""}
               </span>
             ) : payer.status === "FAILED" ? (
-              <span style={{ color: "#F87171" }}>Last attempt failed</span>
+              <span style={{ color: R }}>Last attempt failed</span>
             ) : payer.status === "SUBMITTED" || payer.status === "QUOTED" ? (
-              <span style={{ color: "#FBBF24" }}>In progress</span>
+              <span style={{ color: O }}>In progress</span>
             ) : (
               "Not paid yet"
             )}
@@ -255,7 +255,7 @@ function PayerRow({
         <div className="text-right shrink-0">
           <p
             className="font-mono"
-            style={{ fontSize: 14, fontWeight: 800, color: payer.isPaid ? "#34D399" : "#fff", margin: 0 }}
+            style={{ fontSize: 14, fontWeight: 800, color: payer.isPaid ? G : "#fff", margin: 0 }}
           >
             {formatCurrency(payer.shareAmount, currency)}
           </p>
@@ -298,7 +298,7 @@ function PayerRow({
             style={{
               fontSize: 12,
               fontWeight: 700,
-              color: confirmingPaid ? "#34D399" : T.body,
+              color: confirmingPaid ? G : T.body,
               background: "none",
               border: "none",
               cursor: marking ? "default" : "pointer",
@@ -465,7 +465,7 @@ export default function RequestDetailPage() {
                   {data.receivedAmount > 0 && (
                     <p
                       className="font-mono font-bold mt-1"
-                      style={{ fontSize: 12.5, color: "#34D399", margin: "4px 0 0" }}
+                      style={{ fontSize: 12.5, color: G, margin: "4px 0 0" }}
                     >
                       {formatCurrency(data.receivedAmount, currency)} received
                     </p>
@@ -562,7 +562,7 @@ export default function RequestDetailPage() {
                   fontSize: 13,
                   fontWeight: 700,
                   cursor: "pointer",
-                  background: "rgba(255,255,255,0.05)",
+                  background: INSET,
                   color: T.body,
                   border: "1px solid rgba(255,255,255,0.1)",
                   textDecoration: "none",

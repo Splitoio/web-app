@@ -222,7 +222,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >
@@ -348,7 +348,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >

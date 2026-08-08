@@ -21,7 +21,7 @@ import CurrencyDropdown from "./currency-dropdown";
 import TimeLockToggle from "./ui/TimeLockToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
-import { Card, A, T, getUserColor } from "@/lib/splito-design";
+import { Card, A, G, P, O, T, getUserColor, BORDER, INSET } from "@/lib/splito-design";
 import { useGroupLayoutOptional } from "@/contexts/group-layout-context";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -531,7 +531,7 @@ export function AddExpenseModal({
 
   const inp = {
     width: "100%",
-    background: "rgba(255,255,255,0.05)",
+    background: INSET,
     border: "1.5px solid rgba(255,255,255,0.09)",
     borderRadius: 14,
     padding: "12px 16px",
@@ -558,7 +558,7 @@ export function AddExpenseModal({
         style={{
           flex: 1,
           padding: 13,
-          background: "rgba(255,255,255,0.05)",
+          background: INSET,
           color: T.body,
           border: "1px solid rgba(255,255,255,0.09)",
           borderRadius: 14,
@@ -591,7 +591,7 @@ export function AddExpenseModal({
         style={{
           flex: 2,
           padding: 13,
-          background: disabled ? "rgba(255,255,255,0.05)" : A,
+          background: disabled ? INSET : A,
           color: disabled ? "#555" : "#0a0a0a",
           border: "none",
           borderRadius: 14,
@@ -724,7 +724,7 @@ export function AddExpenseModal({
                 <label style={lbl}>Amount</label>
                 <div
                   style={{
-                    background: "rgba(255,255,255,0.05)",
+                    background: INSET,
                     border: "1.5px solid rgba(255,255,255,0.09)",
                     borderRadius: 14,
                     overflow: "hidden",
@@ -813,7 +813,7 @@ export function AddExpenseModal({
                           background: isSelected ? `${memberColor}12` : "rgba(255,255,255,0.04)",
                           border: isSelected
                             ? `2px solid ${memberColor}`
-                            : "1px solid rgba(255,255,255,0.08)",
+                            : BORDER,
                           borderRadius: 14,
                           cursor: "pointer",
                           display: "flex",
@@ -915,7 +915,7 @@ export function AddExpenseModal({
                     padding: 0,
                     overflow: "hidden",
                     background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: BORDER,
                     boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
                   }}
                 >
@@ -939,7 +939,7 @@ export function AddExpenseModal({
                                 .join("")
                                 .slice(0, 2)
                                 .toUpperCase();
-                        const participantColors = ["#A78BFA", "#34D399", "#FB923C", "#F472B6", "#FBBF24", "#22D3EE"];
+                        const participantColors = [P, G, O, "#F472B6", "#FBBF24", A];
                         const memberColor = participantColors[index % participantColors.length];
                         const displayName =
                           member.id === user?.id
@@ -1068,7 +1068,7 @@ export function AddExpenseModal({
                                       width: 52,
                                       padding: "6px 8px",
                                       background: "rgba(255,255,255,0.06)",
-                                      border: "1px solid rgba(255,255,255,0.08)",
+                                      border: BORDER,
                                       borderRadius: 8,
                                       color: "#fff",
                                       fontSize: 12,
@@ -1108,7 +1108,7 @@ export function AddExpenseModal({
                                       width: 68,
                                       padding: "6px 8px",
                                       background: "rgba(255,255,255,0.06)",
-                                      border: "1px solid rgba(255,255,255,0.08)",
+                                      border: BORDER,
                                       borderRadius: 8,
                                       color: "#fff",
                                       fontSize: 13,
@@ -1256,7 +1256,7 @@ export function AddExpenseModal({
                     padding: 13,
                     background:
                       !canSubmit || !formData.name.trim() || expenseMutation.isPending
-                        ? "rgba(255,255,255,0.05)"
+                        ? INSET
                         : A,
                     color:
                       !canSubmit || !formData.name.trim() || expenseMutation.isPending ? "#555" : "#0a0a0a",

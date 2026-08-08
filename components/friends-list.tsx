@@ -9,7 +9,7 @@ import { UserPlus } from "lucide-react";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { ApiError } from "@/types/api-error";
-import { avatarChip, getUserColor, Card, G, R, T, Btn } from "@/lib/splito-design";
+import { avatarChip, getUserColor, Card, G, R, T, Btn, BORDER } from "@/lib/splito-design";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
@@ -259,7 +259,7 @@ function ContactTile({
           padding: "16px 18px",
           borderRadius: 20,
           background: "linear-gradient(145deg,#111 0%,#0d0d0d 100%)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          border: BORDER,
           cursor: "pointer",
           fontFamily: "inherit",
         }}

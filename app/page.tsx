@@ -24,7 +24,7 @@ import {
   type DestinationChain,
   type RequestListItem,
 } from "@/api-helpers/requests";
-import { A, Card, R, SectionLabel, T, Icons } from "@/lib/splito-design";
+import { A, Card, R, SectionLabel, T, Icons, BORDER } from "@/lib/splito-design";
 import { StatusChip, progressLabel } from "@/components/requests/request-bits";
 import { FormErrorNotice } from "@/components/requests/form-error";
 import { toFormError, type FormError } from "@/lib/request-errors";
@@ -258,7 +258,7 @@ function CreateRequestForm({
         </span>
       </p>
 
-      <div className="mt-6 pt-6" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+      <div className="mt-6 pt-6" style={{ borderTop: BORDER }}>
         <label className="block text-[11px] font-bold tracking-[0.08em] uppercase mb-2" style={{ color: T.muted }}>
           {destination.label} address to receive at
         </label>
@@ -593,7 +593,7 @@ export default function Page() {
       <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
         <div className="sm:hidden mb-5">
           <h1 className="text-[26px] font-black tracking-[-0.04em] text-white">
-            <span className="text-[#22D3EE]">splito</span>
+            <span className="text-splito-a">splito</span>
           </h1>
         </div>
 

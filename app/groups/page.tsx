@@ -4,7 +4,7 @@ import { GroupsList } from "@/components/groups-list";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { CreateGroupForm } from "@/components/create-group-form";
-import { Icons, T } from "@/lib/splito-design";
+import { Icons, T, A, BORDER } from "@/lib/splito-design";
 
 export default function GroupsPage() {
   const searchParams = useSearchParams();
@@ -40,7 +40,7 @@ export default function GroupsPage() {
         <button
           onClick={() => setIsCreateModalOpen(true)}
           className="flex items-center gap-1.5 rounded-xl text-[12px] sm:text-[13px] font-extrabold text-[#0a0a0a] transition-all hover:opacity-90 shrink-0 py-2.5 px-3 sm:py-2.5 sm:px-[18px]"
-          style={{ background: "#22D3EE", gap: 6 }}
+          style={{ background: A, gap: 6 }}
         >
           <Icons.plus /> New Group
         </button>
@@ -68,7 +68,7 @@ export default function GroupsPage() {
             display: "flex",
             alignItems: "center",
             background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
+            border: BORDER,
             borderRadius: 14,
             padding: "11px 16px",
             marginBottom: 24,

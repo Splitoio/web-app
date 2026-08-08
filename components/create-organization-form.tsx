@@ -12,7 +12,7 @@ import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
-import { T, A } from "@/lib/splito-design";
+import { T, A, INSET } from "@/lib/splito-design";
 
 interface CreateOrganizationFormProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ interface Member {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: "rgba(255,255,255,0.05)",
+  background: INSET,
   border: "1.5px solid rgba(255,255,255,0.09)",
   borderRadius: 14,
   padding: "12px 16px",
@@ -276,7 +276,7 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
               style={{
                 flex: 1,
                 padding: "13px",
-                background: "rgba(255,255,255,0.05)",
+                background: INSET,
                 color: "rgba(255,255,255,0.5)",
                 border: "1px solid rgba(255,255,255,0.09)",
                 borderRadius: 14,
@@ -295,7 +295,7 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
               style={{
                 flex: 2,
                 padding: "13px",
-                background: canSubmit ? A : "rgba(255,255,255,0.05)",
+                background: canSubmit ? A : INSET,
                 color: canSubmit ? "#0a0a0a" : "#555",
                 border: "none",
                 borderRadius: 14,

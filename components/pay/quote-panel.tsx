@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, PenLine, RefreshCw, ShieldAlert, ShieldCheck, Zap } from "lucide-react";
-import { T, A, R, O } from "@/lib/splito-design";
+import { T, A, R, O, BORDER } from "@/lib/splito-design";
 import type { Quote } from "@/api-helpers/requests";
 import { assetSymbol, chainName, DEFAULT_SLIPPAGE_PCT } from "@/lib/pay-sources";
 import { formatCurrency } from "@/utils/formatters";
@@ -369,7 +369,7 @@ export function QuotePanel({
 
             <div
               className="flex items-center justify-between gap-3 pt-3 mt-1"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+              style={{ borderTop: BORDER }}
             >
               <span className="text-[13px] font-bold" style={{ color: T.bright }}>
                 {isEstimate ? "Estimated to land" : "Lands as"}
@@ -528,7 +528,7 @@ export function QuotePanel({
               className="flex items-start gap-2 mt-2.5 p-3 rounded-xl"
               style={{
                 background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                border: BORDER,
               }}
             >
               <PenLine className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: T.muted }} />

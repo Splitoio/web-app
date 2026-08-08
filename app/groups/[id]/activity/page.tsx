@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
 import { formatRelativeTime } from "@/lib/utils";
-import { Card, SectionLabel, T, A, G } from "@/lib/splito-design";
+import { Card, SectionLabel, T, A, G, P, O } from "@/lib/splito-design";
 import { DualAmount } from "@/components/dual-amount";
 
 type ExpenseItem = {
@@ -40,9 +40,9 @@ type ActivityItem =
 const DOT_COLORS: Record<string, string> = {
   paid: G,
   added: A,
-  settled: "#A78BFA",
-  created: "#FB923C",
-  join: "#FB923C",
+  settled: P,
+  created: O,
+  join: O,
 };
 
 export default function GroupActivityPage() {

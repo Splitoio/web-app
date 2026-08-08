@@ -6,7 +6,7 @@ import { Loader2, X, Map } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
 import type { Currency } from "@/features/currencies/api/client";
-import { A, T } from "@/lib/splito-design";
+import { A, G, P, T, INSET } from "@/lib/splito-design";
 import { Icons } from "@/lib/splito-design";
 
 // Flag emoji for fiat currencies: explicit map for codes that don't match country (e.g. EUR, CHF)
@@ -76,14 +76,14 @@ const getCurrencyFlag = (c: Currency): string => {
 
 // Chain ID → display name and icon for section headers (Fiat, Aptos, Solana, Stellar, Base, etc.)
 const CHAIN_DISPLAY: Record<string, { name: string; icon: string; color: string }> = {
-  stellar: { name: "Stellar", icon: "✦", color: "#34D399" },
-  Stellar: { name: "Stellar", icon: "✦", color: "#34D399" },
-  solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
-  Solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
+  stellar: { name: "Stellar", icon: "✦", color: G },
+  Stellar: { name: "Stellar", icon: "✦", color: G },
+  solana: { name: "Solana", icon: "◎", color: P },
+  Solana: { name: "Solana", icon: "◎", color: P },
   base: { name: "Base", icon: "🔵", color: "#3B82F6" },
   Base: { name: "Base", icon: "🔵", color: "#3B82F6" },
-  aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
-  Aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
+  aptos: { name: "Aptos", icon: "⬡", color: A },
+  Aptos: { name: "Aptos", icon: "⬡", color: A },
   "8453": { name: "Base", icon: "🔵", color: "#3B82F6" },
 };
 
@@ -617,7 +617,7 @@ export default function CurrencyDropdown({
           justifyContent: "space-between",
           width: "100%",
           height: size === "lg" ? 46 : 40,
-          background: size === "lg" ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.04)",
+          background: size === "lg" ? INSET : "rgba(255,255,255,0.04)",
           border: `1px solid ${isOpen ? "rgba(255,255,255,0.3)" : (size === "lg" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.1)")}`,
           borderRadius: size === "lg" ? 12 : 8,
           padding: size === "lg" ? "0 16px" : "0 12px",

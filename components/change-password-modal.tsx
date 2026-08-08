@@ -5,7 +5,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth";
-import { Btn, T, A, Icons } from "@/lib/splito-design";
+import { Btn, T, A, R, Icons, BORDER, INSET } from "@/lib/splito-design";
 
 const EyeIcon = ({ show, size = 16 }: { show: boolean; size?: number }) =>
   show ? <EyeOff size={size} /> : <Eye size={size} />;
@@ -82,7 +82,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    background: "rgba(255,255,255,0.05)",
+    background: INSET,
     border: "1.5px solid rgba(255,255,255,0.09)",
     borderRadius: 12,
     padding: "11px 44px 11px 14px",
@@ -130,7 +130,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             className="relative w-full max-w-md rounded-2xl shadow-2xl"
             style={{
               background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: BORDER,
               boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
           >
@@ -210,7 +210,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                   </button>
                 </div>
                 {confirmPassword && newPassword !== confirmPassword && (
-                  <p style={{ fontSize: 12, color: "#F87171", marginTop: 5 }}>Passwords don&apos;t match</p>
+                  <p style={{ fontSize: 12, color: R, marginTop: 5 }}>Passwords don&apos;t match</p>
                 )}
               </div>
 

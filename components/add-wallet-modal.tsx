@@ -19,6 +19,7 @@ import {
 } from "@/features/wallets/hooks/use-wallets";
 import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react";
 import { AccountAddress } from "@aptos-labs/ts-sdk";
+import { A, G, P, BORDER, INSET } from "@/lib/splito-design";
 
 interface Chain {
   id: string;
@@ -42,10 +43,10 @@ const FALLBACK_CHAINS = [
 // Chain metadata for styling (matching design artifact)
 const getChainMeta = (chainId: string) => {
   const metaMap: Record<string, { color: string; icon: string }> = {
-    stellar: { color: "#34D399", icon: "✦" },
-    solana: { color: "#A78BFA", icon: "◎" },
+    stellar: { color: G, icon: "✦" },
+    solana: { color: P, icon: "◎" },
     base: { color: "#3B82F6", icon: "🔵" },
-    aptos: { color: "#22D3EE", icon: "⬡" },
+    aptos: { color: A, icon: "⬡" },
   };
   return metaMap[chainId] || { color: "#666", icon: "◆" };
 };
@@ -386,7 +387,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                   background: "rgba(255,255,255,0.04)",
                   borderRadius: 14,
                   padding: 4,
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  border: BORDER,
                 }}
               >
                 {[
@@ -440,7 +441,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                       onChange={(e) => setWalletAddress(e.target.value)}
                       style={{
                         width: "100%",
-                        background: "rgba(255,255,255,0.05)",
+                        background: INSET,
                         border: "1.5px solid rgba(255,255,255,0.09)",
                         borderRadius: 14,
                         padding: "14px 16px",
@@ -488,7 +489,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                           disabled={isAddingWallet || isSettingPrimary}
                           style={{
                             width: "100%",
-                            background: "rgba(255,255,255,0.05)",
+                            background: INSET,
                             border: "1.5px solid rgba(255,255,255,0.09)",
                             borderRadius: 14,
                             padding: "14px 44px 14px 16px",
@@ -533,7 +534,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                     style={{
                       width: "100%",
                       padding: "15px",
-                      background: walletAddress && !isAddingWallet && !isSettingPrimary ? "#22D3EE" : "rgba(255,255,255,0.05)",
+                      background: walletAddress && !isAddingWallet && !isSettingPrimary ? A : INSET,
                       color: walletAddress && !isAddingWallet && !isSettingPrimary ? "#0a0a0a" : "#555",
                       border: "none",
                       borderRadius: 14,
@@ -634,7 +635,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                         style={{
                           width: "100%",
                           padding: "15px",
-                          background: "#22D3EE",
+                          background: A,
                           color: "#0a0a0a",
                           border: "none",
                           borderRadius: 14,
@@ -701,7 +702,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                             <p
                               style={{
                                 fontSize: 12,
-                                color: "#22D3EE",
+                                color: A,
                                 fontFamily: "monospace",
                                 wordBreak: "break-all",
                               }}
@@ -724,7 +725,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                             style={{
                               width: "100%",
                               padding: "15px",
-                              background: "#22D3EE",
+                              background: A,
                               color: "#0a0a0a",
                               border: "none",
                               borderRadius: 14,
@@ -766,7 +767,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                           style={{
                             width: "100%",
                             padding: "15px",
-                            background: "#22D3EE",
+                            background: A,
                             color: "#0a0a0a",
                             border: "none",
                             borderRadius: 14,
@@ -803,7 +804,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                         style={{
                           width: "100%",
                           padding: "15px",
-                          background: "rgba(255,255,255,0.05)",
+                          background: INSET,
                           color: "#555",
                           border: "none",
                           borderRadius: 14,
@@ -864,7 +865,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
                     style={{
                       width: "100%",
                       padding: "13px",
-                      background: "rgba(255,255,255,0.05)",
+                      background: INSET,
                       color: "#e8e8e8",
                       border: "1.5px solid rgba(255,255,255,0.09)",
                       borderRadius: 14,

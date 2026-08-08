@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { T, Card } from "@/lib/splito-design";
+import { T, Card, INSET } from "@/lib/splito-design";
 import {
   getRequestByToken,
   getSupportedSources,
@@ -595,7 +595,7 @@ export default function PayRequestPage() {
             style={{
               borderRadius: 11,
               padding: "8px 15px",
-              background: "rgba(255,255,255,0.05)",
+              background: INSET,
               color: T.body,
               border: "1px solid rgba(255,255,255,0.1)",
             }}

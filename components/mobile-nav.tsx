@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { A, T, Icons } from "@/lib/splito-design";
+import { A, T, Icons, BORDER } from "@/lib/splito-design";
 import { isNavItemActive, navGroupsFor } from "@/lib/shell-nav";
 import { useActiveWorkspace } from "@/contexts/workspace";
 
@@ -60,7 +60,7 @@ export function MobileNav() {
       style={{
         background: "rgba(10,10,10,0.97)",
         backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
+        borderTop: BORDER,
         padding: tight ? "10px 4px 28px" : "12px 8px 28px",
       }}
     >

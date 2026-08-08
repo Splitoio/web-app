@@ -14,7 +14,7 @@ import {
   Check,
   ClipboardPaste,
 } from "lucide-react";
-import { Card, T, A } from "@/lib/splito-design";
+import { Card, T, A, R, BORDER } from "@/lib/splito-design";
 import { useParseExpenses } from "@/features/expenses/hooks/use-parse-expenses";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 import { useAuthStore } from "@/stores/authStore";
@@ -267,7 +267,7 @@ export default function ImportExpensesModal({
             className="relative z-10 w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl shadow-2xl"
             style={{
               background: "linear-gradient(145deg, #141414 0%, #0f0f0f 100%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: BORDER,
               boxShadow: "0 4px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -386,7 +386,7 @@ export default function ImportExpensesModal({
 
                               {/* Amount + currency */}
                               <div className="flex-shrink-0 text-right">
-                                <p className="text-[14px] font-bold font-mono" style={{ color: "#F87171" }}>
+                                <p className="text-[14px] font-bold font-mono" style={{ color: R }}>
                                   {exp.amount.toLocaleString()} {exp.currency}
                                 </p>
                               </div>

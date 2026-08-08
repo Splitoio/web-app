@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
-import { avatarChip, getUserColor, G, R, T } from "@/lib/splito-design";
+import { avatarChip, getUserColor, G, R, T, BORDER } from "@/lib/splito-design";
 import { formatRelativeTime } from "@/lib/utils";
 
 type GroupItem = {
@@ -69,7 +69,7 @@ function GroupTile({
           padding: "18px 20px",
           borderRadius: 20,
           background: "linear-gradient(145deg,#111 0%,#0d0d0d 100%)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          border: BORDER,
         }}
       >
         <div className="flex items-center mb-3">

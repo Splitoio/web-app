@@ -11,7 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { isValidEmail } from "@/utils/validation";
 import { GroupInviteLink } from "@/components/group-invite-link";
-import { A, T } from "@/lib/splito-design";
+import { A, T, INSET } from "@/lib/splito-design";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -205,7 +205,7 @@ export function AddMemberModal({
             disabled={isDisabled}
             style={{
               width: "100%",
-              background: "rgba(255,255,255,0.05)",
+              background: INSET,
               border: "1.5px solid rgba(255,255,255,0.09)",
               borderRadius: 14,
               padding: "12px 16px",
@@ -226,7 +226,7 @@ export function AddMemberModal({
           style={{
             width: "100%",
             padding: "13px",
-            background: canSubmit ? A : "rgba(255,255,255,0.05)",
+            background: canSubmit ? A : INSET,
             color: canSubmit ? "#0a0a0a" : "#555",
             border: "none",
             borderRadius: 14,

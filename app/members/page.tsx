@@ -33,6 +33,7 @@ import {
   pill,
   getUserColor,
   RADIUS,
+  INSET,
 } from "@/lib/splito-design";
 import {
   Select,
@@ -409,7 +410,7 @@ export default function MembersPage() {
               />
             </Field>
             <Field label="Role">
-              <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 12, background: "rgba(255,255,255,0.05)" }}>
+              <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 12, background: INSET }}>
                 {(["ADMIN", "MEMBER"] as const).map((r) => (
                   <div
                     key={r}
@@ -493,7 +494,7 @@ export default function MembersPage() {
                   </div>
                 </Field>
                 <Field label="Frequency" small>
-                  <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 12, background: "rgba(255,255,255,0.05)" }}>
+                  <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 12, background: INSET }}>
                     {FREQS.map((f) => (
                       <div
                         key={f.value}
@@ -797,7 +798,7 @@ const cancelBtnStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   cursor: "pointer",
-  background: "rgba(255,255,255,0.05)",
+  background: INSET,
   color: T.muted,
   border: "1px solid rgba(255,255,255,0.1)",
 };

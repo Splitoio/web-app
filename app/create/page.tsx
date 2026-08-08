@@ -32,6 +32,7 @@ import {
   G,
   P,
   R,
+  B,
   T,
   MONO,
   Card,
@@ -41,6 +42,8 @@ import {
   card,
   pill,
   eyebrow,
+  BORDER,
+  INSET,
 } from "@/lib/splito-design";
 import { chainLabel } from "@/components/requests/request-bits";
 import { FormErrorNotice } from "@/components/requests/form-error";
@@ -443,7 +446,7 @@ function CreateForm({
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: 12,
-                  background: "rgba(255,255,255,0.05)",
+                  background: INSET,
                   flexShrink: 0,
                 }}
               >
@@ -689,7 +692,7 @@ function PreviewPanel({
       <p style={{ margin: "0 0 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.soft }}>
         What the payer sees
       </p>
-      <div style={{ borderRadius: 20, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden", background: "linear-gradient(145deg,#111 0%,#0d0d0d 100%)" }}>
+      <div style={{ borderRadius: 20, border: BORDER, overflow: "hidden", background: "linear-gradient(145deg,#111 0%,#0d0d0d 100%)" }}>
         <div style={{ padding: 22, textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div className="mx-auto mb-3" style={{ width: 42, height: 42 }}>
             <AvatarChip init={workspaceInit} color={workspaceColor} size={42} radius={13} />
@@ -750,7 +753,7 @@ function CreatedShare({ result, payerCount }: { result: CreateRequestResponse; p
       init: "T",
       label: "Telegram",
       bg: "rgba(129,140,248,0.14)",
-      fg: "#818CF8",
+      fg: B,
       onClick: () => window.open(`https://t.me/share/url?url=${encodeURIComponent(primaryLink)}`, "_blank"),
     },
     {
@@ -817,7 +820,7 @@ function CreatedShare({ result, payerCount }: { result: CreateRequestResponse; p
                 type="button"
                 onClick={t.onClick}
                 className="flex flex-col items-center gap-2.5 transition-all hover:border-white/[0.18]"
-                style={{ padding: "16px 10px", borderRadius: 15, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ padding: "16px 10px", borderRadius: 15, background: "rgba(255,255,255,0.03)", border: BORDER }}
               >
                 <span
                   style={{
@@ -888,14 +891,14 @@ function CreatedShare({ result, payerCount }: { result: CreateRequestResponse; p
         <Link
           href={`/requests/${result.requestId}`}
           className="flex-1 text-center transition-all hover:border-white/20 hover:text-white"
-          style={{ borderRadius: 13, padding: 12, fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.05)", color: T.body, border: "1px solid rgba(255,255,255,0.1)" }}
+          style={{ borderRadius: 13, padding: 12, fontSize: 13, fontWeight: 700, background: INSET, color: T.body, border: "1px solid rgba(255,255,255,0.1)" }}
         >
           Track this request
         </Link>
         <Link
           href="/"
           className="flex-1 text-center transition-all hover:border-white/20 hover:text-white"
-          style={{ borderRadius: 13, padding: 12, fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.05)", color: T.body, border: "1px solid rgba(255,255,255,0.1)" }}
+          style={{ borderRadius: 13, padding: 12, fontSize: 13, fontWeight: 700, background: INSET, color: T.body, border: "1px solid rgba(255,255,255,0.1)" }}
         >
           Back to dashboard
         </Link>

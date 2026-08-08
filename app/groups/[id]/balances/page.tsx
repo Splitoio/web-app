@@ -15,6 +15,7 @@ import {
   Avatar,
   T,
   G,
+  R,
   Icons,
   getUserColor,
 } from "@/lib/splito-design";
@@ -114,7 +115,7 @@ export default function GroupBalancesPage() {
           const balanceDisplay = isCurrentUser
             ? null
             : netDebt > 0
-              ? { text: `you owe ${formatAmount(netDebt)}`, color: "#F87171" }
+              ? { text: `you owe ${formatAmount(netDebt)}`, color: R }
               : netDebt < 0
                 ? { text: `owes you ${formatAmount(Math.abs(netDebt))}`, color: G }
                 : { text: "all clear ✓", color: G };
@@ -205,7 +206,7 @@ export default function GroupBalancesPage() {
                         style={{
                           background: "rgba(248,113,113,0.06)",
                           border: "1px solid rgba(248,113,113,0.15)",
-                          color: "#F87171",
+                          color: R,
                           cursor: "pointer",
                           transition: "all 0.2s",
                         }}

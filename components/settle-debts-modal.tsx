@@ -23,6 +23,7 @@ import { getExchangeRate } from "@/features/currencies/api/client";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { useGetSettlementPreference, useGetUserSettlementPreference } from "@/features/user/hooks/use-update-profile";
+import { A, G, R, O, P } from "@/lib/splito-design";
 
 type ExpenseWithParticipants = Request & { expenseParticipants?: RequestPayer[] };
 
@@ -843,7 +844,7 @@ export function SettleDebtsModal({
   }, [_groups, groupId]);
 
   const memberDebtRows = useMemo(() => {
-    const palette = ["#A78BFA", "#34D399", "#FB923C", "#22D3EE", "#F472B6", "#FBBF24"];
+    const palette = [P, G, O, A, "#F472B6", "#FBBF24"];
     const sourceBalances = Array.isArray(balances) ? balances : [];
 
     // Aggregate balances per member per currency first, keeping the sign
@@ -952,8 +953,8 @@ export function SettleDebtsModal({
   const remainingTotal = totalToPay + totalToCollect;
 
   const SETTLE_CHAIN_META: Record<string, { icon: string; color: string }> = {
-    stellar: { icon: "✦", color: "#34D399" },
-    solana:  { icon: "◎", color: "#A78BFA" },
+    stellar: { icon: "✦", color: G },
+    solana:  { icon: "◎", color: P },
     base:    { icon: "🔵", color: "#3B82F6" },
   };
 
@@ -1014,7 +1015,7 @@ export function SettleDebtsModal({
       const aggregated = memberDebtRows.find(r => r.memberId === selectedSettleMemberId);
       const myPart = singleExpense.expenseParticipants?.find(p => p.userId === user.id && !p.isPaid);
       if (member && myPart) {
-        const palette = ["#A78BFA", "#34D399", "#FB923C", "#22D3EE", "#F472B6", "#FBBF24"];
+        const palette = [P, G, O, A, "#F472B6", "#FBBF24"];
         const initials = aggregated?.initials
           || (member.name || member.email || "?").split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
         return {
@@ -1111,7 +1112,7 @@ export function SettleDebtsModal({
                           key={s}
                           className="flex-1 h-1 rounded-full transition-all duration-500"
                           style={{
-                            background: s <= settleStep ? "#22D3EE" : "#2a2a2a",
+                            background: s <= settleStep ? A : "#2a2a2a",
                             boxShadow: s <= settleStep ? "0 0 8px rgba(34,211,238,0.4)" : "none",
                           }}
                         />
@@ -1164,7 +1165,7 @@ export function SettleDebtsModal({
                                     })}
                                   </div>
                                 </div>
-                                <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0 text-[#F87171]">
+                                <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0 text-splito-r">
                                   {formatCurrency(
                                     specificMemberAmounts?.[row.memberId] !== undefined
                                       ? Math.abs(specificMemberAmounts[row.memberId])
@@ -1207,7 +1208,7 @@ export function SettleDebtsModal({
                                     })}
                                   </div>
                                 </div>
-                                <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0 text-[#34D399]">
+                                <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0 text-splito-g">
                                   {formatCurrency(Math.abs(row.netConvertedSigned), defaultCurrency || "USD")}
                                 </p>
                                 <ChevronRight className="h-4 w-4 text-white/25 group-hover:text-white/50 transition-colors flex-shrink-0" />
@@ -1228,7 +1229,7 @@ export function SettleDebtsModal({
                             {totalToPay > 0 && (
                               <div className="flex items-center justify-between px-0.5">
                                 <span className="text-white/70 text-[13px] font-semibold">Total to pay</span>
-                                <span className="text-[#F87171] text-[15px] font-extrabold tabular-nums">
+                                <span className="text-splito-r text-[15px] font-extrabold tabular-nums">
                                   -{formatCurrency(totalToPay, defaultCurrency || "USD")}
                                 </span>
                               </div>
@@ -1236,7 +1237,7 @@ export function SettleDebtsModal({
                             {totalToCollect > 0 && (
                               <div className="flex items-center justify-between px-0.5">
                                 <span className="text-white/70 text-[13px] font-semibold">Total to collect</span>
-                                <span className="text-[#34D399] text-[15px] font-extrabold tabular-nums">
+                                <span className="text-splito-g text-[15px] font-extrabold tabular-nums">
                                   +{formatCurrency(totalToCollect, defaultCurrency || "USD")}
                                 </span>
                               </div>
@@ -1267,7 +1268,7 @@ export function SettleDebtsModal({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-white text-[14px] font-bold truncate">{selectedMemberRow.name}</p>
-                            <p className="text-[11px] mt-0.5" style={{ color: selectedMemberRow.direction === "owe" ? "#F87171" : "#34D399" }}>
+                            <p className="text-[11px] mt-0.5" style={{ color: selectedMemberRow.direction === "owe" ? R : G }}>
                               {selectedMemberRow.direction === "owe" ? "You owe" : "Owes you"}{" "}
                               <span className="font-extrabold">
                                 {formatCurrency(Math.abs(selectedMemberRow.netConvertedSigned), defaultCurrency || "USD")}
@@ -1298,7 +1299,7 @@ export function SettleDebtsModal({
                                       {exp.date ? new Date(exp.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
                                     </p>
                                   </div>
-                                  <p className="text-[13px] font-extrabold tabular-nums flex-shrink-0" style={{ color: exp.direction === "owe" ? "#F87171" : "#34D399" }}>
+                                  <p className="text-[13px] font-extrabold tabular-nums flex-shrink-0" style={{ color: exp.direction === "owe" ? R : G }}>
                                     {exp.direction === "owed" && "+"}
                                     {(() => {
                                       const fmt = formatWithDefault(exp.amount, exp.currency);
@@ -1312,7 +1313,7 @@ export function SettleDebtsModal({
                             {/* Net total */}
                             <div className="flex items-center justify-between pt-3 mt-1 border-t border-white/[0.06] px-0.5">
                               <span className="text-white/70 text-[13px] font-semibold">Net balance</span>
-                              <span className="text-[15px] font-extrabold tabular-nums" style={{ color: selectedMemberRow.direction === "owe" ? "#F87171" : "#34D399" }}>
+                              <span className="text-[15px] font-extrabold tabular-nums" style={{ color: selectedMemberRow.direction === "owe" ? R : G }}>
                                 {selectedMemberRow.direction === "owe" ? "-" : "+"}
                                 {formatCurrency(Math.abs(selectedMemberRow.netConvertedSigned), defaultCurrency || "USD")}
                               </span>
@@ -1328,7 +1329,7 @@ export function SettleDebtsModal({
                         {/* Action button */}
                         {selectedMemberRow.direction === "owe" ? (
                           <button
-                            className="w-full mt-2 h-12 rounded-[14px] bg-[#22D3EE] text-[#0a0a0a] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                            className="w-full mt-2 h-12 rounded-[14px] bg-splito-a text-[#0a0a0a] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                             onClick={() => goToStep(3)}
                           >
                             <span>Continue to Payment</span>
@@ -1376,7 +1377,7 @@ export function SettleDebtsModal({
                                 <p className="text-[11px] text-white/40 mt-0.5 truncate">for {singleExpense.name}</p>
                               )}
                             </div>
-                            <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0" style={{ color: row.direction === "owe" ? "#F87171" : "#34D399" }}>
+                            <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0" style={{ color: row.direction === "owe" ? R : G }}>
                               {row.direction === "owe" ? "-" : "+"}
                               {(() => {
                                 const amt = specificMemberAmounts?.[memberId] !== undefined
@@ -1416,7 +1417,7 @@ export function SettleDebtsModal({
                                         className="flex-shrink-0 h-10 w-10 rounded-full grid place-items-center"
                                         style={{ background: "rgba(251,146,60,0.12)", border: "1.5px solid rgba(251,146,60,0.25)" }}
                                       >
-                                        <UserX className="h-[18px] w-[18px]" style={{ color: "#FB923C" }} />
+                                        <UserX className="h-[18px] w-[18px]" style={{ color: O }} />
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <p className="text-[13px] font-bold text-white/90">
@@ -1431,7 +1432,7 @@ export function SettleDebtsModal({
                                       <button
                                         type="button"
                                         className="w-full h-11 rounded-[12px] font-bold text-[13px] flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
-                                        style={{ background: "rgba(251,146,60,0.12)", border: "1.5px solid rgba(251,146,60,0.30)", color: "#FB923C" }}
+                                        style={{ background: "rgba(251,146,60,0.12)", border: "1.5px solid rgba(251,146,60,0.30)", color: O }}
                                         disabled={isReminderSending}
                                         onClick={() => sendReminderMutation({
                                           receiverId: memberId,
@@ -1522,10 +1523,10 @@ export function SettleDebtsModal({
                                       <div className="rounded-[16px] overflow-hidden" style={{ border: "1px solid rgba(239,68,68,0.20)", background: "linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(239,68,68,0.02) 100%)" }}>
                                         <div className="px-4 py-3.5 flex items-start gap-3">
                                           <div className="flex-shrink-0 h-9 w-9 rounded-full grid place-items-center" style={{ background: "rgba(239,68,68,0.12)", border: "1.5px solid rgba(239,68,68,0.25)" }}>
-                                            <X className="h-4 w-4" style={{ color: "#F87171" }} />
+                                            <X className="h-4 w-4" style={{ color: R }} />
                                           </div>
                                           <div className="min-w-0 flex-1">
-                                            <p className="text-[12px] font-bold" style={{ color: "#F87171" }}>
+                                            <p className="text-[12px] font-bold" style={{ color: R }}>
                                               {firstName} can&apos;t receive on {pickedLabel}
                                             </p>
                                             <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.40)", lineHeight: 1.5 }}>
@@ -1577,7 +1578,7 @@ export function SettleDebtsModal({
                                       type="button"
                                       disabled={isPending}
                                       className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-opacity hover:opacity-90 disabled:opacity-50"
-                                      style={{ background: "#22D3EE", color: "#0a0a0a" }}
+                                      style={{ background: A, color: "#0a0a0a" }}
                                       onClick={() => member && handleSettleOne(member)}
                                     >
                                       {isPending ? (
@@ -1665,10 +1666,10 @@ export function SettleDebtsModal({
                       {selectedToken && (
                         <div>
                           <label className="text-[#ccc] text-[11px] font-bold tracking-[0.08em] uppercase mb-2 block">
-                            Amount {(isLoadingTokenPrice || isLoadingRate || isLoadingMultiCurrency) && "(Converting...)"} <span className="text-[#22D3EE]">({selectedToken?.symbol})</span>
+                            Amount {(isLoadingTokenPrice || isLoadingRate || isLoadingMultiCurrency) && "(Converting...)"} <span className="text-splito-a">({selectedToken?.symbol})</span>
                           </label>
                           <div className="w-full flex items-center bg-white/[0.05] border-[1.5px] border-white/[0.09] rounded-[14px] px-4 py-3 text-white">
-                            <span className="text-[#22D3EE] text-[20px] font-extrabold mr-2 min-w-[24px]">
+                            <span className="text-splito-a text-[20px] font-extrabold mr-2 min-w-[24px]">
                               {selectedToken?.symbol === 'USD' ? '$' : selectedToken?.symbol[0]}
                             </span>
                             <input
@@ -1702,7 +1703,7 @@ export function SettleDebtsModal({
                                     <span className="text-white/80">
                                       {formatCurrency(debt.amount, debt.currency)}
                                     </span>
-                                    <span className="text-[#34D399] font-bold">
+                                    <span className="text-splito-g font-bold">
                                       {debt.tokenAmount.toFixed(6)} {selectedToken?.symbol}
                                     </span>
                                   </div>
@@ -1710,7 +1711,7 @@ export function SettleDebtsModal({
                                 <div className="border-t border-white/[0.08] mt-2 pt-2">
                                   <div className="flex justify-between items-center text-[13px] font-bold">
                                     <span className="text-white">Total:</span>
-                                    <span className="text-[#34D399]">
+                                    <span className="text-splito-g">
                                       {totalTokenAmount} {selectedToken?.symbol}
                                     </span>
                                   </div>
@@ -1781,7 +1782,7 @@ export function SettleDebtsModal({
                             return multiCurrencyDebts.length > 0 ? (
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {multiCurrencyDebts.map((debt, idx) => (
-                                  <span key={idx} className="text-[#34D399] font-[800] font-mono">
+                                  <span key={idx} className="text-splito-g font-[800] font-mono">
                                     {formatCurrency(debt.amount, debt.currency)}
                                     {idx < multiCurrencyDebts.length - 1 && ", "}
                                   </span>
@@ -1791,7 +1792,7 @@ export function SettleDebtsModal({
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-[#34D399] font-[800] font-mono ml-1">
+                              <span className="text-splito-g font-[800] font-mono ml-1">
                                 {formatCurrency(Math.abs(selectedUserBalance), defaultCurrency)}
                               </span>
                             );
@@ -1815,7 +1816,7 @@ export function SettleDebtsModal({
 
                 {canProceedWithSettlement() ? (
                   <button
-                    className="w-full mt-6 h-12 rounded-[14px] bg-[#22D3EE] text-[#0a0a0a] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full mt-6 h-12 rounded-[14px] bg-splito-a text-[#0a0a0a] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => selectedUser && handleSettleOne(selectedUser)}
                     disabled={
                       isPending ||
