@@ -256,6 +256,12 @@ export interface CreateRequestBody {
   /** Scope to a BUSINESS workspace instead of the requester's personal
    * context. Omit (or "personal") for personal — see request-money.controller.ts. */
   workspaceId?: string;
+  /** Lock the fiat->asset rate at CREATION time (Lock 1 of the two-lock model).
+   * Omitting this does NOT mean "unlocked" — the backend falls back to the
+   * caller's User.timeLockInDefault (createRequestSchema, request-money.controller.ts),
+   * which is false for a fresh account. Always send the toggle's actual value so
+   * the request stores what the requester was shown. */
+  timeLockIn?: boolean;
 }
 
 export interface CreateRequestPayerLink {

@@ -150,7 +150,10 @@ function CreateForm({
   const [kind, setKind] = useState<Kind>("request"); // "request" is the landing state — split is never the default
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
-  const [lockIn, setLockIn] = useState(true); // matches timeLockInDefault — see note on the toggle below
+  // Locking is the product's headline promise, so it leads as on. This value is
+  // always sent on submit (see timeLockIn in the createRequest call) rather than
+  // relying on the backend's User.timeLockInDefault fallback, which is false.
+  const [lockIn, setLockIn] = useState(true);
   const [payerCount, setPayerCount] = useState(2);
   const [splitMode, setSplitMode] = useState<(typeof SPLIT_MODES)[number]>("Evenly");
   const [destIdx, setDestIdx] = useState(0);
@@ -202,6 +205,11 @@ function CreateForm({
         name: title.trim() || undefined,
         expiresAt: expiresAtDate.toISOString(),
         workspaceId: isPersonal ? undefined : workspace.id,
+        // Send the toggle's value explicitly. Omitting it makes the backend fall
+        // back to User.timeLockInDefault (false on a fresh account), which would
+        // silently create an UNLOCKED request while this screen showed "Lock the
+        // rate" as on.
+        timeLockIn: lockIn,
       });
       onCreated(res, effectivePayerCount);
     } catch (err) {
