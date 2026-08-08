@@ -1267,7 +1267,7 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
           {isBusiness && <RailGroup label="Workspace" items={WORKSPACE_SECTIONS} sec={sec} setSec={setSec} />}
         </div>
 
-        <div style={{ minWidth: 0, ...card({ padding: "26px 28px" }) }}>
+        <div style={{ minWidth: 0, ...card({ padding: "20px 22px" }) }}>
           {sec === "profile" && (
             <ProfileSection
               user={user}

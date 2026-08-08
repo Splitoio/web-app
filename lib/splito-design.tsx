@@ -58,7 +58,7 @@ export const RADIUS = {
   card: 20,
   stat: 18,
   hero: 24,
-  modal: 26,
+  modal: 28,
   control: 12,
   tile: 15,
   pill: 99,

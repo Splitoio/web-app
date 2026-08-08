@@ -154,7 +154,7 @@ export default function GroupSettingsPage() {
   };
 
   return (
-    <div style={{ ...card(), padding: "24px 26px" }}>
+    <div style={{ ...card(), padding: "20px 22px" }}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         <div>
           <p style={eyebrow()}>Name</p>

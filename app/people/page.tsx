@@ -203,7 +203,7 @@ export default function PeoplePage() {
             placeholder="Search people…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent border-none text-white text-[14px] outline-none font-medium"
+            className="flex-1 bg-transparent border-none text-white text-[14px] outline-none font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a"
           />
         </div>
 

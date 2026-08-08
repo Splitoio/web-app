@@ -188,7 +188,7 @@ function CreateRequestForm({
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-              className="bg-transparent outline-none font-mono font-extrabold"
+              className="bg-transparent outline-none font-mono font-extrabold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a"
               // Sized to the value, not a fixed 5.5ch — "500" left ~42px of dead
               // space inside the pill. +0.5ch keeps the caret from clipping.
               style={{ color: "#fff", width: `${Math.max(amount.length, 1) + 0.5}ch` }}
@@ -271,7 +271,7 @@ function CreateRequestForm({
             if (addressRejected) setSubmitError(null);
           }}
           placeholder={destination.chain === "stellar" ? "G..." : "Solana wallet address"}
-          className="w-full rounded-xl px-4 py-3 text-[14px] font-mono outline-none"
+          className="w-full rounded-xl px-4 py-3 text-[14px] font-mono outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a"
           style={{
             background: "rgba(255,255,255,0.04)",
             border: `1px solid ${
@@ -301,7 +301,7 @@ function CreateRequestForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="What's this for? (optional)"
-          className="w-full rounded-xl px-4 py-3 text-[14px] mt-3 outline-none"
+          className="w-full rounded-xl px-4 py-3 text-[14px] mt-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a"
           style={{
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.1)",

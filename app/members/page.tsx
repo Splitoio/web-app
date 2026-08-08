@@ -363,7 +363,7 @@ export default function MembersPage() {
             borderRadius: 20,
             border: "1px solid rgba(34,211,238,0.22)",
             background: "linear-gradient(145deg,#131316 0%,#0e0e10 100%)",
-            padding: "22px 24px",
+            padding: "20px 22px",
             marginBottom: 16,
             animation: "fU .25s ease",
           }}
@@ -412,9 +412,12 @@ export default function MembersPage() {
             <Field label="Role">
               <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 12, background: INSET }}>
                 {(["ADMIN", "MEMBER"] as const).map((r) => (
-                  <div
+                  <button
                     key={r}
+                    type="button"
+                    aria-pressed={role === r}
                     onClick={() => !withContract && setRole(r)}
+                    disabled={withContract}
                     style={{
                       flex: 1,
                       textAlign: "center",
@@ -422,6 +425,8 @@ export default function MembersPage() {
                       borderRadius: 9,
                       fontSize: 12,
                       fontWeight: 700,
+                      fontFamily: "inherit",
+                      border: "none",
                       cursor: withContract ? "not-allowed" : "pointer",
                       opacity: withContract && role !== r ? 0.4 : 1,
                       background: role === r ? A : "transparent",
@@ -430,7 +435,7 @@ export default function MembersPage() {
                     }}
                   >
                     {r === "ADMIN" ? "Admin" : "Member"}
-                  </div>
+                  </button>
                 ))}
               </div>
             </Field>
@@ -496,8 +501,10 @@ export default function MembersPage() {
                 <Field label="Frequency" small>
                   <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 12, background: INSET }}>
                     {FREQS.map((f) => (
-                      <div
+                      <button
                         key={f.value}
+                        type="button"
+                        aria-pressed={cFreq === f.value}
                         onClick={() => setCFreq(f.value)}
                         style={{
                           flex: 1,
@@ -506,13 +513,15 @@ export default function MembersPage() {
                           borderRadius: 9,
                           fontSize: 11.5,
                           fontWeight: 700,
+                          fontFamily: "inherit",
+                          border: "none",
                           cursor: "pointer",
                           background: cFreq === f.value ? A : "transparent",
                           color: cFreq === f.value ? "#0a0a0a" : T.muted,
                         }}
                       >
                         {f.label}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </Field>
@@ -629,7 +638,7 @@ export default function MembersPage() {
                     canManage && m.userId ? (
                       <div style={{ width: 108, flexShrink: 0 }}>
                         <Select value={m.role} onValueChange={(v) => handleRoleChange(m.userId!, v as "ADMIN" | "MEMBER")}>
-                          <SelectTrigger className="h-7 text-[11px] bg-white/[0.05] text-white border border-white/[0.1] rounded-full px-3 focus:ring-0 focus:outline-none [&>svg]:text-white/50">
+                          <SelectTrigger className="h-7 text-[11px] bg-white/[0.05] text-white border border-white/[0.1] rounded-full px-3 focus:ring-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a [&>svg]:text-white/50">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-[#17171A] border border-white/10 rounded-lg shadow-xl">
@@ -666,13 +675,17 @@ export default function MembersPage() {
 
                   {meta && <span style={{ ...pill(meta.color), flexShrink: 0 }}>{meta.label}</span>}
 
-                  <span
+                  <button
+                    type="button"
                     onClick={() =>
                       contract ? setViewContract(contract) : openInviteFor(m.email, true)
                     }
                     style={{
                       fontSize: 12,
                       fontWeight: 700,
+                      fontFamily: "inherit",
+                      background: "none",
+                      border: "none",
                       color: A,
                       cursor: "pointer",
                       flexShrink: 0,
@@ -681,7 +694,7 @@ export default function MembersPage() {
                     }}
                   >
                     {contract ? "View contract" : currentUserIsAdmin ? "Add contract" : ""}
-                  </span>
+                  </button>
 
                   {canManage && m.userId && (
                     <button

@@ -346,7 +346,6 @@ export default function GroupRequestsPage() {
             <Card
               style={{
                 padding: 0,
-                borderRadius: 24,
               }}
             >
               {dateExpenses.map((expense, idx) => (
