@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
 import { CheckCircle2, Clock, ExternalLink, Loader, RefreshCw, XCircle } from "lucide-react";
-import { Card, T, G, A } from "@/lib/splito-design";
+import { Card, T, G, A, R, O, MONO, eyebrow } from "@/lib/splito-design";
 import { explorerTxUrl } from "@/lib/chain-network";
-import { chainName } from "@/lib/pay-sources";
+import { assetSymbol, chainName } from "@/lib/pay-sources";
+import { formatCurrency } from "@/utils/formatters";
+import type { Quote } from "@/api-helpers/requests";
 
 /**
  * Terminal / in-flight payment states. STUCK is mandatory before launch per
@@ -11,42 +16,198 @@ import { chainName } from "@/lib/pay-sources";
  * mandatory and is the state teams forget") — it must have a visible
  * "we're on it" path, not be treated as a rare edge case handled later.
  */
-export function PaymentConfirmed({ hash, chain }: { hash: string | null; chain: string }) {
+
+/**
+ * The "Paid" / receipt screen (.design/splito-finance.dc.html:1578-1623).
+ *
+ * `quote` is the same Quote object the pay screen already fetched — this
+ * never re-derives an amount or fee, only re-renders what was already quoted
+ * and confirmed. It is null on the "already paid" cold-open (a payer who
+ * opens a settled link never had a quote in THIS browser session), in which
+ * case the receipt/breakdown cards are omitted rather than filled with
+ * guesses and `amount` (the share, always known from the request) drives the
+ * headline instead.
+ */
+export function PaymentConfirmed({
+  hash,
+  chain,
+  quote,
+  requesterName,
+  amount,
+}: {
+  hash: string | null;
+  chain: string;
+  quote: Quote | null;
+  requesterName: string | null;
+  /** Fallback share amount for the headline when there is no quote. */
+  amount?: number | null;
+}) {
+  const [pdfRequested, setPdfRequested] = useState(false);
+  const srcSymbol = quote ? assetSymbol(quote.sourceAsset) : null;
+  const dstSymbol = quote ? assetSymbol(quote.destinationAsset) : null;
+  const totalSent = quote ? (quote.sourceAmountMax ?? quote.sourceAmount) : null;
+  const explorer = explorerTxUrl(chain, hash);
+
+  const receiptRows = quote
+    ? [
+        { k: "Sent", v: `${totalSent} ${srcSymbol}`, color: T.body },
+        { k: "Received", v: `${quote.destinationAmount} ${dstSymbol}`, color: G },
+        { k: "Network", v: chainName(chain), color: T.body },
+      ]
+    : [];
+
+  const feeRows =
+    quote?.fees && quote.fees.length > 0
+      ? quote.fees.map((f, i) => ({
+          key: `${f.kind}-${i}`,
+          label: f.label || f.kind,
+          amount: f.amount,
+          asset: assetSymbol(f.asset),
+        }))
+      : quote?.fee
+        ? [{ key: "fee", label: "Fee", amount: quote.fee, asset: dstSymbol! }]
+        : [];
+
+  const headline = quote
+    ? `${quote.destinationAmount} ${dstSymbol} landed on ${chainName(chain)}.`
+    : amount != null
+      ? `Your ${formatCurrency(amount, "USD")} share has already been paid.`
+      : "Your payment landed directly in the recipient’s wallet.";
+
   return (
-    <Card className="p-6 sm:p-8 text-center" style={{ marginTop: 16 }}>
-      <CheckCircle2 className="h-10 w-10 mx-auto mb-3" style={{ color: G }} />
-      <p className="text-[16px] font-extrabold" style={{ color: T.bright }}>
-        Payment sent
-      </p>
-      <p className="text-[13px] mt-1.5" style={{ color: T.muted }}>
-        Your payment landed directly in the recipient&rsquo;s wallet. No further action needed.
-      </p>
-      {hash && (
-        <>
-          <p className="text-[11px] mt-3 font-mono break-all" style={{ color: T.dim }}>
-            {chainName(chain)} tx: {hash}
-          </p>
-          {explorerTxUrl(chain, hash) && (
-            <a
-              href={explorerTxUrl(chain, hash)!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 mt-2 text-[12px] font-extrabold"
-              style={{ color: A }}
+    <div style={{ maxWidth: 520, margin: "0 auto" }}>
+      <div style={{ textAlign: "center", marginBottom: 26 }}>
+        <div
+          style={{
+            width: 58,
+            height: 58,
+            borderRadius: "50%",
+            margin: "0 auto 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: `${G}1f`,
+            border: `1px solid ${G}40`,
+          }}
+        >
+          <CheckCircle2 style={{ color: G }} className="h-7 w-7" />
+        </div>
+        <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", color: T.white }}>
+          Paid
+        </h2>
+        <p style={{ margin: "8px 0 0", fontSize: 14, color: T.muted }}>{headline}</p>
+      </div>
+
+      {receiptRows.length > 0 && (
+        <Card style={{ marginBottom: 20 }}>
+          {receiptRows.map((r) => (
+            <div
+              key={r.k}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 20px",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+              }}
             >
-              View on explorer <ExternalLink className="h-3 w-3" />
-            </a>
+              <span style={{ fontSize: 12.5, color: T.muted }}>{r.k}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, fontFamily: MONO, color: r.color }}>
+                {r.v}
+              </span>
+            </div>
+          ))}
+          {explorer && (
+            <div style={{ padding: "12px 20px" }}>
+              <a
+                href={explorer}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[12px] font-extrabold"
+                style={{ color: A }}
+              >
+                View on explorer <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
           )}
+        </Card>
+      )}
+
+      {feeRows.length > 0 && (
+        <>
+          <p style={{ ...eyebrow(T.soft), marginBottom: 12 }}>Cost breakdown</p>
+          <Card style={{ padding: "18px 20px", marginBottom: 20 }}>
+            {feeRows.map((f) => (
+              <div
+                key={f.key}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}
+              >
+                <span style={{ fontSize: 12, color: T.sub }}>{f.label}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, fontFamily: MONO, color: T.body }}>
+                  {f.amount} {f.asset}
+                </span>
+              </div>
+            ))}
+            <div style={{ height: 1, margin: "10px 0", background: "rgba(255,255,255,0.07)" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: T.main }}>Total charged</span>
+              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: MONO, color: T.white }}>
+                {totalSent} {srcSymbol}
+              </span>
+            </div>
+            <p style={{ margin: "10px 0 0", fontSize: 11.5, lineHeight: 1.5, color: T.dim }}>
+              Visible to you and the recipient only.
+            </p>
+          </Card>
         </>
       )}
-    </Card>
+
+      <div
+        style={{
+          padding: 22,
+          borderRadius: 20,
+          background: "linear-gradient(135deg,rgba(34,211,238,0.1) 0%,rgba(34,211,238,0.02) 100%)",
+          border: "1px solid rgba(34,211,238,0.25)",
+        }}
+      >
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: T.bright }}>
+          This receipt disappears when you close the tab
+        </p>
+        <p style={{ margin: "6px 0 0", fontSize: 12.5, lineHeight: 1.6, color: T.mid }}>
+          Claim it to a free account to keep proof of payment
+          {requesterName ? `, save ${requesterName} as a contact,` : ""} and pay their next request
+          in two taps.
+        </p>
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-[13px] font-bold"
+            style={{ background: A, color: "#0a0a0a" }}
+          >
+            Claim this receipt
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setPdfRequested(true);
+              toast("PDF export is coming soon.");
+            }}
+            disabled={pdfRequested}
+            className="rounded-xl px-4.5 py-2.5 text-[13px] font-bold disabled:opacity-50"
+            style={{ color: T.sub }}
+          >
+            Download PDF
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export function PaymentFailed({ onRetry }: { onRetry: () => void }) {
   return (
     <Card className="p-6 sm:p-8 text-center" style={{ marginTop: 16 }}>
-      <XCircle className="h-10 w-10 mx-auto mb-3" style={{ color: "#F87171" }} />
+      <XCircle className="h-10 w-10 mx-auto mb-3" style={{ color: R }} />
       <p className="text-[16px] font-extrabold" style={{ color: T.bright }}>
         Payment failed
       </p>
@@ -201,7 +362,7 @@ export function PaymentStuck({
 
   return (
     <Card className="p-6 sm:p-8 text-center" style={{ marginTop: 16 }}>
-      <Clock className="h-10 w-10 mx-auto mb-3" style={{ color: "#FBBF24" }} />
+      <Clock className="h-10 w-10 mx-auto mb-3" style={{ color: O }} />
       <p className="text-[16px] font-extrabold" style={{ color: T.bright }}>
         {hash ? "Your funds left — we're tracking it" : "We lost track of this payment"}
       </p>

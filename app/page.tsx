@@ -24,8 +24,14 @@ import {
   type DestinationChain,
   type RequestListItem,
 } from "@/api-helpers/requests";
-import { A, Card, SectionLabel, T, Icons } from "@/lib/splito-design";
+import { A, Card, R, SectionLabel, T, Icons } from "@/lib/splito-design";
 import { StatusChip, progressLabel } from "@/components/requests/request-bits";
+import { FormErrorNotice } from "@/components/requests/form-error";
+import { toFormError, type FormError } from "@/lib/request-errors";
+import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
+import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
+import { BusinessDashboard } from "@/components/dashboard/business-dashboard";
+import { BusinessDashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 
 // ─── Chain destinations — Stellar and Solana only. Exact lowercase literals
 // per the API contract (.specs/2026-08-06-request-money-api-contract.md §0.1).
@@ -127,11 +133,17 @@ function CreateRequestForm({
   const [destinationAddress, setDestinationAddress] = useState("");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Server-side rejection (e.g. no USDC trustline). Rendered inline under the
+  // address field and pinned until dismissed — never a toast. See
+  // components/requests/form-error.tsx.
+  const [submitError, setSubmitError] = useState<FormError | null>(null);
 
   const destination = CHAINS[chainIdx];
   const parsedAmount = Number(amount);
   const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const addressValid = isValidAddress(destination.chain, destinationAddress);
+  /** The server rejected the address itself — mark the field, not just the notice. */
+  const addressRejected = submitError?.field === "destinationAddress";
   const canSubmit = amountValid && payerCount >= 1 && addressValid && !submitting;
 
   const canPrefillWallet =
@@ -140,6 +152,7 @@ function CreateRequestForm({
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const res = await createRequest({
         amount: parsedAmount,
@@ -152,11 +165,7 @@ function CreateRequestForm({
       });
       onCreated(res.links);
     } catch (err) {
-      const message =
-        err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string"
-          ? (err as { message: string }).message
-          : "Could not create the request. Please try again.";
-      toast.error(message);
+      setSubmitError(toFormError(err));
     } finally {
       setSubmitting(false);
     }
@@ -231,7 +240,11 @@ function CreateRequestForm({
               <button
                 key={c.chain}
                 type="button"
-                onClick={() => setChainIdx(i)}
+                onClick={() => {
+                  setChainIdx(i);
+                  // The rejection was about the old chain's address.
+                  setSubmitError(null);
+                }}
                 className="flex h-8 sm:h-9 items-center rounded-lg px-3 font-mono font-extrabold text-[16px] sm:text-[19px] leading-none transition-colors"
                 style={{
                   background: i === chainIdx ? A : "transparent",
@@ -251,15 +264,25 @@ function CreateRequestForm({
         </label>
         <input
           value={destinationAddress}
-          onChange={(e) => setDestinationAddress(e.target.value)}
+          // Editing the address is the user acting on the error, so retire it —
+          // the message described the value they just changed.
+          onChange={(e) => {
+            setDestinationAddress(e.target.value);
+            if (addressRejected) setSubmitError(null);
+          }}
           placeholder={destination.chain === "stellar" ? "G..." : "Solana wallet address"}
           className="w-full rounded-xl px-4 py-3 text-[14px] font-mono outline-none"
           style={{
             background: "rgba(255,255,255,0.04)",
-            border: `1px solid ${destinationAddress && !addressValid ? "#F87171" : "rgba(255,255,255,0.1)"}`,
+            border: `1px solid ${
+              (destinationAddress && !addressValid) || addressRejected ? R : "rgba(255,255,255,0.1)"
+            }`,
             color: T.bright,
           }}
         />
+        {submitError && (
+          <FormErrorNotice error={submitError} onDismiss={() => setSubmitError(null)} />
+        )}
         {canPrefillWallet && address !== destinationAddress && (
           <button
             type="button"
@@ -498,12 +521,63 @@ function LinkCreated({
   );
 }
 
+/**
+ * The signed-in dashboard — hero/settle-up/groups/activity for the personal
+ * workspace, or the treasury/approval or revenue arrangement for a business
+ * one (contexts/workspace.tsx decides which, never the URL). Design 145-241
+ * and 244-369 have no in-page title row — the shell's <Topbar/> (title +
+ * "+ Create") is it. But Topbar only mounts at >=1025px (client-layout.tsx),
+ * so below that this is the only heading; `min-[1025px]:hidden` keeps it from
+ * doubling up with Topbar once that breakpoint hits. Matches the same
+ * treatment in app/requests/[id]/page.tsx. No CTA here — the shell's
+ * "+ Create" already covers the primary action at >=1025px, and no page in
+ * this app duplicates it below that either (see app/requests/page.tsx).
+ */
+function DashboardScreen({ kind }: { kind: "personal" | "business" | null }) {
+  return (
+    <div className="flex-1 flex flex-col min-w-0">
+      <div className="block min-[1025px]:hidden border-b border-white/[0.07] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10">
+        <div className="flex px-4 sm:px-7 items-center h-[60px] sm:h-[70px]">
+          <h1 className="text-[16px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white truncate">
+            Dashboard
+          </h1>
+        </div>
+      </div>
+
+      <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
+        {/* kind === null: the cookie names a workspace the list hasn't returned
+            yet. Guessing "personal" here mounts PersonalDashboard, which fires
+            /workspaces/personal/summary for an account whose active workspace
+            is a business one. Only "personal" resolves without the list, so an
+            unresolved id is always a business one — show its skeleton. */}
+        {kind === null ? (
+          <BusinessDashboardSkeleton />
+        ) : kind === "business" ? (
+          <BusinessDashboard />
+        ) : (
+          <PersonalDashboard />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Page() {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const workspace = useActiveWorkspace();
+  const isResolvingWorkspace = useIsResolvingWorkspace();
   const [createdLinks, setCreatedLinks] = useState<CreateRequestPayerLink[] | null>(null);
   // Bumped after a successful create so the Recent list picks the new one up.
   const [reloadKey, setReloadKey] = useState(0);
   const recentRequests = useRecentRequests(user?.id ?? null, reloadKey);
+
+  // Signed in -> the dashboard, never the anonymous create-request landing
+  // below. Branches on the session already held client-side (useAuthStore),
+  // never a blocking fetch — see components/AuthProvider.tsx, which never
+  // gates "/" behind the session request either.
+  if (isAuthenticated) {
+    return <DashboardScreen kind={isResolvingWorkspace ? null : workspace.kind} />;
+  }
 
   return (
     <div className="flex-1 flex flex-col min-w-0">

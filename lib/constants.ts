@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 export const QueryKeys = {
   AUTH: "auth",
   GROUPS: "groups",
+  WORKSPACES: "workspaces",
   FRIENDS: "friends",
   EXPENSES: "expenses",
   BALANCES: "balances",
@@ -14,6 +15,7 @@ export const QueryKeys = {
   ORGANIZATION_ACTIVITY: "organization-activity",
   STREAMS: "streams",
   CONTRACTS: "contracts",
+  WORKSPACE_SUMMARY: "workspace-summary",
 } as const;
 
 // Utility function to invalidate all relevant caches after settlement

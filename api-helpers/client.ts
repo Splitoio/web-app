@@ -8,17 +8,6 @@ const API_TIMEOUT = 30000;
 // Track if we're already redirecting to prevent loops
 let isRedirecting = false;
 
-// Routes that don't require auth checking
-const PUBLIC_ROUTES = [
-  "/api/auth/login",
-  "/api/auth/register",
-  "/api/auth/verify",
-  "/api/auth/reset-password",
-  "/api/auth/forgot-password",
-  // Public payer flow — no account, ever. See .specs/2026-08-06-request-money-api-contract.md
-  "/api/public/requests",
-];
-
 // Helper function to handle redirects to login page
 const redirectToLogin = () => {
   if (typeof window !== "undefined" && !isRedirecting) {
@@ -55,22 +44,20 @@ export const apiClient = axios.create({
   headers: { "Cache-Control": "no-cache" }
 });
 
-// Request interceptor - only check if the route requires auth
+// Request interceptor — deliberately a pass-through.
+//
+// There is no client-side auth decision to make here: better-auth's session
+// cookie is httpOnly, so this code cannot read it, and `withCredentials` sends
+// it automatically. Whether a request is allowed is the backend's call, and we
+// act on its 401 in the response interceptor below.
+//
+// This previously classified the outgoing URL against a local PUBLIC_ROUTES
+// array and threw the result away. Beyond being dead, it was a SECOND source of
+// truth for "public" that could drift from lib/middleware-session.ts, and it
+// shadowed the isPublicRoute imported above. If you ever need a route check
+// here, import it from lib/middleware-session.ts — never re-declare the list.
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    if (typeof window !== "undefined") {
-      const sessionToken = Cookies.get("sessionToken");
-      const url = config.url || "";
-
-      // Only redirect for authenticated routes
-      const isPublicRoute = PUBLIC_ROUTES.some((route) => url.includes(route));
-
-      // For non-public routes we rely on backend 401 if session is missing.
-      // Note: better-auth uses httpOnly cookies, so sessionToken may be empty here.
-    }
-
-    return config;
-  },
+  (config: InternalAxiosRequestConfig) => config,
   (error) => {
     return Promise.reject(error);
   }
@@ -114,10 +101,17 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
+      // The response interceptor above rejects with `normalizedError`, a plain
+      // {code, message, data, name} object — NOT an AxiosError. Reading
+      // `.response?.status` here therefore always yielded undefined, the 401
+      // short-circuit never fired, and every 401 was retried twice: one
+      // signed-out page load sent GET /api/users/me three times. Branch on the
+      // normalized `code`, and keep the AxiosError read as a fallback for any
+      // caller that rejects before the interceptor normalizes.
       retry: (failureCount, error) => {
-        console.log("retry", failureCount, error);
-        const axiosError = error as AxiosError;
-        if (axiosError.response?.status === 401) return false;
+        const status =
+          (error as ApiError)?.code ?? (error as AxiosError)?.response?.status;
+        if (status === 401) return false;
         return failureCount < 2;
       },
       refetchOnWindowFocus: false,

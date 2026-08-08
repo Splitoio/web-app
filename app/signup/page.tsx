@@ -7,7 +7,6 @@ import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
-import { defaultPostLoginPath } from "@/lib/app-mode";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import posthog from "posthog-js";
@@ -36,8 +35,16 @@ export default function SignupPage() {
     agreeToTerms: false,
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Two responsive copies of this form share the DOM (desktop card below vs
+    // the sm:hidden mobile block) — only one is ever on screen, but both are
+    // real <form> elements. offsetParent is null when an ancestor has
+    // display:none, which is exactly how Tailwind's hidden/sm:hidden hides
+    // the other copy, so this stops a submit on the off-screen copy (e.g. an
+    // automated form-filler that doesn't respect CSS visibility) from firing
+    // a second sign-up alongside the visible one.
+    if (e.currentTarget.offsetParent === null) return;
     setIsLoadingEmail(true);
 
     try {
@@ -45,7 +52,7 @@ export default function SignupPage() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        callbackURL: defaultPostLoginPath,
+        callbackURL: "/",
       });
 
       if (error) {
@@ -87,7 +94,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#101012] flex items-center justify-center relative px-4 py-8">
+    <div className="min-h-screen w-full bg-[var(--splito-bg)] flex items-center justify-center relative px-4 py-8">
       <div className="absolute -left-1/3 lg:-left-1/4 w-full h-full bg-[url('/final_bgsvg.svg')] bg-no-repeat opacity-50 hidden sm:block" />
 
       <motion.div

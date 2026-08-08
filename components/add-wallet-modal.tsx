@@ -17,7 +17,7 @@ import {
   useUserWallets,
   useSetWalletAsPrimary,
 } from "@/features/wallets/hooks/use-wallets";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react";
 import { AccountAddress } from "@aptos-labs/ts-sdk";
 
 interface Chain {
@@ -50,7 +50,16 @@ const getChainMeta = (chainId: string) => {
   return metaMap[chainId] || { color: "#666", icon: "◆" };
 };
 
-export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
+/**
+ * Not `export` — Aptos wallet functionality (the `useWallet()` call below)
+ * only works inside an `AptosWalletAdapterProvider`. Mounting that provider
+ * globally (components/providers.tsx used to) fires 4 mainnet RPC calls
+ * (WalletCore construction) on EVERY page load, including signed-out pages
+ * that never touch Aptos. Scoping the provider to this modal alone (see the
+ * `AddWalletModal` wrapper below) means the client only spins up when this
+ * modal actually mounts.
+ */
+const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [selectedChain, setSelectedChain] = useState<Chain | null>(null);
   const [tab, setTab] = useState<"manual" | "connect">("manual");
@@ -876,3 +885,10 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
     </AnimatePresence>
   );
 };
+
+/** Public entry point — mounts the Aptos wallet-adapter client only while this modal exists. */
+export const AddWalletModal = (props: AddWalletModalProps) => (
+  <AptosWalletAdapterProvider>
+    <AddWalletModalInner {...props} />
+  </AptosWalletAdapterProvider>
+);

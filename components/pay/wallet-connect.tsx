@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { T } from "@/lib/splito-design";
+import { T, A, R } from "@/lib/splito-design";
 import {
   connectSolanaWallet,
   connectStellarWallet,
@@ -57,13 +57,22 @@ export function WalletConnect({
 
   return (
     <div className="w-full">
+      <p
+        className="text-[11px] font-bold tracking-[0.08em] uppercase mb-1"
+        style={{ color: T.muted }}
+      >
+        Step 1 · Choose how you&rsquo;re paying
+      </p>
+      <p className="text-[12.5px] mb-4" style={{ color: T.dim }}>
+        Pay from wherever your money already is.
+      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={handleStellar}
           disabled={connecting !== null}
           className="flex items-center justify-center gap-2 rounded-xl py-3.5 text-[13.5px] font-extrabold transition-all hover:opacity-90 disabled:opacity-50"
-          style={{ background: "#22D3EE", color: "#0a0a0a" }}
+          style={{ background: A, color: "#0a0a0a" }}
         >
           {connecting === "stellar" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Connect Stellar wallet
@@ -80,7 +89,7 @@ export function WalletConnect({
         </button>
       </div>
       {error && (
-        <p className="text-[12px] mt-2.5 text-center" style={{ color: "#F87171" }}>
+        <p className="text-[12px] mt-2.5 text-center" style={{ color: R }}>
           {error}
         </p>
       )}

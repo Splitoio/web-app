@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, PenLine, RefreshCw, ShieldAlert, ShieldCheck, Zap } from "lucide-react";
-import { Card, T, A } from "@/lib/splito-design";
+import { T, A, R, O } from "@/lib/splito-design";
 import type { Quote } from "@/api-helpers/requests";
 import { assetSymbol, chainName, DEFAULT_SLIPPAGE_PCT } from "@/lib/pay-sources";
+import { formatCurrency } from "@/utils/formatters";
 
 const QUOTE_WINDOW_SECONDS = 60;
 
@@ -88,6 +89,7 @@ export function QuotePanel({
   destinationChain,
   destinationAsset,
   denominationCurrency,
+  amount,
   signatureKinds,
   signatureStep,
   isSubmitting,
@@ -104,6 +106,8 @@ export function QuotePanel({
   destinationAsset: string;
   /** The currency the share is denominated in — USD in v1. */
   denominationCurrency: string;
+  /** The payer's fiat share amount — drives the rate-lock note's "$X is $X" copy. */
+  amount: number;
   /**
    * The `kind` of every transaction the payer must sign, IN ORDER — i.e.
    * `unsignedTransactions.map(t => t.kind)` on a routed payment, where an
@@ -196,13 +200,18 @@ export function QuotePanel({
   const multiSig = signatureCount > 1;
 
   return (
-    <Card className="p-5 sm:p-6" style={{ marginTop: 16 }}>
+    <div style={{ padding: "18px 22px" }}>
       <div className="flex items-center justify-between mb-4 gap-3">
         <p
           className="text-[11px] font-bold tracking-[0.08em] uppercase"
           style={{ color: T.muted }}
         >
-          {isEstimate ? "Estimate held for" : "Rate locked for"}
+          {/* Lock 2 — the CONVERSION QUOTE (.specs/2026-08-06-request-money-design.md
+              → "The two-lock model"), never "rate locked": that phrase is
+              reserved for Lock 1 (the request's own denomination lock) below,
+              and reusing it here read as the page contradicting itself when
+              both are on screen at once. */}
+          {isEstimate ? "Estimate holds for" : "Quote holds for"}
         </p>
         <div className="flex items-center gap-2">
           <div
@@ -216,7 +225,7 @@ export function QuotePanel({
                 cy="11"
                 r="9"
                 fill="none"
-                stroke={secondsLeft <= 10 ? "#F87171" : A}
+                stroke={secondsLeft <= 10 ? R : A}
                 strokeWidth="2.5"
                 strokeDasharray={`${2 * Math.PI * 9}`}
                 strokeDashoffset={`${2 * Math.PI * 9 * (1 - pctLeft)}`}
@@ -227,7 +236,7 @@ export function QuotePanel({
           </div>
           <span
             className="text-[13px] font-mono font-bold tabular-nums"
-            style={{ color: secondsLeft <= 10 ? "#F87171" : T.bright }}
+            style={{ color: secondsLeft <= 10 ? R : T.bright }}
           >
             {isRequoting ? "…" : `0:${String(secondsLeft).padStart(2, "0")}`}
           </span>
@@ -250,7 +259,7 @@ export function QuotePanel({
             {isEstimate ? (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.06em]"
-                style={{ background: "rgba(251,191,36,0.13)", color: "#FBBF24" }}
+                style={{ background: `${O}22`, color: O }}
               >
                 Routed · estimate
               </span>
@@ -383,20 +392,60 @@ export function QuotePanel({
             )}
           </div>
 
+          {/* Lock 1 — the request's own DENOMINATION lock
+              (.design/splito-finance.dc.html:1546-1548;
+              .specs/2026-08-06-request-money-design.md → "The two-lock
+              model"). `quote.rateLocked` is the server's own verdict on
+              which rate was actually charged (contract change,
+              request-money.controller.ts ~line 906): true only when the
+              requester's Lock-1 rate from request creation was used.
+              Deliberately never says "rate locked" up here — that phrase now
+              belongs solely to the Lock-2 countdown header above, and this
+              note calls out "the quote above" explicitly so the two read as
+              complementary (creation-time lock vs. this-minute quote), not
+              as a contradiction. */}
           <div
-            className="flex items-start gap-2 mt-4 p-3 rounded-xl"
+            className="flex items-center gap-2 mt-2.5 p-2.5 rounded-xl"
+            style={{
+              background: quote.rateLocked ? `${A}0f` : "rgba(255,255,255,0.03)",
+              border: `1px solid ${quote.rateLocked ? `${A}2e` : "rgba(255,255,255,0.06)"}`,
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                flexShrink: 0,
+                background: quote.rateLocked ? A : T.faint,
+              }}
+            />
+            <p className="text-[11.5px] leading-relaxed" style={{ color: T.mid }}>
+              {quote.rateLocked ? (
+                <>
+                  The sender locked this request&rsquo;s rate when they created it —{" "}
+                  <span style={{ color: T.main, fontWeight: 700 }}>
+                    {formatCurrency(amount, denominationCurrency)}
+                  </span>{" "}
+                  stays {formatCurrency(amount, denominationCurrency)} no matter when you pay.
+                  The quote above is a separate, shorter hold on today&rsquo;s conversion.
+                </>
+              ) : (
+                "The sender didn't lock a rate when they created this request — today's conversion is the quote above, fetched live just now."
+              )}
+            </p>
+          </div>
+
+          <div
+            className="flex items-start gap-2 mt-2.5 p-3 rounded-xl"
             style={{
               background: isEstimate
-                ? "rgba(251,191,36,0.06)"
+                ? `${O}0f`
                 : isConvertedExact
-                  ? "rgba(34,211,238,0.06)"
+                  ? `${A}0f`
                   : "rgba(255,255,255,0.03)",
               border: `1px solid ${
-                isEstimate
-                  ? "rgba(251,191,36,0.18)"
-                  : isConvertedExact
-                    ? "rgba(34,211,238,0.18)"
-                    : "rgba(255,255,255,0.06)"
+                isEstimate ? `${O}2e` : isConvertedExact ? `${A}2e` : "rgba(255,255,255,0.06)"
               }`,
             }}
           >
@@ -405,16 +454,16 @@ export function QuotePanel({
             ) : (
               <ShieldAlert
                 className="h-3.5 w-3.5 flex-shrink-0 mt-0.5"
-                style={{ color: isEstimate ? "#FBBF24" : T.dim }}
+                style={{ color: isEstimate ? O : T.dim }}
               />
             )}
             <p
               className="text-[11.5px] leading-relaxed"
-              style={{ color: isEstimate ? "#D8C89A" : isConvertedExact ? T.body : T.dim }}
+              style={{ color: isEstimate ? T.mid : isConvertedExact ? T.body : T.dim }}
             >
               {isEstimate ? (
                 <>
-                  <strong style={{ color: "#FBBF24" }}>This amount is an estimate, not a
+                  <strong style={{ color: O }}>This amount is an estimate, not a
                   guarantee.</strong>{" "}
                   Your {srcSymbol} is converted by a third-party router that calculates a price
                   but does not reserve one, so what lands can move by up to ±{slippagePct}% either
@@ -533,6 +582,6 @@ export function QuotePanel({
           </button>
         </>
       )}
-    </Card>
+    </div>
   );
 }

@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { T } from "@/lib/splito-design";
+import { T, Card } from "@/lib/splito-design";
 import {
   getRequestByToken,
   getSupportedSources,
@@ -28,6 +30,7 @@ import { PayerPicker } from "@/components/pay/payer-picker";
 import { WalletConnect, type ConnectedWallet } from "@/components/pay/wallet-connect";
 import { SourcePicker } from "@/components/pay/source-picker";
 import { QuotePanel } from "@/components/pay/quote-panel";
+import { SummaryPanel } from "@/components/pay/summary-panel";
 import {
   PaymentConfirmed,
   PaymentFailed,
@@ -40,6 +43,32 @@ import {
   signRoutedTransactions,
   signStellarUnsignedTx,
 } from "@/components/pay/pay-wallet";
+
+/** "allbridge" -> "Allbridge" — display only, never used to decide a path. */
+function humanizeProvider(id: string | null | undefined): string | null {
+  if (!id) return null;
+  return id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+const WIDE_PHASES = new Set([
+  "connect-wallet",
+  "select-source",
+  "quoting",
+  "ready",
+  "requoting",
+  "submitting",
+]);
+
+function RouteHint({ text, spinner }: { text: string; spinner?: boolean }) {
+  return (
+    <div className="flex items-center justify-center gap-2" style={{ padding: "18px 22px" }}>
+      {spinner && <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: T.muted }} />}
+      <p className="text-[11.5px] text-center" style={{ color: T.dim }}>
+        {text}
+      </p>
+    </div>
+  );
+}
 
 type Phase =
   | "loading"
@@ -442,178 +471,244 @@ export default function PayRequestPage() {
 
   const payerShare = request?.payers.find((p) => p.payerId === selectedPayerId)?.shareAmount;
 
-  // Vertically centred: this is a single-purpose screen a payer lands on cold,
-  // and top-anchoring it left ~60% of the viewport empty below the card.
-  // flex-col + justify-center centres it when it fits and still scrolls
-  // normally once the quote panel makes the content taller than the viewport.
+  // "Paid"/"already-paid" is the design's separate full-page receipt state
+  // (.design/splito-finance.dc.html:1578-1623) — no top header row, more top
+  // padding instead. Every other phase gets the guest-checkout header
+  // (logo, "Paying as guest", "Back to app") from the "isPay" screen.
+  const isReceipt = phase === "confirmed" || phase === "already-paid";
+  const isWide = !!request && !!selectedPayerId && WIDE_PHASES.has(phase);
+
   return (
-    <div className="min-h-screen w-full bg-[#0b0b0b] flex flex-col justify-center">
-    <div className="w-full max-w-md mx-auto px-4 py-10 sm:py-12">
-      {phase === "loading" && (
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-7 w-7 animate-spin" style={{ color: T.muted }} />
+    <div className="min-h-screen w-full flex flex-col items-center" style={{ background: "#0b0b0b" }}>
+      {!isReceipt && (
+        <div
+          className="w-full flex items-center gap-3 px-4 sm:px-6"
+          style={{ maxWidth: 1060, height: 72, flexShrink: 0 }}
+        >
+          <Image src="/logo.svg" alt="Splito" width={88} height={22} className="h-[22px] w-auto opacity-85" />
+          <div className="flex-1" />
+          <span className="text-[12px]" style={{ color: T.dim }}>
+            Paying as guest
+          </span>
+          <Link
+            href="/"
+            className="text-[12.5px] font-bold transition-all"
+            style={{
+              borderRadius: 11,
+              padding: "8px 15px",
+              background: "rgba(255,255,255,0.05)",
+              color: T.body,
+              border: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Back to app
+          </Link>
         </div>
       )}
 
-      {phase === "not-found" && <RequestClosed reason="not-found" />}
-      {phase === "closed" && <RequestClosed reason={closedReason} />}
+      <div
+        className="w-full flex-1 flex flex-col justify-center px-4 sm:px-6"
+        style={{ maxWidth: isWide ? 1060 : 520, paddingTop: isReceipt ? 70 : 12, paddingBottom: 60 }}
+      >
+        {phase === "loading" && (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-7 w-7 animate-spin" style={{ color: T.muted }} />
+          </div>
+        )}
 
-      {phase === "already-paid" && request && (
-        <>
-          <AmountHero
+        {phase === "not-found" && <RequestClosed reason="not-found" />}
+        {phase === "closed" && <RequestClosed reason={closedReason} />}
+
+        {phase === "already-paid" && request && (
+          <PaymentConfirmed
+            hash={null}
+            chain={request.destinationChain}
+            quote={null}
             requesterName={request.requesterName}
             amount={payerShare ?? request.amount}
-            requestName={request.name}
-            paidCount={request.paidCount}
-            totalCount={request.totalCount}
           />
-          <PaymentConfirmed hash={null} chain={request.destinationChain} />
-        </>
-      )}
+        )}
 
-      {phase === "select-payer" && request && (
-        <>
-          <AmountHero
-            requesterName={request.requesterName}
-            amount={request.amount}
-            requestName={request.name}
-            paidCount={request.paidCount}
-            totalCount={request.totalCount}
-          />
-          <div className="mt-4">
-            <PayerPicker
-              payers={request.payers}
-              onSelect={(payerId) => {
-                setSelectedPayerId(payerId);
-                setPhase("connect-wallet");
-              }}
-            />
-          </div>
-        </>
-      )}
-
-      {request &&
-        selectedPayerId &&
-        (phase === "connect-wallet" ||
-          phase === "select-source" ||
-          phase === "quoting" ||
-          phase === "ready" ||
-          phase === "requoting" ||
-          phase === "submitting") && (
+        {phase === "select-payer" && request && (
           <>
             <AmountHero
+              requesterName={request.requesterName}
+              amount={request.amount}
+              requestName={request.name}
+              paidCount={request.paidCount}
+              totalCount={request.totalCount}
+            />
+            <div className="mt-4">
+              <PayerPicker
+                payers={request.payers}
+                onSelect={(payerId) => {
+                  setSelectedPayerId(payerId);
+                  setPhase("connect-wallet");
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        {isWide && request && (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 items-start">
+            <div className="flex flex-col gap-4">
+              {phase === "connect-wallet" && (
+                <Card className="p-6">
+                  <WalletConnect onConnected={handleWalletConnected} />
+                </Card>
+              )}
+
+              {/* Design 1482-1575 keeps the picked chain/token tiles visible in
+                  the left column even once chosen, not collapsed away — the
+                  wallet address readout plus a PERSISTENT SourcePicker (not
+                  gated to only the "select-source" phase) is that for us:
+                  it's real content (what you're paying with, and — when
+                  there's more than one option — the ability to change it),
+                  not filler. Excluded during "submitting" so a click can't
+                  race a signature already in flight. */}
+              {wallet &&
+                (phase === "select-source" ||
+                  phase === "quoting" ||
+                  phase === "ready" ||
+                  phase === "requoting" ||
+                  phase === "submitting") && (
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <p className="text-[11.5px] font-mono truncate" style={{ color: T.dim }}>
+                      {wallet.address}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSwitchWallet}
+                      disabled={phase === "submitting"}
+                      className="text-[11.5px] font-bold underline underline-offset-2 flex-shrink-0 disabled:opacity-40"
+                      style={{ color: T.muted }}
+                    >
+                      Switch wallet
+                    </button>
+                  </div>
+                )}
+
+              {wallet &&
+                sources.length > 0 &&
+                (phase === "select-source" ||
+                  phase === "quoting" ||
+                  phase === "ready" ||
+                  phase === "requoting") && (
+                  <SourcePicker
+                    sources={sources}
+                    destinationChain={request.destinationChain}
+                    destinationAsset={request.destinationAsset}
+                    connectedChain={wallet.chain}
+                    selected={selectedSource}
+                    onSelect={handleSourceSelected}
+                    onSwitchWallet={handleSwitchWallet}
+                  />
+                )}
+            </div>
+
+            <SummaryPanel
               requesterName={request.requesterName}
               amount={payerShare ?? request.amount}
               requestName={request.name}
               paidCount={request.paidCount}
               totalCount={request.totalCount}
-            />
-
-            {phase === "connect-wallet" && (
-              <div className="mt-5">
-                <WalletConnect onConnected={handleWalletConnected} />
-              </div>
-            )}
-
-            {phase === "select-source" && wallet && (
-              <SourcePicker
-                sources={sources}
-                destinationChain={request.destinationChain}
-                destinationAsset={request.destinationAsset}
-                connectedChain={wallet.chain}
-                selected={selectedSource}
-                onSelect={handleSourceSelected}
-                onSwitchWallet={handleSwitchWallet}
-              />
-            )}
-
-            {phase === "quoting" && (
-              <div className="flex items-center justify-center gap-2 py-8">
-                <Loader2 className="h-4 w-4 animate-spin" style={{ color: T.muted }} />
-                <p className="text-[13px]" style={{ color: T.muted }}>
-                  Getting your rate…
-                </p>
-              </div>
-            )}
-
-            {quote &&
-              selectedSource &&
-              (phase === "ready" || phase === "requoting" || phase === "submitting") && (
-                <QuotePanel
-                  quote={quote.quote}
-                  quoteExpiry={quote.quoteExpiry}
-                  sourceChain={selectedSource.chain}
-                  sourceAsset={selectedSource.asset}
-                  destinationChain={request.destinationChain}
-                  destinationAsset={request.destinationAsset}
-                  denominationCurrency={request.denominationCurrency}
-                  // Direct is always one signature; a routed payment signs the
-                  // array in order and may need an approve leg first.
-                  signatureKinds={(quote.unsignedTransactions ?? []).map((t) => t.kind)}
-                  signatureStep={signatureStep}
-                  isSubmitting={phase === "submitting"}
-                  isRequoting={phase === "requoting"}
-                  onConfirm={handleConfirmSign}
-                  onExpired={handleQuoteExpired}
-                  onChangeSource={
-                    signableSources.length > 1
-                      ? () => {
-                          setQuote(null);
-                          setPhase("select-source");
-                        }
-                      : undefined
-                  }
-                />
+              source={selectedSource}
+              destinationChain={request.destinationChain}
+              destinationAsset={request.destinationAsset}
+              isRouted={quote?.quote.isRouted ?? null}
+              providerName={humanizeProvider(quote?.quote.providerId)}
+            >
+              {phase === "connect-wallet" && (
+                <RouteHint text="Connect a wallet on the left to see your route and total." />
               )}
-          </>
+              {phase === "select-source" && (
+                <RouteHint text="Choose what to pay with to see your total." />
+              )}
+              {phase === "quoting" && <RouteHint spinner text="Getting your rate…" />}
+              {quote &&
+                selectedSource &&
+                (phase === "ready" || phase === "requoting" || phase === "submitting") && (
+                  <QuotePanel
+                    quote={quote.quote}
+                    quoteExpiry={quote.quoteExpiry}
+                    sourceChain={selectedSource.chain}
+                    sourceAsset={selectedSource.asset}
+                    destinationChain={request.destinationChain}
+                    destinationAsset={request.destinationAsset}
+                    denominationCurrency={request.denominationCurrency}
+                    amount={payerShare ?? request.amount}
+                    // Direct is always one signature; a routed payment signs
+                    // the array in order and may need an approve leg first.
+                    signatureKinds={(quote.unsignedTransactions ?? []).map((t) => t.kind)}
+                    signatureStep={signatureStep}
+                    isSubmitting={phase === "submitting"}
+                    isRequoting={phase === "requoting"}
+                    onConfirm={handleConfirmSign}
+                    onExpired={handleQuoteExpired}
+                    onChangeSource={
+                      signableSources.length > 1
+                        ? () => {
+                            setQuote(null);
+                            setPhase("select-source");
+                          }
+                        : undefined
+                    }
+                  />
+                )}
+            </SummaryPanel>
+          </div>
         )}
 
-      {phase === "confirmed" && request && (
-        <PaymentConfirmed
-          // Once a routed payment lands, the DESTINATION hash is the one that
-          // proves arrival; before we have it (direct path) the payer's own
-          // transaction is the destination transaction.
-          hash={attempt?.destinationTxHash ?? submitResult?.hash ?? attempt?.sourceTxHash ?? null}
-          chain={
-            attempt?.destinationTxHash
-              ? request.destinationChain
-              : (selectedSource?.chain ?? request.destinationChain)
-          }
-        />
-      )}
-      {phase === "failed" && <PaymentFailed onRetry={handleRetryAfterFailure} />}
-      {phase === "routing" && request && (
-        <PaymentRouting
-          hash={attempt?.sourceTxHash ?? stuckHash}
-          // The payer signed and broadcast on the SOURCE chain.
-          chain={quote?.chain ?? selectedSource?.chain ?? wallet?.chain ?? request.destinationChain}
-          destinationChain={request.destinationChain}
-          message={submitResult?.message ?? null}
-          onCheckNow={checkStatus}
-          isChecking={isChecking}
-          lastCheckedAt={lastCheckedAt}
-        />
-      )}
-      {phase === "stuck" && request && (
-        <PaymentStuck
-          hash={attempt?.sourceTxHash ?? stuckHash}
-          // The hash we hold is the one the payer's own wallet produced, so it
-          // belongs to the SOURCE chain, not the destination.
-          chain={quote?.chain ?? selectedSource?.chain ?? wallet?.chain ?? request.destinationChain}
-          isRouted={
-            attempt?.isRouted ??
-            quote?.isRouted ??
-            (!!selectedSource &&
-              !isDirectSource(selectedSource, request.destinationChain, request.destinationAsset))
-          }
-          // Server-owned copy from §5 — rendered verbatim when present.
-          recovery={attempt?.recovery ?? null}
-          onCheckNow={checkStatus}
-          isChecking={isChecking}
-          lastCheckedAt={lastCheckedAt}
-        />
-      )}
-    </div>
+        {phase === "confirmed" && request && (
+          <PaymentConfirmed
+            // Once a routed payment lands, the DESTINATION hash is the one
+            // that proves arrival; before we have it (direct path) the
+            // payer's own transaction is the destination transaction.
+            hash={attempt?.destinationTxHash ?? submitResult?.hash ?? attempt?.sourceTxHash ?? null}
+            chain={
+              attempt?.destinationTxHash
+                ? request.destinationChain
+                : (selectedSource?.chain ?? request.destinationChain)
+            }
+            quote={quote?.quote ?? null}
+            requesterName={request.requesterName}
+            amount={payerShare ?? request.amount}
+          />
+        )}
+        {phase === "failed" && <PaymentFailed onRetry={handleRetryAfterFailure} />}
+        {phase === "routing" && request && (
+          <PaymentRouting
+            hash={attempt?.sourceTxHash ?? stuckHash}
+            // The payer signed and broadcast on the SOURCE chain.
+            chain={quote?.chain ?? selectedSource?.chain ?? wallet?.chain ?? request.destinationChain}
+            destinationChain={request.destinationChain}
+            message={submitResult?.message ?? null}
+            onCheckNow={checkStatus}
+            isChecking={isChecking}
+            lastCheckedAt={lastCheckedAt}
+          />
+        )}
+        {phase === "stuck" && request && (
+          <PaymentStuck
+            hash={attempt?.sourceTxHash ?? stuckHash}
+            // The hash we hold is the one the payer's own wallet produced, so
+            // it belongs to the SOURCE chain, not the destination.
+            chain={quote?.chain ?? selectedSource?.chain ?? wallet?.chain ?? request.destinationChain}
+            isRouted={
+              attempt?.isRouted ??
+              quote?.isRouted ??
+              (!!selectedSource &&
+                !isDirectSource(selectedSource, request.destinationChain, request.destinationAsset))
+            }
+            // Server-owned copy from §5 — rendered verbatim when present.
+            recovery={attempt?.recovery ?? null}
+            onCheckNow={checkStatus}
+            isChecking={isChecking}
+            lastCheckedAt={lastCheckedAt}
+          />
+        )}
+      </div>
     </div>
   );
 }

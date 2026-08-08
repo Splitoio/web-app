@@ -7,7 +7,6 @@ import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
-import { defaultPostLoginPath } from "@/lib/app-mode";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 
@@ -25,7 +24,7 @@ function GoogleIcon() {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || defaultPostLoginPath;
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [showPassword, setShowPassword] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
@@ -34,15 +33,23 @@ export default function LoginPage() {
     password: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Two responsive copies of this form share the DOM (desktop card below vs
+    // the sm:hidden mobile block) — only one is ever on screen, but both are
+    // real <form> elements. offsetParent is null when an ancestor has
+    // display:none, which is exactly how Tailwind's hidden/sm:hidden hides
+    // the other copy, so this stops a submit on the off-screen copy (e.g. an
+    // automated form-filler that doesn't respect CSS visibility) from firing
+    // a second sign-in alongside the visible one.
+    if (e.currentTarget.offsetParent === null) return;
     setIsLoadingEmail(true);
 
     try {
       const { data, error } = await authClient.signIn.email({
         email: formData.email,
         password: formData.password,
-        callbackURL: defaultPostLoginPath,
+        callbackURL: "/",
       });
 
       if (error) {
@@ -54,7 +61,7 @@ export default function LoginPage() {
         // This ensures cookies are properly set before navigating to protected pages
         window.location.href = callbackUrl.startsWith("/")
           ? callbackUrl
-          : defaultPostLoginPath;
+          : "/";
         return; // Don't reset loading state as we're navigating away
       }
     } catch (error) {
@@ -88,7 +95,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#101012] flex items-center justify-center relative px-4 py-8">
+    <div className="min-h-screen w-full bg-[var(--splito-bg)] flex items-center justify-center relative px-4 py-8">
       <div className="absolute -left-1/3 lg:-left-1/4 w-full h-full bg-[url('/final_bgsvg.svg')] bg-no-repeat opacity-50 hidden sm:block" />
 
       <motion.div

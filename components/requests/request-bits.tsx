@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Check, Copy } from "lucide-react";
-import { A, T } from "@/lib/splito-design";
+import { A, P, T } from "@/lib/splito-design";
 import type { RequestStatus } from "@/api-helpers/requests";
 
 /** Human label for a destination asset id, e.g. "usdc-stellar" → "USDC". */
@@ -34,7 +34,7 @@ export function chainLabel(chain: string | null): string {
   return CHAIN_LABELS[chain] ?? chain[0].toUpperCase() + chain.slice(1);
 }
 
-const STATUS_STYLE: Record<RequestStatus, { label: string; color: string }> = {
+export const STATUS_STYLE: Record<RequestStatus, { label: string; color: string }> = {
   OPEN: { label: "Open", color: A },
   PARTIALLY_PAID: { label: "Partly paid", color: "#FBBF24" },
   SETTLED: { label: "Paid", color: "#34D399" },
@@ -84,6 +84,33 @@ export function expiryLabel(expiresAt: string | null): string {
 export function progressLabel(paidCount: number, payerCount: number): string | null {
   if (payerCount <= 1) return null;
   return `${paidCount} of ${payerCount} paid`;
+}
+
+/**
+ * The /requests list table's title-column subtitle. There is no split/invoice
+ * flag in the data (see api-helpers/requests.ts RequestListItem) — payerCount
+ * is the only real signal for "this got split", so it drives both this and
+ * listRowType below.
+ */
+export function listRowMeta(payerCount: number, paidCount: number, destinationChain: string | null): string {
+  if (payerCount > 1) return `split ${payerCount} ways · ${paidCount} paid`;
+  return `1 payer · ${chainLabel(destinationChain)}`;
+}
+
+/**
+ * Type pill for the list table. Personal workspaces frame a multi-payer
+ * request as a "Split"; business workspaces frame the same shape as an
+ * "Expense" (cost shared across members) vs. an "Invoice" (billed to one
+ * party) — there is no dedicated Payout/Bill/Payroll type in the data, so
+ * those design vocabulary words are not reachable from this endpoint.
+ */
+export function listRowType(
+  payerCount: number,
+  isBusiness: boolean
+): { label: string; color: string } {
+  const multi = payerCount > 1;
+  if (isBusiness) return multi ? { label: "Expense", color: P } : { label: "Invoice", color: A };
+  return multi ? { label: "Split", color: P } : { label: "Request", color: A };
 }
 
 export function ProgressBar({ paidCount, payerCount }: { paidCount: number; payerCount: number }) {

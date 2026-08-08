@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Check, Zap } from "lucide-react";
-import { Card, T, A } from "@/lib/splito-design";
+import { Card, T, A, avatarChip, getUserColor } from "@/lib/splito-design";
 import {
   assetSymbol,
   chainName,
@@ -59,12 +59,12 @@ export function SourcePicker({
   const hasDirect = ordered.some((s) => isDirectSource(s, destinationChain, destinationAsset));
 
   return (
-    <Card className="p-5 sm:p-6" style={{ marginTop: 16 }}>
+    <Card className="p-5 sm:p-6">
       <p
         className="text-[11px] font-bold tracking-[0.08em] uppercase mb-1"
         style={{ color: T.muted }}
       >
-        Pay with
+        Step 2 · Pick what to pay with
       </p>
       <p className="text-[12.5px] leading-relaxed mb-4" style={{ color: T.dim }}>
         {hasDirect
@@ -108,18 +108,23 @@ export function SourcePicker({
               }}
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[14px] font-extrabold" style={{ color: T.bright }}>
-                    {assetSymbol(source.asset)}{" "}
-                    <span className="font-semibold" style={{ color: T.muted }}>
-                      on {chainName(source.chain)}
-                    </span>
-                  </p>
-                  <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: direct ? A : T.dim }}>
-                    {direct
-                      ? "Direct — lands as the exact amount. Network fee only."
-                      : "Converted on the way — exact amount and any tolerance are confirmed on the next screen."}
-                  </p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span style={avatarChip(getUserColor(source.asset), 32)}>
+                    {assetSymbol(source.asset).slice(0, 2)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-extrabold" style={{ color: T.bright }}>
+                      {assetSymbol(source.asset)}{" "}
+                      <span className="font-semibold" style={{ color: T.muted }}>
+                        on {chainName(source.chain)}
+                      </span>
+                    </p>
+                    <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: direct ? A : T.dim }}>
+                      {direct
+                        ? "Direct — lands as the exact amount. Network fee only."
+                        : "Converted on the way — exact amount and any tolerance are confirmed on the next screen."}
+                    </p>
+                  </div>
                 </div>
                 {direct ? (
                   <span

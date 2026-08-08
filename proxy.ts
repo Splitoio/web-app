@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { APP_MODE, defaultPostLoginPath } from "./lib/app-mode";
 import {
   buildLoginRedirectUrl,
   getSessionCookieValue,
@@ -8,15 +7,7 @@ import {
   isProtectedRoute,
   validateSessionWithAuthServer,
 } from "./lib/middleware-session";
-
-const PERSONAL_ROUTE_PREFIXES = ["/", "/settings"];
-
-function isPersonalRoute(pathname: string): boolean {
-  if (pathname === "/") return true;
-  return PERSONAL_ROUTE_PREFIXES
-    .filter((prefix) => prefix !== "/")
-    .some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
+import { WORKSPACE_COOKIE, resolveOrganizationRedirect } from "./lib/workspace";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -43,9 +34,7 @@ export async function proxy(request: NextRequest) {
       : null; // null = unknown (no cookie to validate)
 
     if (isAuthRoute(pathname) && isSessionValid === true) {
-      return NextResponse.redirect(
-        new URL(defaultPostLoginPath, request.nextUrl.origin)
-      );
+      return NextResponse.redirect(new URL("/", request.nextUrl.origin));
     }
 
     // Only redirect protected routes when we had a cookie and it was invalid.
@@ -55,16 +44,23 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (APP_MODE === "personal" && pathname.startsWith("/organization")) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
-  if (
-    APP_MODE === "organization" &&
-    !isAuthRoute(pathname) &&
-    isPersonalRoute(pathname)
-  ) {
-    return NextResponse.redirect(new URL("/organization", request.url));
+  // The `/organization/*` tree collapsed into workspace-scoped top-level routes.
+  // Old links keep working: send them to the successor route and adopt the
+  // organization from the URL as the active workspace, so the destination shows
+  // the workspace the bookmark meant. See lib/workspace.ts for the map.
+  const legacy = resolveOrganizationRedirect(pathname);
+  if (legacy) {
+    const target = new URL(legacy.pathname, request.nextUrl.origin);
+    target.search = request.nextUrl.search;
+    const response = NextResponse.redirect(target);
+    if (legacy.workspaceId) {
+      response.cookies.set(WORKSPACE_COOKIE, legacy.workspaceId, {
+        path: "/",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
+    return response;
   }
 
   return NextResponse.next();

@@ -8,7 +8,9 @@
 import { apiClient } from "./client";
 
 export type DestinationChain = "stellar" | "solana";
-export type DestinationAsset = "usdc-stellar" | "usdc-solana";
+// Four direct-path pairs (backend asset-config.ts): Stellar can receive native
+// XLM or USDC; Solana can receive native SOL or USDC.
+export type DestinationAsset = "xlm" | "usdc-stellar" | "sol" | "usdc-solana";
 
 export type RequestStatus = "OPEN" | "PARTIALLY_PAID" | "SETTLED" | "EXPIRED" | "CANCELLED";
 
@@ -65,6 +67,15 @@ export interface Quote {
   sourceAmount: string;
   destinationAmount: string;
   rate: number;
+  /**
+   * Which rate `rate` actually is: true = the requester's Lock-1 rate stored
+   * at request-creation time, false = a live fetch made just now (contract
+   * change, request-money.controller.ts ~line 906). This is the server's own
+   * verdict — never re-derive a rate-lock claim from `Request.timeLockIn`,
+   * which stays true even when the stored rate turned out unusable and the
+   * server fell back to a live quote.
+   */
+  rateLocked: boolean;
   /**
    * Human-readable route label; null on the direct path.
    *
@@ -242,6 +253,9 @@ export interface CreateRequestBody {
   payerCount: number;
   name?: string;
   expiresAt?: string;
+  /** Scope to a BUSINESS workspace instead of the requester's personal
+   * context. Omit (or "personal") for personal — see request-money.controller.ts. */
+  workspaceId?: string;
 }
 
 export interface CreateRequestPayerLink {
@@ -282,6 +296,8 @@ export interface RequestListItem {
   denominationCurrency: string | null;
   destinationAsset: string | null;
   destinationChain: string | null;
+  /** null = the requester's personal context. */
+  workspaceId: string | null;
   status: RequestStatus;
   expiresAt: string | null;
   createdAt: string;
@@ -296,6 +312,8 @@ export interface ListRequestsResponse {
   total: number;
   limit: number;
   offset: number;
+  /** The scope the server actually applied — null for personal. */
+  workspaceId: string | null;
 }
 
 export interface RequestDetailPayer {
@@ -325,20 +343,30 @@ export interface RequestDetailResponse {
   createdAt: string;
   /** RequestLink token — rebuild links as `${origin}/pay/${token}?payer=${payerId}`. */
   token: string | null;
+  /** null = personal request. Set when the request belongs to a business
+   * workspace — the detail endpoint authorises owner OR workspace member. */
+  workspaceId: string | null;
   payers: RequestDetailPayer[];
   payerCount: number;
   paidCount: number;
   receivedAmount: number;
 }
 
-/** GET /api/requests — authenticated. Requests created by the current user, newest first. */
+/**
+ * GET /api/requests — authenticated. Requests created by the current user,
+ * newest first. `workspaceId` scopes the list to a business workspace; the
+ * server also accepts the literal "personal" as a synonym for the personal
+ * scope, so the active workspace id can be passed through unconditionally.
+ */
 export async function listRequests(params?: {
   limit?: number;
   offset?: number;
+  workspaceId?: string;
 }): Promise<ListRequestsResponse> {
   const search = new URLSearchParams();
   if (params?.limit != null) search.set("limit", String(params.limit));
   if (params?.offset != null) search.set("offset", String(params.offset));
+  if (params?.workspaceId != null) search.set("workspaceId", params.workspaceId);
   const qs = search.toString();
   return apiClient.get(`/requests${qs ? `?${qs}` : ""}`);
 }

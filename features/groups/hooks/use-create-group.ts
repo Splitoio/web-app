@@ -13,6 +13,9 @@ import {
   updateMemberRole,
   removeMemberFromGroup as removeMemberFromGroupApi,
   markAsPaid,
+  getGroupAcceptedTokens,
+  addGroupAcceptedToken,
+  removeGroupAcceptedToken,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
@@ -213,6 +216,37 @@ export const useMarkAsPaid = () => {
       
       // Invalidate analytics
       queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] });
+    },
+  });
+};
+
+const groupAcceptedTokensKey = (groupId: string) => [QueryKeys.GROUPS, groupId, "accepted-tokens"];
+
+export const useGetGroupAcceptedTokens = (groupId: string) => {
+  return useQuery({
+    queryKey: groupAcceptedTokensKey(groupId),
+    queryFn: () => getGroupAcceptedTokens(groupId),
+    enabled: !!groupId,
+  });
+};
+
+export const useAddGroupAcceptedToken = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, payload }: { groupId: string; payload: { tokenId: string; chainId: string; isDefault?: boolean } }) =>
+      addGroupAcceptedToken(groupId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: groupAcceptedTokensKey(variables.groupId) });
+    },
+  });
+};
+
+export const useRemoveGroupAcceptedToken = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, id }: { groupId: string; id: string }) => removeGroupAcceptedToken(groupId, id),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: groupAcceptedTokensKey(variables.groupId) });
     },
   });
 };
