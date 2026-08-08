@@ -399,6 +399,7 @@ function CopyShareRow({
         <button
           type="button"
           onClick={handleShare}
+          aria-label="Share link"
           className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-extrabold border transition-all hover:bg-white/5"
           style={{ borderColor: "rgba(255,255,255,0.14)", color: T.bright }}
         >

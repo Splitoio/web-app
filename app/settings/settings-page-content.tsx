@@ -1261,7 +1261,7 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
 
   return (
     <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-[216px_1fr] gap-4 lg:gap-[26px] items-start" style={{ maxWidth: 1000 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[216px_1fr] gap-4 lg:gap-[26px] items-start">
         <div className="flex flex-row lg:flex-col gap-5 lg:gap-[18px] overflow-x-auto lg:overflow-visible lg:sticky pb-1 lg:pb-0" style={{ top: 100 }}>
           <RailGroup label="Account" items={ACCOUNT_SECTIONS} sec={sec} setSec={setSec} />
           {isBusiness && <RailGroup label="Workspace" items={WORKSPACE_SECTIONS} sec={sec} setSec={setSec} />}

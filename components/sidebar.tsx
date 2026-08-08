@@ -177,7 +177,16 @@ export function Sidebar() {
                     <span className="block truncate" style={{ fontSize: 12.5, fontWeight: 600, color: T.main }}>
                       {w.name}
                     </span>
-                    <span className="block" style={{ fontSize: 10.5, color: T.dim }}>
+                    <span
+                      className="block"
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        letterSpacing: "0.04em",
+                        textTransform: "uppercase",
+                        color: T.dim,
+                      }}
+                    >
                       {w.kind === "business" ? "Business" : "Personal"}
                     </span>
                   </span>

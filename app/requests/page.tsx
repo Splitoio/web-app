@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Loader2, ArrowRight } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { formatCompactAge } from "@/lib/utils";
-import { A, T, Card, StatusPill, Mono } from "@/lib/splito-design";
+import { A, T, Card, StatusPill, Mono, Btn } from "@/lib/splito-design";
 import { DataTable, type DataTableColumn } from "@/components/shell/data-table";
 import { listRequests, type RequestListItem, type RequestStatus } from "@/api-helpers/requests";
 import { useActiveWorkspace } from "@/contexts/workspace";
@@ -264,12 +264,10 @@ export default function RequestsPage() {
                     ? "Requests and invoices for this workspace show up here."
                     : "Every request you create shows up here with its links and who has paid."}
                 </p>
-                <Link
-                  href="/create"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-extrabold transition-all hover:opacity-90"
-                  style={{ background: A, color: "#0a0a0a" }}
-                >
-                  Create a request <ArrowRight size={15} />
+                <Link href="/create">
+                  <Btn variant="primary">
+                    Create a request <ArrowRight size={15} />
+                  </Btn>
                 </Link>
               </div>
             ) : (

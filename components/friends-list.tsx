@@ -9,7 +9,7 @@ import { UserPlus } from "lucide-react";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { ApiError } from "@/types/api-error";
-import { avatarChip, getUserColor, Card, G, R, T } from "@/lib/splito-design";
+import { avatarChip, getUserColor, Card, G, R, T, Btn } from "@/lib/splito-design";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
@@ -143,29 +143,10 @@ export function FriendsList({
         <p style={{ color: T.muted, fontSize: 14, marginBottom: 24, maxWidth: 360 }}>
           Add people to request money from them and settle up together.
         </p>
-        <button
-          onClick={() => onAddFriendClick?.()}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            borderRadius: 99,
-            background: "#fff",
-            color: "#0a0a0a",
-            height: 44,
-            paddingLeft: 20,
-            paddingRight: 20,
-            fontSize: 14,
-            fontWeight: 700,
-            border: "none",
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
+        <Btn variant="primary" onClick={() => onAddFriendClick?.()}>
           <UserPlus size={18} strokeWidth={1.5} />
           Add Someone
-        </button>
+        </Btn>
       </Card>
     );
   }

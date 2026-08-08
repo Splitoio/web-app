@@ -173,9 +173,15 @@ export function PersonalDashboard() {
   if (summaryLoading || !summary) return <PersonalDashboardSkeleton />;
 
   const personal = summary.personal ?? { owed: 0, lent: 0, groupCount: 0, friendCount: 0 };
-  const net = personal.owed - personal.lent;
-  const totalMoved = personal.owed + personal.lent;
-  const owedPct = totalMoved > 0 ? (personal.owed / totalMoved) * 100 : 0;
+  // Name the two directions explicitly — the API's field names read backwards at
+  // a glance. computeOverallBalances signs a balance NEGATIVE when this user is
+  // the one who paid/requested, so workspace.controller.ts buckets negatives into
+  // `lent` (money owed TO you) and positives into `owed` (money YOU owe).
+  const owedToYou = personal.lent;
+  const youOwe = personal.owed;
+  const net = owedToYou - youOwe;
+  const totalMoved = owedToYou + youOwe;
+  const owedPct = totalMoved > 0 ? (owedToYou / totalMoved) * 100 : 0;
   const owePct = 100 - owedPct;
   const openRequestCount = (summary.countsByStatus.OPEN ?? 0) + (summary.countsByStatus.PARTIALLY_PAID ?? 0);
 
@@ -222,7 +228,7 @@ export function PersonalDashboard() {
           <div>
             <Eyebrow color={A}>Owed to you</Eyebrow>
             <p style={{ margin: "7px 0 0", ...TYPE.hero, color: "#fff", lineHeight: 1 }}>
-              {formatCurrency(personal.owed, defaultCurrency)}
+              {formatCurrency(owedToYou, defaultCurrency)}
             </p>
             <p style={{ margin: "7px 0 0", fontSize: 12.5, color: T.sub }}>
               {openRequestCount} open request{openRequestCount === 1 ? "" : "s"} · {personal.friendCount}{" "}
@@ -233,7 +239,7 @@ export function PersonalDashboard() {
           <div>
             <Eyebrow color={R}>You owe</Eyebrow>
             <p style={{ margin: "7px 0 0", ...TYPE.hero, color: T.soft, lineHeight: 1 }}>
-              {formatCurrency(personal.lent, defaultCurrency)}
+              {formatCurrency(youOwe, defaultCurrency)}
             </p>
             <p style={{ margin: "7px 0 0", fontSize: 12.5, color: T.sub }}>settle any time</p>
           </div>

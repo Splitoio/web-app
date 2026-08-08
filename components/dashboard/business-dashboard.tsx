@@ -36,7 +36,7 @@ function StatTile({ label, value, color }: { label: string; value: string; color
   return (
     <Card style={{ borderRadius: 18, padding: "16px 18px", display: "flex", alignItems: "center" }}>
       <div className="min-w-0 flex-1">
-        <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", color: T.sub }}>{label}</p>
+        <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: T.sub }}>{label}</p>
         <p style={{ margin: "3px 0 0", fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em", fontFamily: MONO, color }}>
           {value}
         </p>

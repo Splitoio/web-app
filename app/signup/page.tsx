@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Loader2, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
 import { toast } from "sonner";
@@ -158,16 +158,19 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="form-group">
                 <label htmlFor="name-desktop" className="form-label">Name</label>
-                <input
-                  type="text"
-                  id="name-desktop"
-                  className="form-input !rounded-[12px] !bg-[#0D0D0F] !pl-4 !border-white/10"
-                  placeholder="Your name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  disabled={isLoadingEmail || isLoadingGoogle}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="name-desktop"
+                    className="form-input !rounded-[12px] !bg-[#0D0D0F] !pl-12 !border-white/10"
+                    placeholder="Your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    disabled={isLoadingEmail || isLoadingGoogle}
+                  />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
+                </div>
               </div>
               <div className="form-group">
                 <label htmlFor="email-desktop" className="form-label">Email</label>
@@ -204,6 +207,8 @@ export default function SignupPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -299,16 +304,19 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="form-group">
                 <label htmlFor="name-mobile" className="text-sm font-medium text-white/80 mb-2 block">Name</label>
-                <input
-                  type="text"
-                  id="name-mobile"
-                  className="w-full bg-[#0D0D0F] border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-white/20 placeholder-white/40"
-                  placeholder="Your name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  disabled={isLoadingEmail || isLoadingGoogle}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="name-mobile"
+                    className="w-full bg-[#0D0D0F] border border-white/10 rounded-xl px-4 pl-11 py-3 text-white focus:ring-2 focus:ring-white/20 placeholder-white/40"
+                    placeholder="Your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    disabled={isLoadingEmail || isLoadingGoogle}
+                  />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
+                </div>
               </div>
               <div className="form-group">
                 <label htmlFor="email-mobile" className="text-sm font-medium text-white/80 mb-2 block">Email</label>
@@ -344,6 +352,8 @@ export default function SignupPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>

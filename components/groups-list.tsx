@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useGetAllCurrencies, useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-import { G, T } from "@/lib/splito-design";
+import { G, T, Btn } from "@/lib/splito-design";
 import { GroupsListContent } from "@/components/groups-list-content";
 
 export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
@@ -116,17 +116,19 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
         <p style={{ fontSize: 14, color: T.sub, marginBottom: 24 }}>
           Create a group to start requesting money together — rent, trips, anything shared
         </p>
-        <button
-          type="button"
-          onClick={() =>
-            document.dispatchEvent(new CustomEvent("open-create-group-modal"))
-          }
-          className="inline-flex items-center gap-2 rounded-xl text-[13px] font-extrabold text-[#0a0a0a] transition-opacity hover:opacity-90"
-          style={{ background: "#22D3EE", padding: "10px 18px" }}
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          New Group
-        </button>
+        {/* Btn renders as a flex element, so textAlign on the parent can't centre
+            it — the flex wrapper is what keeps this CTA centred in the empty state. */}
+        <div className="flex justify-center">
+          <Btn
+            variant="primary"
+            onClick={() =>
+              document.dispatchEvent(new CustomEvent("open-create-group-modal"))
+            }
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            New Group
+          </Btn>
+        </div>
       </div>
     );
   }

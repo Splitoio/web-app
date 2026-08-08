@@ -124,7 +124,7 @@ export default function LoginPage() {
               Welcome Back
             </h1>
             <p className="text-center text-sm text-white/60 -mt-2">
-              Don&apos;t have an account yet?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/signup" className="text-white hover:underline font-medium">
                 Sign up
               </Link>
@@ -201,6 +201,8 @@ export default function LoginPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -252,7 +254,7 @@ export default function LoginPage() {
               Welcome Back
             </h1>
             <p className="text-center text-sm text-white/60 -mt-2">
-              Don&apos;t have an account yet?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/signup" className="text-white hover:underline font-medium">
                 Sign up
               </Link>
@@ -329,6 +331,8 @@ export default function LoginPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
