@@ -93,14 +93,14 @@ export function progressLabel(paidCount: number, payerCount: number): string | n
  * listRowType below.
  */
 export function listRowMeta(payerCount: number, paidCount: number, destinationChain: string | null): string {
-  if (payerCount > 1) return `split ${payerCount} ways · ${paidCount} paid`;
+  if (payerCount > 1) return `divided ${payerCount} ways · ${paidCount} paid`;
   return `1 payer · ${chainLabel(destinationChain)}`;
 }
 
 /**
  * Type pill for the list table. Personal workspaces frame a multi-payer
- * request as a "Split"; business workspaces frame the same shape as an
- * "Expense" (cost shared across members) vs. an "Invoice" (billed to one
+ * request as a "Group request"; business workspaces frame the same shape as
+ * an "Expense" (cost shared across members) vs. an "Invoice" (billed to one
  * party) — there is no dedicated Payout/Bill/Payroll type in the data, so
  * those design vocabulary words are not reachable from this endpoint.
  */
@@ -110,7 +110,7 @@ export function listRowType(
 ): { label: string; color: string } {
   const multi = payerCount > 1;
   if (isBusiness) return multi ? { label: "Expense", color: P } : { label: "Invoice", color: A };
-  return multi ? { label: "Split", color: P } : { label: "Request", color: A };
+  return multi ? { label: "Group request", color: P } : { label: "Request", color: A };
 }
 
 export function ProgressBar({ paidCount, payerCount }: { paidCount: number; payerCount: number }) {

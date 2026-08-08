@@ -119,7 +119,7 @@ export default function RequestsPage() {
               whiteSpace: "nowrap",
             }}
           >
-            {r.name ?? (r.payerCount > 1 ? "Split request" : "Payment request")}
+            {r.name ?? (r.payerCount > 1 ? "Group request" : "Payment request")}
           </p>
           <p style={{ margin: "3px 0 0", fontSize: 11.5, color: T.sub }}>
             {listRowMeta(r.payerCount, r.paidCount, r.destinationChain)}

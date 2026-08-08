@@ -238,15 +238,22 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Search — ⌘K opens it once the palette lands. */}
+        {/* Search — ⌘K opens it once the palette lands. Until then this is
+            rendered as a visibly gated affordance rather than a live-looking
+            control that silently does nothing when clicked. */}
         <button
           type="button"
+          disabled
+          aria-disabled="true"
+          title="Search is coming soon"
           className="nv flex items-center gap-2.5 w-full text-left transition-all"
           style={{
             padding: "9px 12px",
             borderRadius: RADIUS.control,
             margin: "6px 0 14px",
             color: T.dim,
+            opacity: 0.55,
+            cursor: "not-allowed",
           }}
         >
           <span>{Icons.search({ size: 15 })}</span>

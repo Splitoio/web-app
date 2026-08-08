@@ -239,8 +239,8 @@ function CreateForm({
         <TypeTile
           active={kind === "split"}
           init="SP"
-          label="Split with people"
-          sub="Divide evenly across a group"
+          label="Request from a group"
+          sub="Ask several people, split evenly"
           color={P}
           onClick={() => setKind("split")}
         />
@@ -373,7 +373,7 @@ function CreateForm({
               </button>
             </div>
             <p style={{ margin: "0 0 8px", fontSize: 11.5, color: T.dim }}>
-              No names collected — each person gets their own private link. Splitting the same request
+              No names collected — each person gets their own private link. Dividing the same request
               into named shares isn&rsquo;t supported yet.
             </p>
 
@@ -386,7 +386,7 @@ function CreateForm({
                 border: "1px solid rgba(167,139,250,0.2)",
               }}
             >
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: P }}>Split</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: P }}>Divide</span>
               <div className="flex gap-0.5 flex-wrap" style={{ padding: 2, borderRadius: 9, background: "rgba(255,255,255,0.06)" }}>
                 {SPLIT_MODES.map((m) => {
                   const active = m === "Evenly";
@@ -622,7 +622,7 @@ function CreateForm({
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : kind === "split" ? (
-            "Create split links"
+            "Create group links"
           ) : (
             "Create request link"
           )}
@@ -679,7 +679,7 @@ function PreviewPanel({
 }) {
   const rows: { k: string; v: string; color: string }[] = [
     { k: "Settles as", v: `${destSymbol} · ${destChainLabel}`, color: A },
-    { k: "Split", v: kind === "split" ? `${payerCount} people, evenly` : "Single request", color: "#d4d4d4" },
+    { k: "Payers", v: kind === "split" ? `${payerCount} people, evenly` : "Single request", color: "#d4d4d4" },
     { k: "Account needed", v: "No", color: G },
     { k: "Expires", v: `in ${expiryDays} days`, color: "#d4d4d4" },
   ];

@@ -42,9 +42,15 @@ export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
 
         <div className="flex-1" />
 
+        {/* There is no notifications surface yet — no route, no endpoint, and
+            `hasUnread` is never set true. Gated visibly rather than left looking
+            live, since a bell that swallows every click reads as broken. */}
         <button
           type="button"
-          aria-label="Notifications"
+          disabled
+          aria-disabled="true"
+          aria-label="Notifications — coming soon"
+          title="Notifications are coming soon"
           className="abtn relative flex items-center justify-center transition-all"
           style={{
             width: 36,
@@ -53,6 +59,8 @@ export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.09)",
             color: T.muted,
+            opacity: 0.55,
+            cursor: "not-allowed",
           }}
         >
           {Icons.bell({ size: 16 })}

@@ -439,7 +439,7 @@ export default function RequestDetailPage() {
                   </p>
                   <p className="mt-1.5" style={{ fontSize: 12.5, color: T.sub }}>
                     Requested {formatRelativeTime(new Date(data.createdAt))}
-                    {data.payerCount > 1 && ` · split ${data.payerCount} ways`}
+                    {data.payerCount > 1 && ` · divided ${data.payerCount} ways`}
                     {" · settles to "}
                     {assetLabel(data.destinationAsset)} on {chainLabel(data.destinationChain)}
                   </p>

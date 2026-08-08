@@ -5,7 +5,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { T, Card } from "@/lib/splito-design";
 import {
   getRequestByToken,
@@ -31,6 +30,7 @@ import { WalletConnect, type ConnectedWallet } from "@/components/pay/wallet-con
 import { SourcePicker } from "@/components/pay/source-picker";
 import { QuotePanel } from "@/components/pay/quote-panel";
 import { SummaryPanel } from "@/components/pay/summary-panel";
+import { PayActionErrorNotice, type PayActionError } from "@/components/pay/action-error";
 import {
   PaymentConfirmed,
   PaymentFailed,
@@ -99,6 +99,58 @@ function errorMessage(err: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
+/**
+ * Turns a failed quote/submit call into payer-facing copy plus a retryable
+ * flag. Neither endpoint ships a machine-readable `reason` field the way
+ * POST /requests does (checked in backend/src/controllers/request-money.
+ * controller.ts — quoteRequest/submitRequest only ever send `{ error }`), so
+ * this branches on HTTP status instead: 404/409 mean the request or attempt
+ * itself moved on (deleted, expired, already paid, already in flight
+ * elsewhere) and retrying the SAME step cannot succeed. Everything else
+ * (5xx, 502 from the router, a network failure with no status at all) is
+ * assumed transient. "Quote has expired" (submitRequest's own 400 for a
+ * stale server-side quote) is special-cased because its fix isn't "resubmit",
+ * it's "get a new quote".
+ */
+function classifyRecoverable(
+  err: unknown,
+  fallbackTitle: string
+): { title: string; detail?: string; retryable: boolean; expiredQuote: boolean } {
+  const code = (err as { code?: number })?.code;
+  const message = errorMessage(err);
+
+  if (/quote has expired/i.test(message)) {
+    return {
+      title: "Your quote expired.",
+      detail: "Rates only hold for a short window — get a fresh one and you're set.",
+      retryable: true,
+      expiredQuote: true,
+    };
+  }
+  if (code === 404) {
+    return {
+      title: "This payment link isn't valid anymore.",
+      detail: "Reload the page to see its current status.",
+      retryable: false,
+      expiredQuote: false,
+    };
+  }
+  if (code === 409) {
+    return {
+      title: "This payment can't continue from here.",
+      detail: message,
+      retryable: false,
+      expiredQuote: false,
+    };
+  }
+  return {
+    title: fallbackTitle,
+    detail: "This is usually temporary — try again.",
+    retryable: true,
+    expiredQuote: false,
+  };
+}
+
 export default function PayRequestPage() {
   const params = useParams();
   const token = params?.token as string;
@@ -131,6 +183,11 @@ export default function PayRequestPage() {
   const [signatureStep, setSignatureStep] = useState(1);
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
+  // Recoverable failure from a quote/sign/submit step, rendered inline in the
+  // SummaryPanel's route slot — see components/pay/action-error.tsx. Cleared
+  // at the start of every fresh attempt (requestQuote, handleConfirmSign) so
+  // a retry never leaves a stale message sitting over a new in-flight step.
+  const [actionError, setActionError] = useState<PayActionError | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -254,6 +311,7 @@ export default function PayRequestPage() {
   const requestQuote = useCallback(
     async (w: ConnectedWallet, source: PaySource) => {
       if (!request || !selectedPayerId) return;
+      setActionError(null);
       try {
         const q = await createRequestQuote(token, {
           payerId: selectedPayerId,
@@ -264,7 +322,15 @@ export default function PayRequestPage() {
         setQuote(q);
         setPhase("ready");
       } catch (err) {
-        toast.error(errorMessage(err));
+        const info = classifyRecoverable(err, "Couldn't get a rate for this payment.");
+        setActionError({
+          title: info.title,
+          detail: info.detail,
+          // Same wallet, same source — re-running the quote is a one-click
+          // retry, not a reconnect. `w`/`source` are this call's own
+          // arguments, still valid when the button fires later.
+          onRetry: info.retryable ? () => requestQuote(w, source) : undefined,
+        });
         setPhase("select-source");
       }
     },
@@ -326,6 +392,7 @@ export default function PayRequestPage() {
     setWallet(null);
     setSelectedSource(null);
     setQuote(null);
+    setActionError(null);
     setPhase("connect-wallet");
   }, []);
 
@@ -345,12 +412,18 @@ export default function PayRequestPage() {
     // adapter would hand a source-chain payload to the wrong wallet.
     const signingChain = quote.chain;
     if (wallet.chain !== signingChain) {
-      toast.error(
-        `This payment must be signed on ${signingChain}, but your wallet is connected to ${wallet.chain}.`
-      );
+      // Not retryable as-is: signing again on the same wallet fails the same
+      // way every time. The fix is the "Switch wallet" control already in
+      // the left column, so this notice explains the mismatch and points at
+      // it rather than offering a dead-end "Try again".
+      setActionError({
+        title: "Wrong wallet for this payment.",
+        detail: `This payment must be signed on ${signingChain}, but your wallet is connected to ${wallet.chain}. Use "Switch wallet" above to connect the right one.`,
+      });
       return;
     }
 
+    setActionError(null);
     setPhase("submitting");
     setSignatureStep(1);
     // Set BEFORE signing: if submit never answers we still have something to
@@ -393,7 +466,15 @@ export default function PayRequestPage() {
         signedTx = await signAndBroadcastSolanaUnsignedTx(wallet.address, quote.unsignedTx);
       }
     } catch (err) {
-      toast.error(errorMessage(err));
+      // Nothing left the wallet on this path — the throw happened before or
+      // during signing. Retry re-runs handleConfirmSign from the top with
+      // the same quote and wallet still in state, i.e. it re-prompts the
+      // wallet rather than restarting the flow.
+      setActionError({
+        title: "Signing didn't go through.",
+        detail: errorMessage(err),
+        onRetry: () => handleConfirmSign(),
+      });
       setPhase("ready");
       return;
     }
@@ -445,15 +526,33 @@ export default function PayRequestPage() {
 
       // Direct Stellar with a real HTTP status: the server answered and
       // rejected it before broadcasting. Nothing left the wallet; retry is safe.
-      toast.error(errorMessage(err));
+      const info = classifyRecoverable(err, "Couldn't submit your payment.");
+      setActionError({
+        title: info.title,
+        detail: info.detail,
+        onRetry: !info.retryable
+          ? undefined
+          : info.expiredQuote
+            ? // The stored quote is stale server-side — resubmitting the same
+              // signedTx would just fail again. Get a fresh quote instead,
+              // for the same wallet/source already selected.
+              () => {
+                if (wallet && selectedSource) {
+                  setPhase("quoting");
+                  requestQuote(wallet, selectedSource);
+                }
+              }
+            : () => handleConfirmSign(),
+      });
       setPhase("ready");
     }
-  }, [wallet, quote, token]);
+  }, [wallet, quote, token, selectedSource, requestQuote]);
 
   const handleRetryAfterFailure = useCallback(() => {
     setQuote(null);
     setSubmitResult(null);
     setStuckHash(null);
+    setActionError(null);
     // A retry is a NEW attempt — keeping the old id would poll a dead one and
     // re-render its terminal state over the fresh quote.
     setAttemptId(null);
@@ -588,6 +687,13 @@ export default function PayRequestPage() {
                     </button>
                   </div>
                 )}
+
+              {/* Unconditional on phase: a quote failure lands on
+                  "select-source", a signing/submit failure stays on "ready" —
+                  this is the one slot that's visible across all of them. */}
+              {actionError && (
+                <PayActionErrorNotice error={actionError} onDismiss={() => setActionError(null)} />
+              )}
 
               {wallet &&
                 sources.length > 0 &&

@@ -221,7 +221,9 @@ export function PersonalDashboard() {
             height: 260,
             borderRadius: "50%",
             pointerEvents: "none",
-            background: `${A}0d`,
+            // A flat fill clipped by the card's overflow:hidden reads as a hard
+            // vertical seam across the hero rather than a glow — fade it out.
+            background: `radial-gradient(circle, ${A}1a 0%, ${A}00 70%)`,
           }}
         />
         <div className="flex items-end gap-[34px] flex-wrap" style={{ position: "relative" }}>
