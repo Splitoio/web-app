@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icons, O, RADIUS, T, TYPE, A } from "@/lib/splito-design";
 import { pageMetaFor } from "@/lib/shell-nav";
 import { useActiveWorkspace } from "@/contexts/workspace";
-import { usePageTitleOverride } from "@/contexts/page-title";
+import { usePageActionsRenderer, usePageTitleOverride } from "@/contexts/page-title";
 
 /**
  * Sticky app header (design 123–139): the current screen's title and subtitle,
@@ -21,8 +21,11 @@ export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
   const pathname = usePathname() ?? "/";
   const workspace = useActiveWorkspace();
   const override = usePageTitleOverride();
+  const renderActions = usePageActionsRenderer();
   const meta = pageMetaFor(pathname, workspace);
   const title = override?.title ?? meta.title;
+  // An empty-string override is how a screen says "no subtitle at all" (as
+  // opposed to `undefined`, which falls back to the static section subtitle).
   const subtitle = override?.subtitle ?? meta.subtitle;
 
   return (
@@ -37,10 +40,15 @@ export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
       <div className="flex items-center gap-3.5" style={{ height: 72, padding: "0 30px" }}>
         <div className="min-w-0">
           <h1 style={{ ...TYPE.pageTitle, margin: 0 }}>{title}</h1>
-          <p style={{ margin: "2px 0 0", fontSize: 12, color: T.dim }}>{subtitle}</p>
+          {subtitle ? (
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: T.dim }}>{subtitle}</p>
+          ) : null}
         </div>
 
         <div className="flex-1" />
+
+        {/* This screen's own actions, if it published any — usePageActions(). */}
+        {renderActions ? renderActions() : null}
 
         {/* There is no notifications surface yet — no route, no endpoint, and
             `hasUnread` is never set true. Gated visibly rather than left looking

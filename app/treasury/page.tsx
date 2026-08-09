@@ -55,8 +55,8 @@ export default function TreasuryPage() {
   const streamCount = treasury?.streamCount ?? streams?.length ?? 0;
 
   return (
-    <div className="fade-up p-4 lg:p-0" style={{ maxWidth: 840 }}>
-      <HeroCard style={{ padding: 24, marginBottom: 18 }}>
+    <div className="fade-up p-4 lg:p-0" style={{ maxWidth: 1000 }}>
+      <HeroCard style={{ padding: 24, marginBottom: 18, maxWidth: 560 }}>
         <Eyebrow>Received</Eyebrow>
         {treasuryLoading ? (
           <div style={{ margin: "10px 0 5px" }}>
@@ -84,7 +84,13 @@ export default function TreasuryPage() {
         </Btn>
       </div>
 
-      <Card style={{ padding: 0 }}>
+      <Card
+        style={
+          !streamsLoading && (streamsError || !streams || streams.length === 0)
+            ? { padding: 0, maxWidth: 480, margin: "0 auto" }
+            : { padding: 0 }
+        }
+      >
         {streamsLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} />

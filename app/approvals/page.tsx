@@ -120,7 +120,7 @@ export default function ApprovalsPage() {
   };
 
   return (
-    <div className="fade-up" style={{ maxWidth: 880 }}>
+    <div className="fade-up" style={{ maxWidth: 1000 }}>
       {invoices === null && !error && (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} />
@@ -128,7 +128,7 @@ export default function ApprovalsPage() {
       )}
 
       {error && (
-        <Card style={{ padding: 26, textAlign: "center" }}>
+        <Card style={{ padding: 26, textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <p style={{ fontSize: 13.5, color: T.body, margin: 0 }}>{error}</p>
           <button type="button" onClick={load} className="text-[13px] font-semibold mt-3" style={{ color: A }}>
             Try again
@@ -137,7 +137,7 @@ export default function ApprovalsPage() {
       )}
 
       {invoices !== null && !error && invoices.length === 0 && (
-        <Card style={{ padding: 26, textAlign: "center" }}>
+        <Card style={{ padding: 26, textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <p style={{ fontSize: 15, fontWeight: 700, color: T.bright, margin: 0 }}>All caught up</p>
           <p style={{ fontSize: 12.5, color: T.sub, margin: "6px 0 0" }}>
             Nothing needs your approval right now.

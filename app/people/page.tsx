@@ -1,8 +1,9 @@
 "use client";
 
 import { FriendsList } from "@/components/friends-list";
-import { useState } from "react";
-import { Icons, T, A, INSET } from "@/lib/splito-design";
+import { useCallback, useState } from "react";
+import { Icons, T, A, INSET, RADIUS } from "@/lib/splito-design";
+import { usePageActions, usePageTitle } from "@/contexts/page-title";
 import { toast } from "sonner";
 import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useInviteFriend } from "@/features/friends/hooks/use-invite-friend";
@@ -128,6 +129,46 @@ function EmailActionModal({
   );
 }
 
+/**
+ * People's two header actions.
+ *
+ * Both are OUTLINE buttons, not filled: they sit beside the shell's filled
+ * "+ Create" (components/topbar.tsx), and a header row with two accent fills
+ * has no primary action at all. Metrics track the neighbouring Create button —
+ * RADIUS.control, 13px/700 — so the row reads as one set of controls.
+ */
+function PeopleActions({
+  onAdd,
+  onInvite,
+}: {
+  onAdd: () => void;
+  onInvite: () => void;
+}) {
+  const style = {
+    borderRadius: RADIUS.control,
+    padding: "9px 15px",
+    fontSize: 13,
+    fontWeight: 700,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.09)",
+    color: T.body,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    whiteSpace: "nowrap" as const,
+  };
+
+  return (
+    <>
+      <button type="button" onClick={onAdd} className="abtn transition-all" style={style}>
+        Add by email
+      </button>
+      <button type="button" onClick={onInvite} className="abtn transition-all" style={style}>
+        Invite a friend
+      </button>
+    </>
+  );
+}
+
 export default function PeoplePage() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -135,66 +176,34 @@ export default function PeoplePage() {
   const { mutate: addFriend, isPending: isAdding } = useAddFriend();
   const { mutate: inviteFriend, isPending: isInviting } = useInviteFriend();
 
+  const openAdd = useCallback(() => setAddOpen(true), []);
+  const openInvite = useCallback(() => setInviteOpen(true), []);
+
+  // Drop the shell's static subtitle for this screen. `pageMetaFor()` still
+  // carries one for every other route, so this is an override, not an edit to
+  // lib/shell-nav.ts — an empty string is <Topbar/>'s "render no subtitle".
+  usePageTitle("People", "");
+
+  // The two actions live in the header row, beside the bell and "+ Create".
+  usePageActions(
+    () => <PeopleActions onAdd={openAdd} onInvite={openInvite} />,
+    [openAdd, openInvite]
+  );
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Below 1025px the shell's own <Topbar/> isn't mounted (app/client-layout.tsx)
-          — this is the only heading in that range. At >=1025px the shell
-          topbar already renders the title, so this stays hidden there rather
-          than showing a second one. */}
-      <div className="border-b border-white/[0.07] px-7 sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10 hidden sm:flex min-[1025px]:hidden items-center h-[70px]">
-        <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white">
+          — this is the only heading in that range, and the only place the
+          header actions can go. At >=1025px the shell topbar renders both
+          (usePageActions above), so this whole row stays hidden there. */}
+      <div className="border-b border-white/[0.07] px-4 sm:px-7 sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10 flex min-[1025px]:hidden items-center gap-2.5 min-h-[70px] py-3 flex-wrap">
+        <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white mr-auto">
           People
         </h1>
+        <PeopleActions onAdd={openAdd} onInvite={openInvite} />
       </div>
+
       <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
-        {/* Mobile header */}
-        <div className="sm:hidden mb-3">
-          <div className="pb-2 px-0">
-            <p className="text-[13px] font-medium text-white/60">Everyone you split and settle with</p>
-            <h1 className="text-[26px] font-black tracking-[-0.04em] text-white mt-1">People</h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 mb-4 flex-wrap">
-          <p className="flex-1 min-w-[200px]" style={{ margin: 0, fontSize: 12, color: T.sub }}>
-            Click anyone to see what you owe each other, currency by currency.
-          </p>
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="rounded-xl transition-all"
-            style={{
-              fontSize: 12.5,
-              fontWeight: 700,
-              padding: "8px 15px",
-              cursor: "pointer",
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.04)",
-              color: T.body,
-              fontFamily: "inherit",
-            }}
-          >
-            Add by email
-          </button>
-          <button
-            type="button"
-            onClick={() => setInviteOpen(true)}
-            className="rounded-xl transition-all"
-            style={{
-              fontSize: 12.5,
-              fontWeight: 700,
-              padding: "8px 16px",
-              cursor: "pointer",
-              border: "none",
-              background: A,
-              color: "#0a0a0a",
-              fontFamily: "inherit",
-            }}
-          >
-            Invite a friend
-          </button>
-        </div>
-
         <div
           className="flex items-center gap-2 rounded-[14px] py-2.5 px-4 mb-4 sm:mb-5 border border-white/[0.08] bg-white/[0.04]"
         >
@@ -207,7 +216,7 @@ export default function PeoplePage() {
           />
         </div>
 
-        <FriendsList search={search} onAddFriendClick={() => setAddOpen(true)} />
+        <FriendsList search={search} onAddFriendClick={openAdd} />
       </div>
 
       {addOpen && (

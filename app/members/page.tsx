@@ -366,7 +366,7 @@ export default function MembersPage() {
   const isLoading = membersLoading || contractsLoading;
 
   return (
-    <div style={{ maxWidth: 940, animation: "fU .3s ease" }}>
+    <div style={{ maxWidth: 1200, animation: "fU .3s ease" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <p style={eyebrow()}>
           {isLoading ? "Loading…" : `${rows.length} member${rows.length !== 1 ? "s" : ""}`}
@@ -396,6 +396,7 @@ export default function MembersPage() {
       {inviteOpen && (
         <div
           style={{
+            maxWidth: 820,
             borderRadius: 20,
             border: "1px solid rgba(34,211,238,0.22)",
             background: "linear-gradient(145deg,#131316 0%,#0e0e10 100%)",
@@ -646,7 +647,7 @@ export default function MembersPage() {
           <Loader2 className="h-7 w-7 animate-spin" style={{ color: T.faded }} />
         </div>
       ) : rows.length === 0 ? (
-        <Card style={{ padding: 32, textAlign: "center" }}>
+        <Card style={{ padding: 32, textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.bright }}>No members yet</p>
           <p style={{ margin: "6px 0 0", fontSize: 12.5, color: T.sub }}>
             Invite someone above to get started.

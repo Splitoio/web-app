@@ -408,7 +408,10 @@ function WalletsSection({ wallets, isLoading, chains, onSetDefault, isSettingDef
   const [adding, setAdding] = useState(false);
   const [chainId, setChainId] = useState("");
   const [address, setAddress] = useState("");
-  const enabledChains = chains.filter((c) => c.enabled);
+  // Only Stellar can be added going forward. A wallet already saved on any
+  // other chain still renders above (the `wallets` map isn't filtered) —
+  // this only narrows what's offered for a *new* add.
+  const enabledChains = chains.filter((c) => c.enabled && c.id === "stellar");
 
   return (
     <div>
@@ -444,17 +447,31 @@ function WalletsSection({ wallets, isLoading, chains, onSetDefault, isSettingDef
 
       {adding ? (
         <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: BORDER, background: "rgba(255,255,255,0.02)" }}>
-          <Eyebrow style={{ marginBottom: 8 }}>Chain</Eyebrow>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-            {enabledChains.map((c) => {
-              const sel = chainId === c.id;
-              return (
-                <button key={c.id} type="button" aria-pressed={sel} onClick={() => setChainId(c.id)} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${A}1a` : INSET, border: `1px solid ${sel ? `${A}55` : "rgba(255,255,255,0.09)"}`, color: sel ? A : T.body }}>
-                  {c.name}
-                </button>
-              );
-            })}
-          </div>
+          {enabledChains.length === 1 ? (
+            // Only one chain is offered — a picker would be theater. State it
+            // as a fact instead of a choice.
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <AvatarChip init="ST" color={getChainMeta(enabledChains[0].id).color} size={30} />
+              <div>
+                <Eyebrow style={{ marginBottom: 2 }}>Chain</Eyebrow>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>{enabledChains[0].name}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <Eyebrow style={{ marginBottom: 8 }}>Chain</Eyebrow>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                {enabledChains.map((c) => {
+                  const sel = chainId === c.id;
+                  return (
+                    <button key={c.id} type="button" aria-pressed={sel} onClick={() => setChainId(c.id)} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${A}1a` : INSET, border: `1px solid ${sel ? `${A}55` : "rgba(255,255,255,0.09)"}`, color: sel ? A : T.body }}>
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <Eyebrow style={{ marginBottom: 8 }}>Address</Eyebrow>
           <TextInput value={address} onChange={setAddress} placeholder="Wallet address" />
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -469,7 +486,7 @@ function WalletsSection({ wallets, isLoading, chains, onSetDefault, isSettingDef
           </div>
         </div>
       ) : (
-        <GhostButton onClick={() => setAdding(true)} style={{ marginTop: 18 }}>Connect a wallet</GhostButton>
+        <GhostButton onClick={() => { setChainId(enabledChains.length === 1 ? enabledChains[0].id : ""); setAdding(true); }} style={{ marginTop: 18 }}>Connect a wallet</GhostButton>
       )}
     </div>
   );
@@ -573,7 +590,13 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
   const walletKitRef = React.useRef<StellarWalletsKit | null>(null);
 
   const cryptoTokens = allCurrencies.filter((c) => c.type !== "FIAT" && c.chainId);
-  const chainIds = [...new Set(cryptoTokens.map((c) => c.chainId!))];
+  // Only Stellar can be picked for a *new* preference. A chain the account
+  // already has a saved preference for (existingChainIds) stays offered here
+  // too, so "Change" on an existing non-Stellar preference still opens with
+  // its chain visible/editable instead of quietly vanishing.
+  const chainIds = [...new Set(cryptoTokens.map((c) => c.chainId!))].filter(
+    (cid) => cid === "stellar" || existingChainIds.includes(cid)
+  );
   const meta = getChainMeta(selectedChainId);
 
   React.useEffect(() => {
@@ -689,7 +712,19 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {mode !== "edit-wallet" && (
+              {mode !== "edit-wallet" && chainIds.length === 1 && (
+                // Only Stellar is offered and no other chain is already
+                // saved — a picker of one would be theater.
+                <div>
+                  <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>Chain</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 6px" }}>
+                    <span style={{ fontSize: 20, color: "#fff" }}>{getChainMeta(chainIds[0]).icon}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: getChainMeta(chainIds[0]).color }}>{getChainMeta(chainIds[0]).label}</span>
+                  </div>
+                </div>
+              )}
+
+              {mode !== "edit-wallet" && chainIds.length > 1 && (
                 <div>
                   <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>Chain</label>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>

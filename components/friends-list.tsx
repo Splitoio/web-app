@@ -34,6 +34,13 @@ type Friend = {
   id: string;
   name: string;
   email?: string | null;
+  /**
+   * Addressed but never signed up — the backend reads this off "has no Account
+   * row" (backend/src/services/split.service.ts, PERSON_SELECT). Their row
+   * shows "Invited" and no balance: a number you cannot settle with someone
+   * who has no account is worse than no number.
+   */
+  invited?: boolean;
   balances?: Array<{ currency: string; amount: number }>;
   expenses?: Array<{
     id: string;
@@ -238,15 +245,28 @@ function ContactTile({
   const color = getUserColor(friend.name);
   const init = getInitials(friend.name);
 
-  // Backend convention: positive = you owe friend, negative = friend owes you
-  const statColor = isLoading ? T.dim : balance === 0 ? T.dim : balance < 0 ? G : R;
-  const statText = isLoading
-    ? "…"
-    : balance === 0
-      ? "Settled up"
-      : balance < 0
-        ? `Owes you ${formatCurrency(Math.abs(balance), defaultCurrency)}`
-        : `You owe ${formatCurrency(Math.abs(balance), defaultCurrency)}`;
+  // "Invited" outranks every balance state: until they have an account there is
+  // nothing to settle, so "Settled up" would be a claim about a relationship
+  // that hasn't started.
+  // Otherwise, backend convention: positive = you owe friend, negative = friend owes you
+  const statColor = friend.invited
+    ? T.sub
+    : isLoading
+      ? T.dim
+      : balance === 0
+        ? T.dim
+        : balance < 0
+          ? G
+          : R;
+  const statText = friend.invited
+    ? "Invited"
+    : isLoading
+      ? "…"
+      : balance === 0
+        ? "Settled up"
+        : balance < 0
+          ? `Owes you ${formatCurrency(Math.abs(balance), defaultCurrency)}`
+          : `You owe ${formatCurrency(Math.abs(balance), defaultCurrency)}`;
 
   return (
     <motion.div variants={slideUp}>
@@ -325,9 +345,18 @@ function PersonModal({
         sub: friend.email ?? undefined,
         init,
         color,
-        netLabel: isLoading ? "Balance" : net === 0 ? "All settled" : net < 0 ? "Owes you" : "You owe",
-        net: isLoading ? "…" : formatCurrency(Math.abs(net), defaultCurrency),
-        netColor: isLoading ? T.dim : net === 0 ? T.main : net < 0 ? G : R,
+        // Same rule as the tile: an invited person has no balance to state.
+        netLabel: friend.invited
+          ? "Invited"
+          : isLoading
+            ? "Balance"
+            : net === 0
+              ? "All settled"
+              : net < 0
+                ? "Owes you"
+                : "You owe",
+        net: friend.invited ? "—" : isLoading ? "…" : formatCurrency(Math.abs(net), defaultCurrency),
+        netColor: friend.invited ? T.dim : isLoading ? T.dim : net === 0 ? T.main : net < 0 ? G : R,
       }}
       balances={balances}
       items={items}
