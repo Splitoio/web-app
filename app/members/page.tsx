@@ -396,7 +396,6 @@ export default function MembersPage() {
       {inviteOpen && (
         <div
           style={{
-            maxWidth: 820,
             borderRadius: 20,
             border: "1px solid rgba(34,211,238,0.22)",
             background: "linear-gradient(145deg,#131316 0%,#0e0e10 100%)",
@@ -647,7 +646,7 @@ export default function MembersPage() {
           <Loader2 className="h-7 w-7 animate-spin" style={{ color: T.faded }} />
         </div>
       ) : rows.length === 0 ? (
-        <Card style={{ padding: 32, textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
+        <Card style={{ padding: "56px 32px", textAlign: "center" }}>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.bright }}>No members yet</p>
           <p style={{ margin: "6px 0 0", fontSize: 12.5, color: T.sub }}>
             Invite someone above to get started.

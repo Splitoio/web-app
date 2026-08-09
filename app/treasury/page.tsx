@@ -9,7 +9,7 @@ import { useWorkspaceTreasury } from "@/features/workspaces/hooks/use-workspace-
 import { formatCurrency } from "@/utils/formatters";
 import { LogIncomeModal } from "@/components/log-income-modal";
 import { Row } from "@/components/shell/row";
-import { Card, HeroCard, Eyebrow, Btn, Icons, T, TYPE, getUserColor } from "@/lib/splito-design";
+import { Card, HeroCard, Eyebrow, Btn, Icons, T, TYPE, getUserColor, G as G_ACCENT } from "@/lib/splito-design";
 
 /** "Received 1 Aug" — the trailing date on a stream row (design line 1229). */
 function formatReceivedDate(date: Date): string {
@@ -56,24 +56,41 @@ export default function TreasuryPage() {
 
   return (
     <div className="fade-up p-4 lg:p-0" style={{ maxWidth: 1000 }}>
-      <HeroCard style={{ padding: 24, marginBottom: 18, maxWidth: 560 }}>
-        <Eyebrow>Received</Eyebrow>
-        {treasuryLoading ? (
-          <div style={{ margin: "10px 0 5px" }}>
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: T.muted }} />
-          </div>
-        ) : (
-          <p style={{ margin: "8px 0 5px", color: T.white, lineHeight: 1, ...TYPE.hero }}>
-            {treasuryError ? "—" : formatCurrency(treasury?.streamsTotal ?? 0, treasury?.currency ?? "USD")}
+      <HeroCard style={{ padding: 24, marginBottom: 18, position: "relative", overflow: "hidden" }}>
+        {/* Same fill-the-width treatment as the dashboard's treasury hero
+            (business-dashboard.tsx) — a quiet radial glow behind the figure so
+            a short left-aligned block doesn't read as stranded in a wide card. */}
+        <div
+          style={{
+            position: "absolute",
+            top: -60,
+            right: -40,
+            width: 230,
+            height: 230,
+            borderRadius: "50%",
+            pointerEvents: "none",
+            background: `${G_ACCENT}0d`,
+          }}
+        />
+        <div style={{ position: "relative", maxWidth: 420 }}>
+          <Eyebrow>Received</Eyebrow>
+          {treasuryLoading ? (
+            <div style={{ margin: "10px 0 5px" }}>
+              <Loader2 className="h-6 w-6 animate-spin" style={{ color: T.muted }} />
+            </div>
+          ) : (
+            <p style={{ margin: "8px 0 5px", color: T.white, lineHeight: 1, ...TYPE.hero }}>
+              {treasuryError ? "—" : formatCurrency(treasury?.streamsTotal ?? 0, treasury?.currency ?? "USD")}
+            </p>
+          )}
+          <p style={{ margin: 0, fontSize: 12.5, color: T.sub }}>
+            {treasuryError
+              ? "Couldn't load your total right now"
+              : streamCount === 0
+                ? "Nothing logged yet"
+                : `${streamCount} income ${streamCount === 1 ? "entry" : "entries"} logged`}
           </p>
-        )}
-        <p style={{ margin: 0, fontSize: 12.5, color: T.sub }}>
-          {treasuryError
-            ? "Couldn't load your total right now"
-            : streamCount === 0
-              ? "Nothing logged yet"
-              : `${streamCount} income ${streamCount === 1 ? "entry" : "entries"} logged`}
-        </p>
+        </div>
       </HeroCard>
 
       <div className="flex items-center gap-2.5" style={{ marginBottom: 12 }}>
@@ -84,25 +101,19 @@ export default function TreasuryPage() {
         </Btn>
       </div>
 
-      <Card
-        style={
-          !streamsLoading && (streamsError || !streams || streams.length === 0)
-            ? { padding: 0, maxWidth: 480, margin: "0 auto" }
-            : { padding: 0 }
-        }
-      >
+      <Card style={{ padding: 0 }}>
         {streamsLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} />
           </div>
         ) : streamsError ? (
-          <div style={{ padding: "36px 22px", textAlign: "center" }}>
+          <div style={{ padding: "56px 22px", textAlign: "center" }}>
             <p style={{ fontSize: 13.5, fontWeight: 700, color: T.bright, margin: 0 }}>
               Couldn&apos;t load your income streams
             </p>
           </div>
         ) : !streams || streams.length === 0 ? (
-          <div style={{ padding: "36px 22px", textAlign: "center" }}>
+          <div style={{ padding: "56px 22px", textAlign: "center" }}>
             <p style={{ fontSize: 13.5, fontWeight: 700, color: T.bright, margin: 0 }}>
               Nothing logged yet
             </p>

@@ -596,9 +596,18 @@ export default function CurrencyDropdown({
 
   return (
     <div className="relative" ref={triggerRef} style={compact ? { flexShrink: 0 } : undefined}>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         onClick={() => toggleDropdown("currency")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleDropdown("currency");
+          }
+        }}
         style={compact ? {
           display: "flex",
           alignItems: "center",
@@ -786,7 +795,7 @@ export default function CurrencyDropdown({
             ▾
           </span>
         )}
-      </button>
+      </div>
 
       {typeof document !== "undefined" &&
         activeDropdown === "currency" &&
