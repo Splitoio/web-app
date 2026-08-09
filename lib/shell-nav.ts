@@ -1,5 +1,6 @@
 import { A, B, G, O, P, T } from "@/lib/splito-design";
 import type { Workspace, WorkspaceKind } from "@/lib/workspace";
+import { isWorkspaceAdmin } from "@/lib/workspace";
 
 /**
  * The shell's navigation and page titles.
@@ -67,14 +68,40 @@ const BUSINESS_NAV: NavGroup[] = [
   },
 ];
 
-export function navGroupsFor(kind: WorkspaceKind): NavGroup[] {
-  return kind === "business" ? BUSINESS_NAV : PERSONAL_NAV;
+/**
+ * `isAdmin` drops "Needs approval" from a business nav for a MEMBER —
+ * approve/decline/mark-paid/clear are OWNER/ADMIN-only on the backend
+ * (invoice.controller.ts), so a member following the link would only ever
+ * land on a "not allowed" screen. Ignored for a personal workspace, which
+ * has no approvals item to begin with.
+ */
+export function navGroupsFor(kind: WorkspaceKind, isAdmin = true): NavGroup[] {
+  if (kind !== "business") return PERSONAL_NAV;
+  if (isAdmin) return BUSINESS_NAV;
+  return BUSINESS_NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.href !== "/approvals"),
+  }));
 }
 
 /** Longest-prefix match, so `/requests/<id>` still highlights Requests. */
 export function isNavItemActive(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * Stable DOM id for a nav item's rendered `<Link>`, derived from its href so
+ * it can never silently drift out of sync with the sidebar the way the old
+ * hand-written `sidebar-org-*-link` ids did (those named routes — dashboard,
+ * invoices, streams, contracts, members — from the deleted `/organization/*`
+ * shell and were never updated when the nav moved to `navGroupsFor`).
+ * Consumed by both `Sidebar` (sets the id) and `OnboardingTutorial` (targets
+ * it), so the two can never disagree about what a step should spotlight.
+ */
+export function navItemId(href: string): string {
+  const slug = href === "/" ? "dashboard" : href.replace(/^\//, "").replace(/\//g, "-");
+  return `sidebar-nav-${slug}`;
 }
 
 export type PageMeta = { title: string; subtitle: string };

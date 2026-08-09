@@ -29,7 +29,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const groupId = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
   const { user } = useAuthStore();
-  const { data: group, isLoading } = useGetGroupById(groupId, { type: "PERSONAL" });
+  const { data: group, isLoading } = useGetGroupById(groupId);
   const { sendReminder, isSending } = useReminders();
   const { data: allCurrencies } = useGetAllCurrencies();
 

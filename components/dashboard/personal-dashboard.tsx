@@ -156,7 +156,7 @@ export function PersonalDashboard() {
   const defaultCurrency = user?.currency || "USD";
   const { data: summary, isLoading: summaryLoading } = useWorkspaceSummary(PERSONAL_WORKSPACE_ID);
   const { data: friends } = useGetFriends();
-  const { data: groups } = useGetAllGroups({ type: "PERSONAL" });
+  const { data: groups } = useGetAllGroups();
   const [openFriend, setOpenFriend] = useState<Friend | null>(null);
 
   const friendsWithBalance = useMemo(() => {

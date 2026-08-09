@@ -21,7 +21,8 @@ import {
   initialsFrom,
   navGroupLabel,
 } from "@/lib/splito-design";
-import { isNavItemActive, navGroupsFor } from "@/lib/shell-nav";
+import { isNavItemActive, navGroupsFor, navItemId } from "@/lib/shell-nav";
+import { isWorkspaceAdmin } from "@/lib/workspace";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
@@ -60,7 +61,7 @@ export function Sidebar() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const navGroups = navGroupsFor(activeWorkspace.kind);
+  const navGroups = navGroupsFor(activeWorkspace.kind, isWorkspaceAdmin(activeWorkspace));
   const wsColor = activeWorkspace.color || A;
   // The cap is the server's verdict (`GET /api/workspaces`), not local
   // arithmetic — the row is disabled with a reason rather than failing on submit.
@@ -289,6 +290,7 @@ export function Sidebar() {
                   return (
                     <Link
                       key={item.href}
+                      id={navItemId(item.href)}
                       href={item.href}
                       onClick={close}
                       className="nv flex items-center gap-2.5 transition-all"

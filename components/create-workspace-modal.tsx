@@ -27,10 +27,10 @@ import {
 /**
  * "New workspace" — the create half of the sidebar switcher.
  *
- * A business workspace is a `Group` with `type: "BUSINESS"`; there is no
- * `POST /api/workspaces`. `name` is the only field the endpoint requires
- * (group.controller.ts createGroup), so that is the only required field here —
- * description and accent are optional conveniences.
+ * A business workspace is an `Organization`; there is no `POST /api/workspaces`.
+ * `name` is the only field `POST /api/organizations` requires
+ * (organization.controller.ts createOrganization), so that is the only
+ * required field here — description and accent are optional conveniences.
  *
  * The cap is the server's call, not ours: the switcher hides the entry point
  * when `canCreateBusiness` is false, and if the server 400s anyway (a second
@@ -83,12 +83,12 @@ export function CreateWorkspaceModal({
     createWorkspace.mutate(
       { name: trimmed, description: description.trim() || undefined, color },
       {
-        onSuccess: (group) => {
-          toast.success(`${group.name} is ready`);
+        onSuccess: (organization) => {
+          toast.success(`${organization.name} is ready`);
           handleClose();
           // Land the user *in* the workspace they just made — the switcher
           // list has already refetched by now (see use-create-workspace).
-          setActiveWorkspace(group.id);
+          setActiveWorkspace(organization.id);
           router.push("/");
         },
         onError: (err: unknown) =>

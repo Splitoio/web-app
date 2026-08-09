@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { A, T, Icons, BORDER } from "@/lib/splito-design";
 import { isNavItemActive, navGroupsFor } from "@/lib/shell-nav";
 import { useActiveWorkspace } from "@/contexts/workspace";
+import { isWorkspaceAdmin } from "@/lib/workspace";
 
 // Below 1025px the sidebar is a drawer, so the nav destinations also get a
 // bottom bar. Sourced from the same nav table as the sidebar, so personal and
@@ -45,7 +46,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const workspace = useActiveWorkspace();
 
-  const navItems = navGroupsFor(workspace.kind)
+  const navItems = navGroupsFor(workspace.kind, isWorkspaceAdmin(workspace))
     .flatMap((group) => group.items)
     .filter((item) => item.href in ICON_FOR);
 

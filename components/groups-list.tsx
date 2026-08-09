@@ -21,8 +21,8 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     isLoading: isGroupsLoading,
     error,
   } = useQuery({
-    queryKey: [QueryKeys.GROUPS, "PERSONAL"],
-    queryFn: () => getAllGroups({ type: "PERSONAL" }),
+    queryKey: [QueryKeys.GROUPS, "list"],
+    queryFn: getAllGroups,
   });
   const router = useRouter();
   const { user } = useAuthStore();

@@ -7,13 +7,18 @@ import { useAuthStore } from "@/stores/authStore";
 import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
 import { BusinessOnly, WorkspaceResolving } from "@/components/shell/business-only";
 import {
-  useGetGroupById,
-  useAddMembersToGroup,
-  useUpdateMemberRole,
-  useRemoveMemberFromGroup,
-} from "@/features/groups/hooks/use-create-group";
+  useGetOrganizationMembers,
+  useRemoveOrganizationMember,
+  useUpdateOrganizationMemberRole,
+} from "@/features/business/hooks/use-organizations";
+import {
+  useCreateOrganizationInvite,
+  useGetOrganizationInvites,
+  useResendInvite,
+  useRevokeInvite,
+} from "@/features/business/hooks/use-invites";
 import { useGetContractsByOrganization, useCreateContract } from "@/features/business/hooks/use-contracts";
-import type { Contract } from "@/features/business/api/client";
+import type { Contract, OrganizationInvite, OrgRole } from "@/features/business/api/client";
 import { ContractDetailModal } from "@/components/contract-detail-modal";
 import { formatCurrency } from "@/utils/formatters";
 import { isValidEmail } from "@/utils/validation";
@@ -43,7 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Role = "OWNER" | "ADMIN" | "MEMBER";
+type Role = OrgRole;
 type Freq = "MONTHLY" | "WEEKLY" | "ONE_TIME";
 
 const FREQS: { value: Freq; label: string }[] = [
@@ -53,6 +58,7 @@ const FREQS: { value: Freq; label: string }[] = [
 ];
 
 const ROLE_COLOR: Record<Role, string> = { OWNER: A, ADMIN: P, MEMBER: T.dim };
+const ROLE_LABEL: Record<Role, string> = { OWNER: "Owner", ADMIN: "Admin", MEMBER: "Member" };
 
 function initialsFor(name: string | null, email: string | null): string {
   const src = (name || email || "?").trim();
@@ -80,18 +86,6 @@ function contractStatusMeta(c: Contract): { label: string; color: string } {
   return { label: c.status, color: T.dim };
 }
 
-/**
- * The gating note shown under a row that has no workspace access yet. Only
- * ever shown for people who aren't a GroupUser — a signed contract always
- * creates one, so "hasAccess" and "has a contract row with no note" coincide.
- */
-function accessNoteFor(c: Contract): string {
-  if (c.status === "REJECTED") return "Rejected the contract, so never joined.";
-  if (c.status === "REVOKED") return "Contract revoked — never joined.";
-  if (c.status === "DRAFT") return "Not invited yet — the contract is the invitation.";
-  return "No access to this workspace until they sign.";
-}
-
 function contractPayLabel(c: Contract): string | null {
   if (c.compensationAmount == null) return null;
   const amt = formatCurrency(c.compensationAmount, c.compensationCurrency ?? "USD");
@@ -99,13 +93,30 @@ function contractPayLabel(c: Contract): string | null {
   return `${amt}${suffix}`;
 }
 
+/**
+ * An invite's own state, which is NOT the same as a member's. Nobody is seated
+ * until they accept, so this is the only truthful thing the screen can say
+ * about an invited person — it never claims they were added.
+ */
+function inviteStatusMeta(invite: OrganizationInvite): { label: string; color: string } {
+  if (invite.status === "REVOKED") return { label: "Revoked", color: R };
+  if (invite.status === "ACCEPTED") return { label: "Accepted", color: G };
+  if (invite.expiresAt.getTime() <= Date.now()) return { label: "Expired", color: R };
+  return { label: "Pending", color: O };
+}
+
+function expiryLabel(invite: OrganizationInvite): string {
+  const date = invite.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  if (invite.status === "REVOKED") return "Revoked";
+  if (invite.expiresAt.getTime() <= Date.now()) return `Expired ${date}`;
+  return `Expires ${date}`;
+}
+
 type MemberRow = {
-  key: string;
-  kind: "member" | "pending";
-  userId?: string;
+  userId: string;
   name: string;
   email: string;
-  role: Role | null;
+  role: Role;
   contract?: Contract;
 };
 
@@ -114,24 +125,38 @@ export default function MembersPage() {
   const { user } = useAuthStore();
   const isResolving = useIsResolvingWorkspace();
   const isBusiness = workspace.kind === "business";
+  const organizationId = isBusiness ? workspace.id : "";
 
-  const {
-    data: group,
-    isLoading: groupLoading,
-    refetch: refetchGroup,
-  } = useGetGroupById(isBusiness ? workspace.id : "", { type: "BUSINESS" });
-  const { data: contracts = [], isLoading: contractsLoading } = useGetContractsByOrganization(
-    isBusiness ? workspace.id : ""
+  const { data: members = [], isLoading: membersLoading } = useGetOrganizationMembers(organizationId);
+  const { data: contracts = [], isLoading: contractsLoading } =
+    useGetContractsByOrganization(organizationId);
+
+  // Only an OWNER/ADMIN may read the invite list (the endpoint 403s a MEMBER),
+  // so the membership fetch has to land before this one is allowed to fire.
+  const currentRole = useMemo<Role | null>(
+    () => members.find((m) => m.userId === user?.id)?.role ?? null,
+    [members, user?.id]
+  );
+  const currentUserIsAdmin = currentRole === "OWNER" || currentRole === "ADMIN";
+
+  const { data: invites = [], isLoading: invitesLoading } = useGetOrganizationInvites(
+    organizationId,
+    { enabled: currentUserIsAdmin }
   );
 
-  const addMembers = useAddMembersToGroup();
-  const updateRole = useUpdateMemberRole();
-  const removeMember = useRemoveMemberFromGroup();
+  const createInvite = useCreateOrganizationInvite();
+  const revoke = useRevokeInvite();
+  const resend = useResendInvite();
+  const updateRole = useUpdateOrganizationMemberRole();
+  const removeMember = useRemoveOrganizationMember();
   const createContract = useCreateContract();
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "MEMBER">("ADMIN");
+  // Member, not Admin. Admin can revoke invites, change roles and remove
+  // people — that is a deliberate grant, never what you get by not touching
+  // the toggle.
+  const [role, setRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const [withContract, setWithContract] = useState(false);
   const [cTitle, setCTitle] = useState("");
   const [cJobTitle, setCJobTitle] = useState("");
@@ -144,10 +169,11 @@ export default function MembersPage() {
   const [cClause, setCClause] = useState("");
   const [viewContract, setViewContract] = useState<Contract | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<OrganizationInvite | null>(null);
 
   const resetInvite = () => {
     setEmail("");
-    setRole("ADMIN");
+    setRole("MEMBER");
     setWithContract(false);
     setCTitle("");
     setCJobTitle("");
@@ -171,60 +197,38 @@ export default function MembersPage() {
     setInviteOpen(true);
   };
 
-  const currentUserIsAdmin =
-    !!group &&
-    !!user &&
-    (group.userId === user.id ||
-      group.groupUsers.find((gu) => gu.userId === user.id)?.role === "ADMIN");
+  const rows = useMemo<MemberRow[]>(
+    () =>
+      members.map((m) => {
+        const contract =
+          contracts.find((c) => c.assignedToUserId === m.userId) ??
+          contracts.find((c) => c.assignedToEmail.toLowerCase() === m.email?.toLowerCase());
+        return {
+          userId: m.userId,
+          name: m.name || m.email || "Member",
+          email: m.email || "",
+          role: m.role,
+          contract,
+        };
+      }),
+    [members, contracts]
+  );
 
-  const rows = useMemo<MemberRow[]>(() => {
-    if (!group) return [];
-    const memberUserIds = new Set(group.groupUsers.map((gu) => gu.userId));
-    const memberEmails = new Set(
-      group.groupUsers.map((gu) => gu.user.email?.toLowerCase()).filter(Boolean)
-    );
+  // An ACCEPTED invite is just a member now, so it belongs in the list above,
+  // not in a "pending" surface that would double-count them.
+  const openInvites = useMemo(
+    () => invites.filter((i) => i.status !== "ACCEPTED"),
+    [invites]
+  );
 
-    const memberRows: MemberRow[] = group.groupUsers.map((gu) => {
-      const contract =
-        contracts.find((c) => c.assignedToUserId === gu.userId) ??
-        contracts.find((c) => c.assignedToEmail.toLowerCase() === gu.user.email?.toLowerCase());
-      const isOwner = gu.userId === group.userId;
-      return {
-        key: gu.userId,
-        kind: "member",
-        userId: gu.userId,
-        name: gu.user.name || gu.user.email || "Member",
-        email: gu.user.email || "",
-        role: isOwner ? "OWNER" : (gu.role as Role | null) ?? "MEMBER",
-        contract,
-      };
-    });
-
-    // Contracts assigned to someone who hasn't joined yet — dedupe by email,
-    // keep the most recent one if the same person was invited more than once.
-    const pendingByEmail = new Map<string, Contract>();
-    for (const c of contracts) {
-      const matched =
-        (c.assignedToUserId && memberUserIds.has(c.assignedToUserId)) ||
-        memberEmails.has(c.assignedToEmail.toLowerCase());
-      if (matched) continue;
-      const key = c.assignedToEmail.toLowerCase();
-      const existing = pendingByEmail.get(key);
-      if (!existing || new Date(c.createdAt) > new Date(existing.createdAt)) {
-        pendingByEmail.set(key, c);
-      }
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Invite link copied");
+    } catch {
+      toast.error("Couldn't copy — the link is in the invite email too");
     }
-    const pendingRows: MemberRow[] = Array.from(pendingByEmail.values()).map((c) => ({
-      key: `pending-${c.id}`,
-      kind: "pending",
-      name: c.assignedTo?.name || c.assignedToEmail,
-      email: c.assignedToEmail,
-      role: null,
-      contract: c,
-    }));
-
-    return [...memberRows, ...pendingRows];
-  }, [group, contracts]);
+  };
 
   const handleSubmitInvite = () => {
     const trimmedEmail = email.trim();
@@ -246,7 +250,7 @@ export default function MembersPage() {
       }
       createContract.mutate(
         {
-          organizationId: workspace.id,
+          organizationId,
           assignedToEmail: trimmedEmail,
           title: cTitle.trim(),
           jobTitle: cJobTitle.trim() || undefined,
@@ -261,7 +265,7 @@ export default function MembersPage() {
         },
         {
           onSuccess: () => {
-            toast.success("Contract created — invite email sent");
+            toast.success("Contract sent — they join once they sign");
             closeInvite();
           },
           onError: (err: unknown) => toast.error(errMsg(err, "Failed to create contract")),
@@ -270,21 +274,13 @@ export default function MembersPage() {
       return;
     }
 
-    // No contract: a direct add. The backend always creates business adds as
-    // Admin — if Member was picked, downgrade right after, once the fresh
-    // group data has the new GroupUser's id.
-    addMembers.mutate(
-      { groupId: workspace.id, memberIdentifier: trimmedEmail },
+    // ONE request. The invited role is applied at acceptance, so there is no
+    // follow-up demote call and nobody is seated before they authenticate.
+    createInvite.mutate(
+      { organizationId, payload: { email: trimmedEmail, role } },
       {
-        onSuccess: async () => {
-          toast.success(role === "ADMIN" ? "Admin invited" : "Member invited");
-          if (role === "MEMBER") {
-            const fresh = await refetchGroup();
-            const gu = fresh.data?.groupUsers.find(
-              (g) => g.user.email?.toLowerCase() === trimmedEmail.toLowerCase()
-            );
-            if (gu) updateRole.mutate({ groupId: workspace.id, userId: gu.userId, role: "MEMBER" });
-          }
+        onSuccess: () => {
+          toast.success(`Invite sent to ${trimmedEmail}`);
           closeInvite();
         },
         onError: (err: unknown) => toast.error(errMsg(err, "Failed to invite")),
@@ -292,9 +288,24 @@ export default function MembersPage() {
     );
   };
 
-  const handleRoleChange = (userId: string, next: "ADMIN" | "MEMBER") => {
+  /** A shareable link invite — no email, so it defaults to whatever role is picked. */
+  const handleCreateLinkInvite = () => {
+    createInvite.mutate(
+      { organizationId, payload: { role } },
+      {
+        onSuccess: (invite) => {
+          closeInvite();
+          if (invite.inviteUrl) void copyLink(invite.inviteUrl);
+          else toast.success("Invite link created");
+        },
+        onError: (err: unknown) => toast.error(errMsg(err, "Failed to create invite link")),
+      }
+    );
+  };
+
+  const handleRoleChange = (userId: string, next: Role) => {
     updateRole.mutate(
-      { groupId: workspace.id, userId, role: next },
+      { organizationId, userId, role: next },
       {
         onSuccess: () => toast.success("Role updated"),
         onError: (err: unknown) => toast.error(errMsg(err, "Failed to update role")),
@@ -305,7 +316,7 @@ export default function MembersPage() {
   const handleRemove = () => {
     if (!removeTarget) return;
     removeMember.mutate(
-      { groupId: workspace.id, userId: removeTarget.userId },
+      { organizationId, userId: removeTarget.userId },
       {
         onSuccess: () => {
           toast.success("Member removed");
@@ -314,6 +325,31 @@ export default function MembersPage() {
         onError: (err: unknown) => toast.error(errMsg(err, "Failed to remove member")),
       }
     );
+  };
+
+  const handleRevoke = () => {
+    if (!revokeTarget) return;
+    revoke.mutate(revokeTarget.id, {
+      onSuccess: () => {
+        toast.success("Invite revoked — that link no longer works");
+        setRevokeTarget(null);
+      },
+      onError: (err: unknown) => toast.error(errMsg(err, "Failed to revoke invite")),
+    });
+  };
+
+  const handleResend = (invite: OrganizationInvite) => {
+    resend.mutate(invite.id, {
+      onSuccess: (updated) => {
+        toast.success(
+          invite.kind === "email"
+            ? "Invite re-sent — the previous link has stopped working"
+            : "New link created — the previous link has stopped working"
+        );
+        if (invite.kind === "link" && updated.inviteUrl) void copyLink(updated.inviteUrl);
+      },
+      onError: (err: unknown) => toast.error(errMsg(err, "Failed to resend invite")),
+    });
   };
 
   if (isResolving) return <WorkspaceResolving />;
@@ -327,7 +363,7 @@ export default function MembersPage() {
     );
   }
 
-  const isLoading = groupLoading || contractsLoading;
+  const isLoading = membersLoading || contractsLoading;
 
   return (
     <div style={{ maxWidth: 940, animation: "fU .3s ease" }}>
@@ -372,7 +408,7 @@ export default function MembersPage() {
             <div>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#fff" }}>Invite someone</p>
               <p style={{ margin: "3px 0 0", fontSize: 12.5, color: T.sub }}>
-                They join {workspace.name} by email.
+                They join {workspace.name} when they accept — nothing changes here until they do.
               </p>
             </div>
             <div style={{ flex: 1 }} />
@@ -569,19 +605,31 @@ export default function MembersPage() {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 20 }}>
             <button type="button" onClick={closeInvite} className="abtn" style={cancelBtnStyle}>
               Cancel
             </button>
+            {!withContract && (
+              <button
+                type="button"
+                onClick={handleCreateLinkInvite}
+                disabled={createInvite.isPending}
+                className="abtn"
+                style={{ ...cancelBtnStyle, color: A, border: "1px solid rgba(34,211,238,0.28)" }}
+                title="Creates a link anyone can use to join as the selected role"
+              >
+                Copy invite link instead
+              </button>
+            )}
             <div style={{ flex: 1 }} />
             <button
               type="button"
               onClick={handleSubmitInvite}
-              disabled={addMembers.isPending || createContract.isPending}
+              disabled={createInvite.isPending || createContract.isPending}
               className="btn"
               style={sendBtnStyle}
             >
-              {addMembers.isPending || createContract.isPending ? (
+              {createInvite.isPending || createContract.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" style={{ display: "inline" }} />
               ) : withContract ? (
                 "Create & send"
@@ -611,12 +659,13 @@ export default function MembersPage() {
             const contract = m.contract;
             const meta = contract ? contractStatusMeta(contract) : null;
             const pay = contract ? contractPayLabel(contract) : null;
-            const canManage =
-              currentUserIsAdmin && m.kind === "member" && m.role !== "OWNER" && !!m.userId;
+            // Ownership is transferred deliberately, never through this select,
+            // and the backend refuses to demote the last OWNER anyway.
+            const canManage = currentUserIsAdmin && m.role !== "OWNER";
 
             return (
               <div
-                key={m.key}
+                key={m.userId}
                 className="rw"
                 style={{
                   padding: "16px 22px",
@@ -634,26 +683,20 @@ export default function MembersPage() {
                     </p>
                   </div>
 
-                  {m.role ? (
-                    canManage && m.userId ? (
-                      <div style={{ width: 108, flexShrink: 0 }}>
-                        <Select value={m.role} onValueChange={(v) => handleRoleChange(m.userId!, v as "ADMIN" | "MEMBER")}>
-                          <SelectTrigger className="h-7 text-[11px] bg-white/[0.05] text-white border border-white/[0.1] rounded-full px-3 focus:ring-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a [&>svg]:text-white/50">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#17171A] border border-white/10 rounded-lg shadow-xl">
-                            <SelectItem value="ADMIN" className="text-[12px] text-white hover:bg-white/5 cursor-pointer">Admin</SelectItem>
-                            <SelectItem value="MEMBER" className="text-[12px] text-white hover:bg-white/5 cursor-pointer">Member</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : (
-                      <span style={{ ...pill(ROLE_COLOR[m.role]), flexShrink: 0 }}>
-                        {m.role === "OWNER" ? "Owner" : m.role === "ADMIN" ? "Admin" : "Member"}
-                      </span>
-                    )
+                  {canManage ? (
+                    <div style={{ width: 108, flexShrink: 0 }}>
+                      <Select value={m.role} onValueChange={(v) => handleRoleChange(m.userId, v as Role)}>
+                        <SelectTrigger className="h-7 text-[11px] bg-white/[0.05] text-white border border-white/[0.1] rounded-full px-3 focus:ring-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a [&>svg]:text-white/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#17171A] border border-white/10 rounded-lg shadow-xl">
+                          <SelectItem value="ADMIN" className="text-[12px] text-white hover:bg-white/5 cursor-pointer">Admin</SelectItem>
+                          <SelectItem value="MEMBER" className="text-[12px] text-white hover:bg-white/5 cursor-pointer">Member</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   ) : (
-                    <span style={{ ...pill(T.dim), flexShrink: 0 }}>Invited</span>
+                    <span style={{ ...pill(ROLE_COLOR[m.role]), flexShrink: 0 }}>{ROLE_LABEL[m.role]}</span>
                   )}
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -696,10 +739,10 @@ export default function MembersPage() {
                     {contract ? "View contract" : currentUserIsAdmin ? "Add contract" : ""}
                   </button>
 
-                  {canManage && m.userId && (
+                  {canManage && (
                     <button
                       type="button"
-                      onClick={() => setRemoveTarget({ userId: m.userId!, name: m.name })}
+                      onClick={() => setRemoveTarget({ userId: m.userId, name: m.name })}
                       aria-label="Remove member"
                       style={{
                         width: 26,
@@ -719,14 +762,120 @@ export default function MembersPage() {
                     </button>
                   )}
                 </div>
-
-                {m.kind === "pending" && contract && (
-                  <p style={{ margin: "9px 0 0 52px", fontSize: 11.5, color: O }}>{accessNoteFor(contract)}</p>
-                )}
               </div>
             );
           })}
         </Card>
+      )}
+
+      {/* Invited, but not yet members. Deliberately its own surface: an invite
+          creates no account and no membership, so showing these people in the
+          list above would claim access they do not have. */}
+      {currentUserIsAdmin && (invitesLoading || openInvites.length > 0) && (
+        <div style={{ marginTop: 22 }}>
+          <p style={eyebrow()}>
+            {invitesLoading ? "Invites…" : `${openInvites.length} pending invite${openInvites.length !== 1 ? "s" : ""}`}
+          </p>
+          {invitesLoading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.faded }} />
+            </div>
+          ) : (
+            <Card style={{ padding: 0, marginTop: 10 }}>
+              {openInvites.map((invite, i) => {
+                const meta = inviteStatusMeta(invite);
+                const label = invite.email ?? "Anyone with the link";
+                const contract = invite.contractId
+                  ? contracts.find((c) => c.id === invite.contractId)
+                  : undefined;
+                const busy =
+                  (revoke.isPending && revokeTarget?.id === invite.id) ||
+                  (resend.isPending && resend.variables === invite.id);
+
+                return (
+                  <div
+                    key={invite.id}
+                    className="rw"
+                    style={{
+                      padding: "14px 22px",
+                      borderBottom: i < openInvites.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <AvatarChip
+                        init={invite.email ? initialsFor(null, invite.email) : "∞"}
+                        color={getUserColor(label)}
+                        size={34}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.bright, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {label}
+                        </p>
+                        <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.sub }}>
+                          {contract ? `${contract.title || "Contract"} · ` : ""}
+                          {expiryLabel(invite)}
+                        </p>
+                      </div>
+
+                      <span style={{ ...pill(ROLE_COLOR[invite.role]), flexShrink: 0 }}>
+                        {ROLE_LABEL[invite.role]}
+                      </span>
+                      <span style={{ ...pill(meta.color), flexShrink: 0 }}>{meta.label}</span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleResend(invite)}
+                        disabled={busy}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          fontFamily: "inherit",
+                          background: "none",
+                          border: "none",
+                          color: A,
+                          cursor: busy ? "default" : "pointer",
+                          flexShrink: 0,
+                          width: 118,
+                          textAlign: "right",
+                        }}
+                        title="Sends a fresh link. Any link already copied or emailed for this invite stops working."
+                      >
+                        {invite.kind === "link" ? "New link" : "Resend"}
+                      </button>
+
+                      {invite.status === "PENDING" && (
+                        <button
+                          type="button"
+                          onClick={() => setRevokeTarget(invite)}
+                          aria-label="Revoke invite"
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            background: "transparent",
+                            border: "1px solid rgba(248,113,113,0.25)",
+                            color: R,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {Icons.x({ size: 12 })}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+          )}
+          <p style={{ margin: "10px 2px 0", fontSize: 12, color: T.dim }}>
+            Nobody appears in the member list until they accept. Resending rotates the token, so any
+            link copied earlier stops working.
+          </p>
+        </div>
       )}
 
       <p style={{ margin: "14px 2px 0", fontSize: 12, color: T.dim }}>
@@ -759,6 +908,38 @@ export default function MembersPage() {
                 style={{ flex: 1, borderRadius: 12, padding: "11px 18px", fontSize: 13, fontWeight: 800, cursor: "pointer", background: "rgba(248,113,113,0.15)", color: R, border: "1px solid rgba(248,113,113,0.3)" }}
               >
                 {removeMember.isPending ? <Loader2 className="h-4 w-4 animate-spin" style={{ display: "inline" }} /> : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {revokeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="fixed inset-0" style={{ background: "rgba(0,0,0,0.75)" }} onClick={() => !revoke.isPending && setRevokeTarget(null)} />
+          <div
+            className="relative z-10 w-full max-w-sm"
+            style={{ ...card({ borderRadius: RADIUS.modal }), padding: 24 }}
+          >
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.bright }}>Revoke invite?</p>
+            <p style={{ margin: "6px 0 0", fontSize: 13, color: T.body, lineHeight: 1.5 }}>
+              The link sent to{" "}
+              <strong style={{ color: T.bright }}>{revokeTarget.email ?? "anyone holding it"}</strong>{" "}
+              stops working immediately. They were never a member of {workspace.name}, so nothing
+              else changes.
+            </p>
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button type="button" onClick={() => setRevokeTarget(null)} disabled={revoke.isPending} className="abtn" style={{ ...cancelBtnStyle, flex: 1 }}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRevoke}
+                disabled={revoke.isPending}
+                className="btn"
+                style={{ flex: 1, borderRadius: 12, padding: "11px 18px", fontSize: 13, fontWeight: 800, cursor: "pointer", background: "rgba(248,113,113,0.15)", color: R, border: "1px solid rgba(248,113,113,0.3)" }}
+              >
+                {revoke.isPending ? <Loader2 className="h-4 w-4 animate-spin" style={{ display: "inline" }} /> : "Revoke"}
               </button>
             </div>
           </div>

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useActiveWorkspace } from "@/contexts/workspace";
+import { isWorkspaceAdmin } from "@/lib/workspace";
 import { useWorkspaceSummary } from "@/features/workspaces/hooks/use-workspace-summary";
 import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
 import { useGetInvoicesByOrganization } from "@/features/business/hooks/use-invoices";
@@ -30,6 +31,7 @@ import {
 import { Row } from "@/components/shell/row";
 import { ActivityList, titleCaseStatus } from "@/components/dashboard/activity-list";
 import { BusinessDashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { WorkspaceSetupChecklist } from "@/components/dashboard/setup-checklist";
 
 const STREAM_COLORS = [A, G, P, O, B];
 
@@ -306,9 +308,18 @@ export function BusinessDashboard() {
 
   if (isLoading || !summary || variant === null) return <BusinessDashboardSkeleton />;
 
-  return variant === "org" ? (
-    <OrgDashboard summary={summary} streams={streams} />
-  ) : (
-    <StudioDashboard summary={summary} invoices={invoices} />
+  return (
+    <>
+      {/* OWNER/ADMIN only. Both items are admin work — /members hides "Invite
+          someone" from a MEMBER entirely — so for everyone else the checklist
+          is a list of things they cannot do, and "Invite a teammate — Done"
+          reads as a claim about an affordance they never had. */}
+      {isWorkspaceAdmin(workspace) && <WorkspaceSetupChecklist summary={summary} />}
+      {variant === "org" ? (
+        <OrgDashboard summary={summary} streams={streams} />
+      ) : (
+        <StudioDashboard summary={summary} invoices={invoices} />
+      )}
+    </>
   );
 }

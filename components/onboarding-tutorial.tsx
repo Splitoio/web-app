@@ -13,13 +13,12 @@ import {
   BarChart3,
   ClipboardList,
   User,
-  Settings,
-  Shuffle,
   PartyPopper,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { T, A } from "@/lib/splito-design";
+import { navItemId } from "@/lib/shell-nav";
 
 interface Step {
   id: string;
@@ -37,36 +36,10 @@ interface Step {
 // from app/" and "Rules that protect the framing". This component is now
 // organization-only.
 
-const ORG_STEPS_BEFORE_FIRST: Step[] = [
-  {
-    id: "welcome",
-    title: "Welcome to Splito for Business",
-    content: "Manage organizations, invoices, contracts, and your team — all in one place.",
-    targetId: "",
-    position: "center",
-  },
-  {
-    id: "settings",
-    title: "Settings",
-    content: "Update your profile, display name, default currency, and manage your wallets.",
-    targetId: "sidebar-org-settings-link-no-org",
-    position: "right",
-  },
-  {
-    id: "org-switcher",
-    title: "Switch Organization",
-    content: "Use the switcher at the bottom to select or switch between organizations. Create one if you don't have any.",
-    targetId: "sidebar-org-switcher-button",
-    position: "right",
-  },
-  {
-    id: "finish",
-    title: "You're set",
-    content: "Create an organization or select one from the switcher to access invoices, contracts, and more.",
-    targetId: "",
-    position: "center",
-  },
-];
+// There is deliberately NO tour for an account with no business workspace
+// either. Business framing must not reach a consumer signup before they have
+// opted in by creating a workspace — the sidebar's "New workspace" entry is
+// that opt-in, and these tours only run once the user is inside one.
 
 const ORG_STEPS_ADMIN: Step[] = [
   {
@@ -80,35 +53,35 @@ const ORG_STEPS_ADMIN: Step[] = [
     id: "dashboard",
     title: "Organization Dashboard",
     content: "A bird's-eye view of your team, invoices, income streams, and contracts.",
-    targetId: "sidebar-dashboard-link",
+    targetId: navItemId("/"),
     position: "right",
   },
   {
     id: "invoices",
     title: "Invoices",
     content: "Members raise invoices here — approve or decline them as the admin.",
-    targetId: "sidebar-org-invoices-link",
+    targetId: navItemId("/requests"),
     position: "right",
   },
   {
     id: "streams",
     title: "Income Streams",
-    content: "Set up recurring revenue streams to monitor expected income for your organization.",
-    targetId: "sidebar-org-streams-link",
-    position: "right",
-  },
-  {
-    id: "contracts",
-    title: "Contracts",
-    content: "Create and manage contracts for your team with compensation and scope of work.",
-    targetId: "sidebar-org-contracts-link",
+    content: "Log and track income streams for your organization — the same totals your dashboard reads.",
+    // Income streams have no standalone nav destination anymore — they live
+    // on the Treasury page (app/treasury/page.tsx: useGetStreamsByOrganization
+    // + LogIncomeModal), so that's what this step now spotlights.
+    targetId: navItemId("/treasury"),
     position: "right",
   },
   {
     id: "members",
     title: "Members",
-    content: "Invite people and manage their roles and permissions.",
-    targetId: "sidebar-org-members-link",
+    content: "Invite people, manage their roles and permissions, and create and track contracts with compensation and scope of work.",
+    // Contracts have no standalone nav destination — they're created and
+    // managed from the Members page (app/members/page.tsx: useCreateContract,
+    // ContractDetailModal) alongside team management, so this single step
+    // covers both rather than spotlighting the same nav item twice.
+    targetId: navItemId("/members"),
     position: "right",
   },
   {
@@ -132,14 +105,17 @@ const ORG_STEPS_MEMBER: Step[] = [
     id: "invoices",
     title: "Invoices",
     content: "Raise invoices linked to your contracts. Admins will approve or decline them.",
-    targetId: "sidebar-org-invoices-link",
+    targetId: navItemId("/requests"),
     position: "right",
   },
   {
     id: "contracts",
     title: "Contracts",
     content: "View and sign contracts assigned to you.",
-    targetId: "sidebar-org-contracts-link",
+    // Same repoint as the admin tour's contracts step — contracts live on
+    // the Members page, which members can see (only /approvals is admin-only,
+    // see navGroupsFor in lib/shell-nav.ts).
+    targetId: navItemId("/members"),
     position: "right",
   },
   {
@@ -153,7 +129,6 @@ const ORG_STEPS_MEMBER: Step[] = [
 
 /** "personal" is still a valid *gate* mode — it simply renders no tutorial. */
 export type OnboardingMode = "personal" | "organization";
-export type OrganizationOnboardingPhase = "no-org" | "in-org";
 
 // Step icon map
 const STEP_ICONS: Record<string, LucideIcon> = {
@@ -164,8 +139,6 @@ const STEP_ICONS: Record<string, LucideIcon> = {
   activity: BarChart3,
   contracts: ClipboardList,
   members: User,
-  settings: Settings,
-  "org-switcher": Shuffle,
   finish: PartyPopper,
 };
 
@@ -173,19 +146,12 @@ export function OnboardingTutorial({
   onComplete,
   mode,
   isOrgAdmin,
-  organizationPhase,
 }: {
   onComplete: () => void;
   mode: OnboardingMode;
   isOrgAdmin?: boolean;
-  organizationPhase?: OrganizationOnboardingPhase;
 }) {
-  const steps =
-    organizationPhase === "no-org"
-      ? ORG_STEPS_BEFORE_FIRST
-      : isOrgAdmin
-        ? ORG_STEPS_ADMIN
-        : ORG_STEPS_MEMBER;
+  const steps = isOrgAdmin ? ORG_STEPS_ADMIN : ORG_STEPS_MEMBER;
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);

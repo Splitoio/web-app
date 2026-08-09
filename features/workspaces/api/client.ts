@@ -12,15 +12,16 @@ export const WorkspaceSchema = z.object({
   kind: z.enum(["personal", "business"]),
   initials: z.string(),
   color: z.string(),
-  // The synthetic personal workspace has no GroupUser row, so the backend
+  // The synthetic personal workspace has no membership row, so the backend
   // reports role: null for it (workspace.service.ts personalWorkspaceCard).
-  // Requiring a string here failed validation on EVERY screen.
+  // Requiring a string here failed validation on EVERY screen. For a business
+  // workspace this is an OrgRole and may now be "OWNER".
   role: z.string().nullable(),
 });
 
 /**
  * `GET /api/workspaces` (backend PR #29, A4) returns the synthetic personal
- * workspace plus every BUSINESS group the user belongs to, and reports how many
+ * workspace plus every Organization the user belongs to, and reports how many
  * business workspaces the account has against the cap so the switcher can show
  * "N / 10". The count is authoritative from the server — the cap is enforced
  * there too, not here.

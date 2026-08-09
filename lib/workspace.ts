@@ -22,7 +22,8 @@ export type Workspace = {
   /** Accent hex, e.g. "#22D3EE". */
   color: string;
   /**
-   * Org membership role ("ADMIN" | "MEMBER") for a business workspace.
+   * Org membership role ("OWNER" | "ADMIN" | "MEMBER") for a business
+   * workspace.
    *
    * `null` for the personal workspace — it is synthetic, has no `GroupUser`
    * row, and so genuinely has no role. Null means "no org role", never
@@ -68,13 +69,17 @@ export function isPersonalWorkspace(id: string | null | undefined): boolean {
  * Whether the user administers this workspace.
  *
  * Personal has no role, so it is never "admin of a business workspace" — the
- * personal screens gate on `kind === "personal"`, not on this.
+ * personal screens gate on `kind === "personal"`, not on this. OWNER counts
+ * as admin here too — the backend gates approve/decline/mark-paid/clear to
+ * OWNER or ADMIN (owner.controller.ts et al.), never ADMIN alone, so a check
+ * that misses OWNER would silently strip the owner of their own admin
+ * actions.
  */
 export function isWorkspaceAdmin(workspace: {
   kind: WorkspaceKind;
   role: string | null;
 }): boolean {
-  return workspace.kind === "business" && workspace.role === "ADMIN";
+  return workspace.kind === "business" && (workspace.role === "ADMIN" || workspace.role === "OWNER");
 }
 
 /**

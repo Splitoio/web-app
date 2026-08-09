@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Currency } from "@/features/currencies/api/client";
 import type { SettlementPreference } from "@/features/user/api/client";
-import type { GroupAcceptedToken } from "@/features/groups/api/client";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import { ChangePasswordModal } from "@/components/change-password-modal";
 import type { User } from "@/api-helpers/modelSchema/UserSchema";
@@ -34,10 +33,13 @@ import {
   useUserWallets, useAvailableChains, useAddWallet, useRemoveWallet, useSetWalletAsPrimary,
 } from "@/features/wallets/hooks/use-wallets";
 import { useActiveWorkspace, useWorkspaces, useSetActiveWorkspace } from "@/contexts/workspace";
+// A business workspace is an Organization, not a group — the group endpoints
+// ignore `type` now and would happily operate on the wrong record.
 import {
-  useGetGroupById, useUpdateGroup, useDeleteGroup,
-  useGetGroupAcceptedTokens, useAddGroupAcceptedToken, useRemoveGroupAcceptedToken,
-} from "@/features/groups/hooks/use-create-group";
+  useDeleteOrganization,
+  useGetOrganizationMembers,
+  useUpdateOrganization,
+} from "@/features/business/hooks/use-organizations";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
 import { QueryKeys } from "@/lib/constants";
 import {
@@ -905,107 +907,36 @@ function WsGeneralSection({ workspace, name, setName, hasChange, onSave, isSavin
 }
 
 // ─── Workspace: Accepted tokens ────────────────────────────────────────────
-// A real override, backed by GET/POST/DELETE /groups/:groupId/accepted-tokens
-// (features/groups/api/client.ts). Empty list = the workspace hasn't
-// overridden anything, so it shows the inherited account default (from
-// Settlement) with an "Override" affordance that reveals the same add-token
-// form used once tokens already exist.
+// Read-only now. The per-workspace override was backed by GET/POST/DELETE
+// /groups/:groupId/accepted-tokens, and `GroupAcceptedToken` hangs off
+// `Group` — but a business workspace is an `Organization`, so those endpoints
+// 403 on a workspace id (group.controller.ts gates on GroupUser membership).
+// There is no organization-level equivalent on the backend and inventing one
+// here would only fail at runtime. What is still true is which account default
+// the workspace inherits, so that is what this shows.
 
-function WsTokensSection({ workspace, accountPrefs, groupTokens, isLoadingGroupTokens, allCurrencies, onAdd, isAdding, onRemove, isRemoving }: {
+function WsTokensSection({ workspace, accountPrefs }: {
   workspace: Workspace; accountPrefs: SettlementPreference[];
-  groupTokens: GroupAcceptedToken[]; isLoadingGroupTokens: boolean; allCurrencies: Currency[];
-  onAdd: (data: { chainId: string; tokenId: string }, onDone: () => void) => void; isAdding: boolean;
-  onRemove: (id: string) => void; isRemoving: boolean;
 }) {
-  const [overriding, setOverriding] = useState(false);
-  const [chainId, setChainId] = useState("");
-  const [tokenId, setTokenId] = useState("");
-
-  const cryptoTokens = allCurrencies.filter((c) => c.type !== "FIAT" && c.chainId);
-  const chainIds = [...new Set(cryptoTokens.map((c) => c.chainId!))];
-
   const accountSummary = accountPrefs.length === 0
     ? "You haven't set an account default yet — set one in Account → Settlement."
     : accountPrefs.map((p) => `${p.tokens.map((t) => t.token.symbol).join(", ")} on ${p.chain.name}`).join(" · ");
   const accountWallet = accountPrefs.find((p) => p.wallet)?.wallet;
-  const showForm = overriding || groupTokens.length > 0;
 
   return (
     <div>
       <Intro title="Accepted tokens" subtitle={`What ${workspace.name} settles into.`} />
-
-      {isLoadingGroupTokens ? (
-        <div style={{ padding: "20px 0", display: "flex", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div>
-      ) : groupTokens.length > 0 ? (
-        groupTokens.map((t, i) => {
-          const meta = getChainMeta(t.chainId);
-          return (
-            <Row key={t.id} last={i === groupTokens.length - 1 && !showForm}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={pill(meta.color)}>{t.symbol}</span>
-                <span style={{ fontSize: 12.5, color: T.sub }}>on {t.chainName || meta.label}</span>
-                {t.isDefault && <span style={pill(A)}>Default</span>}
-              </div>
-              <button type="button" onClick={() => onRemove(t.id)} disabled={isRemoving} style={textBtn({ fontSize: 12, fontWeight: 600, color: T.dim })}>Remove</button>
-            </Row>
-          );
-        })
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: G }}>Using your account default</p>
-            <p style={{ margin: "3px 0 0", fontSize: 11.5, color: T.muted }}>{accountSummary}{accountWallet ? `, into ${truncateAddr(accountWallet.address)}.` : "."}</p>
-          </div>
-          {!overriding && <button type="button" onClick={() => setOverriding(true)} style={textBtn({ fontSize: 12, fontWeight: 700, color: G, flexShrink: 0 })}>Override</button>}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: G }}>Using your account default</p>
+          <p style={{ margin: "3px 0 0", fontSize: 11.5, color: T.muted }}>{accountSummary}{accountWallet ? `, into ${truncateAddr(accountWallet.address)}.` : "."}</p>
         </div>
-      )}
-
-      {showForm && (
-        <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: BORDER, background: "rgba(255,255,255,0.02)" }}>
-          <Eyebrow style={{ marginBottom: 8 }}>Chain</Eyebrow>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-            {chainIds.map((cid) => {
-              const meta = getChainMeta(cid);
-              const sel = chainId === cid;
-              return (
-                <button key={cid} type="button" aria-pressed={sel} onClick={() => { setChainId(cid); setTokenId(""); }} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${meta.color}1a` : INSET, border: `1px solid ${sel ? `${meta.color}55` : "rgba(255,255,255,0.09)"}`, color: sel ? meta.color : T.body }}>
-                  {meta.label}
-                </button>
-              );
-            })}
-          </div>
-          {chainId && (
-            <>
-              <Eyebrow style={{ marginBottom: 8 }}>Token</Eyebrow>
-              <div style={{ marginBottom: 14 }}>
-                <CurrencyDropdown
-                  selectedCurrencies={tokenId ? [tokenId] : []}
-                  setSelectedCurrencies={(ids) => setTokenId(ids[0] || "")}
-                  mode="single"
-                  showFiatCurrencies={false}
-                  filterCurrencies={(c: Currency) => c.chainId === chainId}
-                />
-              </div>
-            </>
-          )}
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            {groupTokens.length === 0 && (
-              <Btn variant="ghost" onClick={() => { setOverriding(false); setChainId(""); setTokenId(""); }}>Cancel</Btn>
-            )}
-            <Btn
-              variant="primary"
-              disabled={!chainId || !tokenId || isAdding}
-              onClick={() => onAdd({ chainId, tokenId }, () => { setChainId(""); setTokenId(""); })}
-            >
-              {isAdding ? "Adding…" : "Add token"}
-            </Btn>
-          </div>
-        </div>
-      )}
-
-      {groupTokens.length === 0 && !overriding && (
-        <p style={{ margin: "16px 0 0", fontSize: 12, lineHeight: 1.6, color: T.dim }}>Overriding lets this workspace take a different token or wallet than your personal default — useful when business money shouldn't touch your personal one.</p>
-      )}
+      </div>
+      <p style={{ margin: "16px 0 0", fontSize: 12, lineHeight: 1.6, color: T.dim }}>
+        A per-workspace override isn&apos;t available yet — business workspaces have no
+        accepted-token store of their own, so everything in {workspace.name} settles into your
+        account default.
+      </p>
     </div>
   );
 }
@@ -1029,7 +960,8 @@ function WsApprovalsSection({ workspace }: { workspace: Workspace }) {
 
 // ─── Workspace: Members (preview only — the full screen lives at /members) ──────
 
-interface MemberPreview { userId: string; role?: string | null; user: { id: string; name: string | null; email: string | null } }
+/** `GET /api/organizations/:id/members` — flat, and `role` can be OWNER. */
+interface MemberPreview { userId: string; role: string; name: string | null; email: string | null }
 
 function WsMembersSection({ workspace, members, isLoading }: { workspace: Workspace; members: MemberPreview[]; isLoading: boolean }) {
   return (
@@ -1045,8 +977,8 @@ function WsMembersSection({ workspace, members, isLoading }: { workspace: Worksp
             {members.slice(0, 6).map((m, i) => (
               <AvatarChip
                 key={m.userId}
-                init={(m.user.name || m.user.email || "?").charAt(0).toUpperCase()}
-                color={getUserColor(m.user.name)}
+                init={(m.name || m.email || "?").charAt(0).toUpperCase()}
+                color={getUserColor(m.name)}
                 size={34}
                 style={{ marginLeft: i === 0 ? 0 : -8, border: "2px solid #0d0d0d" }}
               />
@@ -1234,30 +1166,31 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
     }
   }, [isBusiness, sec]);
 
-  const { data: groupDetail, isLoading: isLoadingGroup } = useGetGroupById(isBusiness ? workspace.id : "", { type: "BUSINESS" });
+  // Members are their own fetch now — they are no longer nested in the
+  // workspace payload the way `group.groupUsers` was.
+  const { data: orgMembers = [], isLoading: isLoadingMembers } = useGetOrganizationMembers(
+    isBusiness ? workspace.id : ""
+  );
   const [wsName, setWsName] = useState(workspace.name);
   useEffect(() => setWsName(workspace.name), [workspace.id, workspace.name]);
-  const { mutate: updateGroupMutate, isPending: isSavingWsName } = useUpdateGroup();
-  const { mutate: deleteGroupMutate, isPending: isDeletingWs } = useDeleteGroup();
-
-  const { data: groupAcceptedTokens = [], isLoading: isLoadingGroupTokens } = useGetGroupAcceptedTokens(isBusiness ? workspace.id : "");
-  const { mutate: addGroupTokenMutate, isPending: isAddingGroupToken } = useAddGroupAcceptedToken();
-  const { mutate: removeGroupTokenMutate, isPending: isRemovingGroupToken } = useRemoveGroupAcceptedToken();
+  const { mutate: updateOrgMutate, isPending: isSavingWsName } = useUpdateOrganization();
+  const { mutate: deleteOrgMutate, isPending: isDeletingWs } = useDeleteOrganization();
 
   const saveWsName = () => {
     const name = wsName.trim();
     if (!name || name === workspace.name) return;
-    updateGroupMutate({ groupId: workspace.id, payload: { name } }, {
+    updateOrgMutate({ organizationId: workspace.id, payload: { name } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: [QueryKeys.WORKSPACES] });
         toast.success("Workspace renamed");
       },
-      onError: () => toast.error("Failed to rename workspace"),
+      onError: (err: unknown) =>
+        toast.error((err as { message?: string })?.message || "Failed to rename workspace"),
     });
   };
 
   const deleteWorkspace = () => {
-    deleteGroupMutate(workspace.id, {
+    deleteOrgMutate(workspace.id, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: [QueryKeys.WORKSPACES] });
         setActiveWorkspace("personal");
@@ -1266,7 +1199,7 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
       },
       onError: (result: unknown) => {
         const message = (result as { message?: string } | undefined)?.message;
-        toast.error(message || "Failed to delete workspace — check for uncleared balances");
+        toast.error(message || "Failed to delete workspace — only the owner can delete it");
       },
     });
   };
@@ -1358,21 +1291,11 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
             />
           )}
           {isBusiness && sec === "ws-tokens" && (
-            <WsTokensSection
-              workspace={workspace}
-              accountPrefs={settlementPrefs}
-              groupTokens={groupAcceptedTokens}
-              isLoadingGroupTokens={isLoadingGroupTokens}
-              allCurrencies={allCurrencies}
-              onAdd={(data, onDone) => addGroupTokenMutate({ groupId: workspace.id, payload: data }, { onSuccess: () => { toast.success("Token added"); onDone(); }, onError: () => toast.error("Failed to add token — only the workspace creator can change this") })}
-              isAdding={isAddingGroupToken}
-              onRemove={(id) => removeGroupTokenMutate({ groupId: workspace.id, id }, { onError: () => toast.error("Failed to remove token — only the workspace creator can change this") })}
-              isRemoving={isRemovingGroupToken}
-            />
+            <WsTokensSection workspace={workspace} accountPrefs={settlementPrefs} />
           )}
           {isBusiness && sec === "ws-approvals" && <WsApprovalsSection workspace={workspace} />}
           {isBusiness && sec === "ws-members" && (
-            <WsMembersSection workspace={workspace} members={groupDetail?.groupUsers ?? []} isLoading={isLoadingGroup} />
+            <WsMembersSection workspace={workspace} members={orgMembers} isLoading={isLoadingMembers} />
           )}
         </div>
       </div>

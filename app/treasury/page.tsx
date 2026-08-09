@@ -19,8 +19,8 @@ function formatReceivedDate(date: Date): string {
 /**
  * Treasury (design 1208–1234, `isTreasury`): the hero "Received" total plus the
  * income-stream list, business workspaces only. Data comes from the same
- * income-stream endpoints the legacy `/organization/[id]` layout uses
- * (features/business/hooks/use-streams.ts, `/api/groups/:id/streams`) — the
+ * income-stream endpoints the legacy `/organization/[id]` layout used
+ * (features/business/hooks/use-streams.ts, `/api/organizations/:id/streams`) — the
  * hero total instead reads `workspaces/:id/summary`'s `treasury` field so it
  * always agrees with the dashboard rather than being summed here separately.
  */

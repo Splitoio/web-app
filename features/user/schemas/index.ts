@@ -8,7 +8,6 @@ export const UpdateUserResponseSchema = z.object({
   image: z.string().nullable().optional(),
   preferredChain: z.string().nullable().optional(),
   onboardedPersonal: z.boolean().optional(),
-  onboardedOrgNoOrg: z.boolean().optional(),
   onboardedOrgInOrg: z.boolean().optional(),
   // Account-level default for whether a new request locks its exchange rate.
   // updateUserDetails (backend user.controller.ts) already reads and persists

@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
+import { safeCallbackPath } from "@/lib/middleware-session";
 import posthog from "posthog-js";
 
 function GoogleIcon() {
@@ -24,12 +25,18 @@ function GoogleIcon() {
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Where to send the new account once it can sign in. An invite link passes
+  // its own `/invite/<token>` here so the person lands back on the invite and
+  // joins the workspace, instead of being dropped on a bare dashboard.
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    // Prefill only — see the same note on the login page.
+    email: searchParams.get("email") ?? "",
     phoneNumber: "",
     password: "",
     agreeToTerms: false,
@@ -52,7 +59,7 @@ export default function SignupPage() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        callbackURL: "/",
+        callbackURL: callbackUrl ?? "/",
       });
 
       if (error) {
@@ -60,7 +67,15 @@ export default function SignupPage() {
       } else if (data) {
         posthog.capture("user_signed_up", { method: "email" });
         toast.success("Account created! You can sign in now.");
-        router.push("/login");
+        // Carry the invite destination (and the invited email) through the
+        // sign-in step — the login page honours both, and if better-auth has
+        // already seated a session (autoSignIn), proxy.ts forwards this same
+        // callbackUrl instead of dumping the new account on the dashboard.
+        const params = new URLSearchParams();
+        if (formData.email) params.set("email", formData.email);
+        if (callbackUrl) params.set("callbackUrl", callbackUrl);
+        const query = params.toString();
+        router.push(query ? `/login?${query}` : "/login");
       }
     } catch (error) {
       const apiError = error as ApiError;

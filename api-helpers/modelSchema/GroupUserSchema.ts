@@ -7,7 +7,8 @@ import { z } from 'zod';
 export const GroupUserSchema = z.object({
   groupId: z.string(),
   userId: z.string(),
-  role: z.enum(["ADMIN", "MEMBER"]).nullable().optional(),
+  // No `role`: roles were only ever a business concept and now live on
+  // OrganizationMember, not on this join table.
 })
 
 export type GroupUser = z.infer<typeof GroupUserSchema>

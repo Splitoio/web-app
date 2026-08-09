@@ -19,7 +19,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Copy, Check, FileText, Users } from "lucide-react";
+import { Loader2, Copy, Check, FileText, Users, UserPlus } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { useGetSettlementPreference } from "@/features/user/hooks/use-update-profile";
 import { useActiveWorkspace } from "@/contexts/workspace";
@@ -36,6 +36,7 @@ import {
 import {
   A,
   G,
+  O,
   P,
   R,
   B,
@@ -183,21 +184,31 @@ function CreateForm({
 
   // Fetched only in "split" mode — GET /api/groups, the same endpoint and
   // query key components/groups-list.tsx already uses for the Groups page,
-  // so the two share a cache. `?type=BUSINESS` is for orgs, not this
-  // personal request flow.
+  // so the two share a cache. Groups are split-only; business workspaces are
+  // Organizations and never appear here.
   const { data: groupsData, isLoading: isLoadingGroups } = useQuery({
-    queryKey: [QueryKeys.GROUPS, "PERSONAL"],
-    queryFn: () => getAllGroups({ type: "PERSONAL" }),
+    queryKey: [QueryKeys.GROUPS, "list"],
+    queryFn: getAllGroups,
     enabled: kind === "split",
   });
   const groups = groupsData ?? [];
+  // Groups you can actually request from float to the top, so the list never
+  // opens looking dead — on a fresh account every group is solo (you're the
+  // only member until you invite), which is the default first run, not an
+  // edge case. Stable within each bucket, so the API's own order survives.
+  const sortedGroups = [
+    ...groups.filter((g) => (g.groupUsers ?? []).length > 1),
+    ...groups.filter((g) => (g.groupUsers ?? []).length <= 1),
+  ];
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
   // The requester is always a member of their own group and is always
   // excluded from the payers (backend behaviour, not a guess) — so the
   // resulting payer count is members-minus-you, full stop. A group of one
   // (just the requester) yields zero payers, which the backend 400s on
-  // ("This group has no other members to request from"); such groups are
-  // disabled in the picker below rather than left to fail on submit.
+  // ("This group has no other members to request from"). Such a group is never
+  // selectable in the picker below — its row links to that group's edit screen
+  // to invite someone instead — so `selectedGroupId` can only ever hold a group
+  // with real payers and the request can't fail that way on submit.
   const selectedGroupMemberCount = selectedGroup ? (selectedGroup.groupUsers ?? []).length : 0;
   const selectedGroupPayerCount = Math.max(selectedGroupMemberCount - 1, 0);
 
@@ -416,39 +427,83 @@ function CreateForm({
               </div>
             ) : (
               <div className="flex flex-col gap-2 mb-2" style={{ maxHeight: 260, overflowY: "auto" }}>
-                {groups.map((g) => {
+                {sortedGroups.map((g) => {
                   const memberCount = (g.groupUsers ?? []).length;
                   const groupPayerCount = Math.max(memberCount - 1, 0);
                   const solo = groupPayerCount === 0;
                   const active = g.id === selectedGroupId;
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      disabled={solo}
-                      onClick={() => setSelectedGroupId(g.id)}
-                      className="flex items-center gap-3 text-left transition-all hover:border-white/[0.18]"
-                      style={{
-                        padding: "12px 14px",
-                        borderRadius: 14,
-                        background: active ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${active ? "rgba(167,139,250,0.35)" : "rgba(255,255,255,0.09)"}`,
-                        cursor: solo ? "not-allowed" : "pointer",
-                        opacity: solo ? 0.5 : 1,
-                      }}
-                    >
-                      <AvatarChip init={g.name.slice(0, 2).toUpperCase()} color={active ? P : getUserColor(g.name)} size={34} radius={11} />
+                  // Three distinct treatments: selectable (neutral), selected
+                  // (violet tint + check), needs-an-invite (dashed amber +
+                  // "Invite" affordance). The last one is a Link to that
+                  // group's own edit screen, which already hosts the invite
+                  // link + add-by-email UI (components/group-invite-link.tsx) —
+                  // it is never a selection, so `selectedGroupId` can never
+                  // hold a solo group and canSubmit stays honest.
+                  const rowStyle = {
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    background: active ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)",
+                    border: solo
+                      ? "1px dashed rgba(251,146,60,0.4)"
+                      : `1px solid ${active ? "rgba(167,139,250,0.35)" : "rgba(255,255,255,0.09)"}`,
+                    cursor: "pointer",
+                  } as const;
+                  const rowInner = (
+                    <>
+                      <AvatarChip
+                        init={g.name.slice(0, 2).toUpperCase()}
+                        color={active ? P : solo ? O : getUserColor(g.name)}
+                        size={34}
+                        radius={11}
+                      />
                       <div className="min-w-0 flex-1">
                         <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }} className="truncate">
                           {g.name}
                         </p>
-                        <p style={{ margin: "2px 0 0", fontSize: 11, color: T.sub }}>
+                        <p style={{ margin: "2px 0 0", fontSize: 11, color: solo ? O : T.sub }}>
                           {solo
-                            ? "Just you in this group — invite someone first"
+                            ? "Just you so far — invite someone to request from them"
                             : `${memberCount} members · ${groupPayerCount} ${groupPayerCount === 1 ? "payer" : "payers"} (you're excluded)`}
                         </p>
                       </div>
-                      {active && <Check size={17} strokeWidth={2.5} color={P} />}
+                      {solo ? (
+                        <span
+                          className="flex items-center gap-1.5 shrink-0"
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 9,
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: O,
+                            background: "rgba(251,146,60,0.1)",
+                          }}
+                        >
+                          <UserPlus size={13} strokeWidth={2.5} />
+                          Invite
+                        </span>
+                      ) : (
+                        active && <Check size={17} strokeWidth={2.5} color={P} />
+                      )}
+                    </>
+                  );
+                  return solo ? (
+                    <Link
+                      key={g.id}
+                      href={`/groups/${g.id}/edit`}
+                      className="flex items-center gap-3 text-left transition-all hover:opacity-90"
+                      style={rowStyle}
+                    >
+                      {rowInner}
+                    </Link>
+                  ) : (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setSelectedGroupId(g.id)}
+                      className="flex items-center gap-3 text-left transition-all hover:border-white/[0.18]"
+                      style={rowStyle}
+                    >
+                      {rowInner}
                     </button>
                   );
                 })}

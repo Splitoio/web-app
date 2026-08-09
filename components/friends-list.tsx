@@ -58,7 +58,7 @@ export function FriendsList({
   const { data: friends, isLoading, error } = useGetFriends();
   const router = useRouter();
   const { user } = useAuthStore();
-  const { data: groups = [] } = useGetAllGroups({ type: "PERSONAL" });
+  const { data: groups = [] } = useGetAllGroups();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [openFriendId, setOpenFriendId] = useState<string | null>(null);

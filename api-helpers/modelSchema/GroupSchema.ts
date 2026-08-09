@@ -13,7 +13,8 @@ export const GroupSchema = z.object({
   color: z.string().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
-  type: z.enum(["PERSONAL", "BUSINESS"]).default("PERSONAL"),
+  // `type` is gone: Group is bill-splitting only. Business workspaces are
+  // Organizations (features/business/api/client.ts).
   lockPrice: z.boolean(),
   groupBalances: z.array(
     z.object({

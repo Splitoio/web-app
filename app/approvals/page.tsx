@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { A, G, MONO, T, Card, Btn, Tag, AvatarChip, getUserColor } from "@/lib/splito-design";
+import { A, G, MONO, T, Card, Btn, Tag, AvatarChip, getUserColor, Eyebrow, card } from "@/lib/splito-design";
 import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
 import { BusinessOnly, WorkspaceResolving } from "@/components/shell/business-only";
+import { isWorkspaceAdmin } from "@/lib/workspace";
 import {
   getInvoicesByOrganization,
   approveInvoice,
@@ -37,13 +38,18 @@ export default function ApprovalsPage() {
   const workspace = useActiveWorkspace();
   const isResolving = useIsResolvingWorkspace();
   const isBusiness = workspace.kind === "business";
+  // Approve/decline is OWNER/ADMIN only on the backend (invoice.controller.ts
+  // approveInvoice/declineInvoice) — MEMBER never sees the queue, not just a
+  // disabled button, matching Members/Treasury/Approvals being admin-only
+  // screens rather than admin-only actions on a shared screen.
+  const isAdmin = isWorkspaceAdmin(workspace);
 
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!isBusiness) return;
+    if (!isBusiness || !isAdmin) return;
     setInvoices(null);
     setError(null);
     try {
@@ -52,7 +58,7 @@ export default function ApprovalsPage() {
     } catch {
       setError("Couldn't load approvals.");
     }
-  }, [workspace.id, isBusiness]);
+  }, [workspace.id, isBusiness, isAdmin]);
 
   useEffect(() => {
     load();
@@ -66,6 +72,22 @@ export default function ApprovalsPage() {
         screen="Approvals"
         blurb="Approvals apply to invoices raised inside a business workspace."
       />
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="fade-up p-4 lg:p-0">
+        <div style={{ ...card(), padding: 32, textAlign: "center", maxWidth: 480, margin: "40px auto" }}>
+          <Eyebrow>Owners and admins only</Eyebrow>
+          <p style={{ margin: "10px 0 0", fontSize: 15, fontWeight: 700, color: T.bright }}>
+            Approving invoices isn&apos;t open to members
+          </p>
+          <p style={{ margin: "6px 0 0", fontSize: 12.5, color: T.sub, lineHeight: 1.6 }}>
+            Ask an owner or admin of {workspace.name} to review what&apos;s pending.
+          </p>
+        </div>
+      </div>
     );
   }
 

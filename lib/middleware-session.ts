@@ -1,5 +1,9 @@
 const AUTH_ROUTES = new Set(["/login", "/signup", "/forgot-password", "/reset-password"]);
-const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign", "/pay"];
+// "/invite" is public because the whole point of the invite landing page is
+// that somebody with no account can see which workspace invited them BEFORE
+// signing up (GET /api/invites/lookup needs no session and seats nobody).
+// Accepting still requires one — that check is the backend's.
+const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign", "/pay", "/invite"];
 
 // Canonical source of truth for "no session required" pathnames. Consumed
 // server-side by proxy.ts (session-cookie redirect gate) and client-side by
@@ -47,6 +51,21 @@ export function getSessionCookieValue(
     }
   }
   return null;
+}
+
+/**
+ * The one place that decides whether a `?callbackUrl=` may be followed.
+ *
+ * Returns null unless the value is a same-origin *path*. `startsWith("/")` on
+ * its own is not enough: `//evil.example` and `/\evil.example` are
+ * protocol-relative URLs that browsers resolve off-origin, so a bare prefix
+ * check is an open redirect. Anyone honouring a callbackUrl — the proxy's
+ * auth-route bounce, the login page, the signup page — must go through this.
+ */
+export function safeCallbackPath(raw: string | null | undefined): string | null {
+  if (!raw || !raw.startsWith("/")) return null;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  return raw;
 }
 
 export function buildLoginRedirectUrl(requestUrl: URL): URL {

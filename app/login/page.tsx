@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
+import { safeCallbackPath } from "@/lib/middleware-session";
 
 function GoogleIcon() {
   return (
@@ -24,12 +25,15 @@ function GoogleIcon() {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl")) ?? "/";
   const [showPassword, setShowPassword] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    // `?email=` is prefill only, never a lock: an invite link sends the address
+    // it was issued to (app/invite/[token]/page.tsx) so the invited person
+    // doesn't have to retype it, but they stay free to sign in as someone else.
+    email: searchParams.get("email") ?? "",
     password: "",
   });
 
@@ -59,9 +63,7 @@ export default function LoginPage() {
 
         // Use window.location instead of router.push to force a full page reload
         // This ensures cookies are properly set before navigating to protected pages
-        window.location.href = callbackUrl.startsWith("/")
-          ? callbackUrl
-          : "/";
+        window.location.href = callbackUrl;
         return; // Don't reset loading state as we're navigating away
       }
     } catch (error) {

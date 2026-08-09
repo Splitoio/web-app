@@ -5,6 +5,7 @@ import {
   getSessionCookieValue,
   isAuthRoute,
   isProtectedRoute,
+  safeCallbackPath,
   validateSessionWithAuthServer,
 } from "./lib/middleware-session";
 import { WORKSPACE_COOKIE, resolveOrganizationRedirect } from "./lib/workspace";
@@ -34,7 +35,15 @@ export async function proxy(request: NextRequest) {
       : null; // null = unknown (no cookie to validate)
 
     if (isAuthRoute(pathname) && isSessionValid === true) {
-      return NextResponse.redirect(new URL("/", request.nextUrl.origin));
+      // A signed-in visitor has no business on /login or /signup — but they may
+      // have been sent there mid-flight by something with a destination in
+      // mind. Sign-up is exactly that case: better-auth's emailAndPassword
+      // auto-signs-in, so `/signup?callbackUrl=/invite/<token>` hands off to
+      // `/login?callbackUrl=…` with a live session already in the jar and lands
+      // right here. Redirecting to "/" unconditionally drops the callback and
+      // strands the new account on the dashboard with the invite still PENDING.
+      const destination = safeCallbackPath(request.nextUrl.searchParams.get("callbackUrl")) ?? "/";
+      return NextResponse.redirect(new URL(destination, request.nextUrl.origin));
     }
 
     // Only redirect protected routes when we had a cookie and it was invalid.

@@ -37,7 +37,13 @@ export function ClientLayout({
   // no-chrome route, check components/AuthProvider.tsx and
   // api-helpers/client.ts too — they source from lib/middleware-session.ts and
   // may need the route added there instead.
-  const isAuthPage = isAuthRoute(pathname ?? "") || pathname?.startsWith("/pay");
+  // "/invite/*" is chrome-free for the same reason: a signed-out visitor lands
+  // there straight from an invite email, and the shell's session-requiring
+  // queries would 401 them off to /login before they can read who invited them.
+  const isAuthPage =
+    isAuthRoute(pathname ?? "") ||
+    pathname?.startsWith("/pay") ||
+    pathname?.startsWith("/invite");
 
   // "/" is the anonymous-first create-request screen (see
   // .specs/2026-08-06-request-money-design.md "Accounts": no account is ever

@@ -11,6 +11,8 @@ export const QueryKeys = {
   REMINDERS: "reminders",
   ANALYTICS: "analytics",
   BUSINESS_ORGANIZATIONS: "business-organizations",
+  ORGANIZATION_MEMBERS: "organization-members",
+  ORGANIZATION_INVITES: "organization-invites",
   INVOICES: "invoices",
   ORGANIZATION_ACTIVITY: "organization-activity",
   STREAMS: "streams",
