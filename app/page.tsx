@@ -33,11 +33,12 @@ import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { BusinessDashboard } from "@/components/dashboard/business-dashboard";
 import { BusinessDashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 
-// ─── Chain destinations — Stellar and Solana only. Exact lowercase literals
-// per the API contract (.specs/2026-08-06-request-money-api-contract.md §0.1).
+// ─── Chain destinations — settlement is Stellar-only (owner decision: XLM
+// and USDC on Stellar; Solana removed as a settlement destination). Exact
+// lowercase literal per the API contract
+// (.specs/2026-08-06-request-money-api-contract.md §0.1).
 const CHAINS: { chain: DestinationChain; asset: DestinationAsset; label: string }[] = [
   { chain: "stellar", asset: "usdc-stellar", label: "Stellar" },
-  { chain: "solana", asset: "usdc-solana", label: "Solana" },
 ];
 
 function isValidAddress(chain: DestinationChain, address: string): boolean {

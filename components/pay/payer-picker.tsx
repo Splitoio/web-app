@@ -5,11 +5,14 @@ import { formatCurrency } from "@/utils/formatters";
 import type { RequestPayerView } from "@/api-helpers/requests";
 
 /**
- * The GetRequest response has no payer name/email field (contract §2 —
- * `RequestPayerView` is only `{ payerId, shareAmount, status }`), so when a
- * link is opened without a `?payer=` param and more than one payer still
- * owes, we can't address someone by name. Let them pick their own row by
- * amount instead of guessing.
+ * `RequestPayerView` does carry `name` now (group mode), but this picker
+ * deliberately doesn't render it. It only exists for the "opened without a
+ * `?payer=` param" fallback — the visitor hasn't proven which payer they are
+ * yet, so showing every group member's name here would let anyone holding
+ * any one of the per-payer links page through everybody else's identity.
+ * Let them pick their own row by amount instead; once `?payer=` (or this
+ * picker) pins down which payer they are, that's the only identity ever
+ * shown to them.
  */
 export function PayerPicker({
   payers,

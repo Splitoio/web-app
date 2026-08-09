@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { Home, Utensils, Car, Receipt } from "lucide-react";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
 import { useDeleteExpense, useMarkParticipantAsPaid } from "@/features/expenses/hooks/use-create-expense";
@@ -33,21 +35,22 @@ type ExpenseWithParticipants = {
   expenseParticipants?: { userId: string; amount: number; isPaid?: boolean }[];
 };
 
-const CATEGORY_STYLES: Record<string, { bg: string; icon: string }> = {
-  ACCOMMODATION: { bg: "rgba(255,255,255,0.06)", icon: "🏠" },
-  FOOD: { bg: "rgba(255,255,255,0.06)", icon: "🍽" },
-  TRAVEL: { bg: "rgba(255,255,255,0.06)", icon: "🚗" },
-  TRANSPORT: { bg: "rgba(255,255,255,0.06)", icon: "🚗" },
+const CATEGORY_ICON_PROPS = { size: 20, strokeWidth: 1.75, color: T.soft };
+const CATEGORY_STYLES: Record<string, { bg: string; icon: ReactNode }> = {
+  ACCOMMODATION: { bg: "rgba(255,255,255,0.06)", icon: <Home {...CATEGORY_ICON_PROPS} /> },
+  FOOD: { bg: "rgba(255,255,255,0.06)", icon: <Utensils {...CATEGORY_ICON_PROPS} /> },
+  TRAVEL: { bg: "rgba(255,255,255,0.06)", icon: <Car {...CATEGORY_ICON_PROPS} /> },
+  TRANSPORT: { bg: "rgba(255,255,255,0.06)", icon: <Car {...CATEGORY_ICON_PROPS} /> },
 };
 
-function getCategoryStyle(category: string) {
+function getCategoryStyle(category: string): { bg: string; icon: ReactNode } {
   const key = (category || "").toUpperCase();
   const known = CATEGORY_STYLES[key] || CATEGORY_STYLES[key.split(/[\s-_]/)[0]];
   if (known) return known;
-  // If not a known keyword, treat it as a raw emoji
+  // If not a known keyword, treat it as a raw (possibly user-entered) category glyph
   const trimmed = (category || "").trim();
   if (trimmed && trimmed !== "OTHER") return { bg: "rgba(255,255,255,0.06)", icon: trimmed };
-  return { bg: "rgba(255,255,255,0.06)", icon: "🧾" };
+  return { bg: "rgba(255,255,255,0.06)", icon: <Receipt {...CATEGORY_ICON_PROPS} /> };
 }
 
 function formatDateKey(d: Date | string): string {
@@ -325,7 +328,10 @@ export default function GroupRequestsPage() {
     <div className="space-y-6">
       {byDate.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 20px" }}>
-          <p style={{ fontSize: 48, marginBottom: 18 }}>🧾</p>
+          {/* mx-auto centres the icon — Tailwind preflight makes svg display:block,
+              so the parent's text-align alone (which centred the old emoji) no
+              longer does; same idiom as pay/status-banner.tsx. */}
+          <Receipt size={40} strokeWidth={1.5} color={T.faint} className="mx-auto" style={{ marginBottom: 18 }} />
           <p style={{ fontSize: 18, fontWeight: 800, color: T.body, marginBottom: 8 }}>
             No requests yet
           </p>

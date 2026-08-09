@@ -45,7 +45,7 @@ const getChainMeta = (chainId: string) => {
   const metaMap: Record<string, { color: string; icon: string }> = {
     stellar: { color: G, icon: "✦" },
     solana: { color: P, icon: "◎" },
-    base: { color: "#3B82F6", icon: "🔵" },
+    base: { color: "#3B82F6", icon: "●" },
     aptos: { color: A, icon: "⬡" },
   };
   return metaMap[chainId] || { color: "#666", icon: "◆" };

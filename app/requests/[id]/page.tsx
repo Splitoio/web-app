@@ -186,6 +186,10 @@ function PayerRow({
   const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [nudging, setNudging] = useState(false);
   const color = FRIEND_COLORS[(payer.index - 1) % FRIEND_COLORS.length];
+  // `name` is null for an anonymous (payerCount) request, or a group member
+  // with no name/email on file — same positional fallback either way, and
+  // the same one the create form's created-share screen already uses.
+  const displayName = payer.name ?? `Person ${payer.index}`;
 
   const handleMarkPaid = async () => {
     if (!confirmingPaid) {
@@ -195,7 +199,7 @@ function PayerRow({
     setMarking(true);
     try {
       await markParticipantAsPaid(requestId, payer.payerId);
-      toast.success(`Marked person ${payer.index} as paid.`);
+      toast.success(`Marked ${displayName} as paid.`);
       onChanged();
     } catch (err: unknown) {
       const message = (err as { message?: string })?.message ?? "Couldn't mark as paid.";
@@ -216,7 +220,7 @@ function PayerRow({
           requestName ? ` for "${requestName}"` : ""
         }.`,
       });
-      toast.success(`Nudged person ${payer.index}.`);
+      toast.success(`Nudged ${displayName}.`);
     } catch (err: unknown) {
       const message = (err as { message?: string })?.message ?? "Couldn't send the nudge.";
       toast.error(message);
@@ -233,10 +237,10 @@ function PayerRow({
       }}
     >
       <div className="flex items-center gap-3">
-        <AvatarChip init={`P${payer.index}`} color={color} size={36} />
+        <AvatarChip init={payer.name ? payer.name.slice(0, 2).toUpperCase() : `P${payer.index}`} color={color} size={36} />
         <div className="flex-1 min-w-0">
           <p style={{ fontSize: 13.5, fontWeight: 700, color: T.bright, margin: 0 }}>
-            Person {payer.index}
+            {displayName}
           </p>
           <p className="mt-0.5" style={{ fontSize: 11.5, color: T.sub, fontWeight: 600 }}>
             {payer.isPaid ? (
@@ -609,6 +613,9 @@ function NudgeRow({
 }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  // Same fallback as PayerRow above — null covers both the anonymous flow
+  // and a group member with no name/email on file.
+  const displayName = payer.name ?? `Person ${payer.index}`;
 
   const handleSend = async () => {
     setSending(true);
@@ -621,7 +628,7 @@ function NudgeRow({
         }.`,
       });
       setSent(true);
-      toast.success(`Nudged person ${payer.index}.`);
+      toast.success(`Nudged ${displayName}.`);
     } catch (err: unknown) {
       const message = (err as { message?: string })?.message ?? "Couldn't send the nudge.";
       toast.error(message);
@@ -633,7 +640,7 @@ function NudgeRow({
   return (
     <div className="flex items-center justify-between gap-3">
       <span style={{ fontSize: 12, color: T.body, fontWeight: 600 }}>
-        Person {payer.index} · {formatCurrency(payer.shareAmount, currency)}
+        {displayName} · {formatCurrency(payer.shareAmount, currency)}
       </span>
       <Btn
         variant={sent ? "ghost" : "primary"}

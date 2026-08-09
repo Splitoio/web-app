@@ -2,7 +2,23 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, X } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronLeft,
+  X,
+  Hand,
+  LayoutDashboard,
+  FileText,
+  Wallet,
+  BarChart3,
+  ClipboardList,
+  User,
+  Settings,
+  Shuffle,
+  PartyPopper,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { T, A } from "@/lib/splito-design";
 
 interface Step {
@@ -140,17 +156,17 @@ export type OnboardingMode = "personal" | "organization";
 export type OrganizationOnboardingPhase = "no-org" | "in-org";
 
 // Step icon map
-const STEP_ICONS: Record<string, string> = {
-  welcome: "👋",
-  dashboard: "🏠",
-  invoices: "📄",
-  streams: "💰",
-  activity: "📊",
-  contracts: "📋",
-  members: "👤",
-  settings: "⚙️",
-  "org-switcher": "🔀",
-  finish: "🎉",
+const STEP_ICONS: Record<string, LucideIcon> = {
+  welcome: Hand,
+  dashboard: LayoutDashboard,
+  invoices: FileText,
+  streams: Wallet,
+  activity: BarChart3,
+  contracts: ClipboardList,
+  members: User,
+  settings: Settings,
+  "org-switcher": Shuffle,
+  finish: PartyPopper,
 };
 
 export function OnboardingTutorial({
@@ -300,7 +316,10 @@ export function OnboardingTutorial({
                   className="flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0"
                   style={{ background: `${A}18`, border: `1px solid ${A}28` }}
                 >
-                  <span style={{ fontSize: 16 }}>{STEP_ICONS[step.id] ?? "✦"}</span>
+                  {(() => {
+                    const StepIcon = STEP_ICONS[step.id] ?? Sparkles;
+                    return <StepIcon size={16} strokeWidth={1.75} color={A} />;
+                  })()}
                 </div>
                 <div>
                   <p style={{ color: T.dim, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
@@ -438,7 +457,10 @@ export function OnboardingTutorial({
                     className="flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0"
                     style={{ background: `${A}18`, border: `1px solid ${A}28` }}
                   >
-                    <span style={{ fontSize: 16 }}>{STEP_ICONS[step.id] ?? "✦"}</span>
+                    {(() => {
+                    const StepIcon = STEP_ICONS[step.id] ?? Sparkles;
+                    return <StepIcon size={16} strokeWidth={1.75} color={A} />;
+                  })()}
                   </div>
                   <div>
                     <p style={{ color: T.dim, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>

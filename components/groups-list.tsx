@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getAllGroups } from "@/features/groups/api/client";
@@ -109,7 +109,10 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
   if (groupsData.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "80px 20px" }}>
-        <p style={{ fontSize: 48, marginBottom: 18 }}>👥</p>
+        {/* Tailwind's preflight sets `svg { display: block }`, so the parent's
+            text-align (which centred the old emoji glyph) no longer centres
+            this icon — mx-auto does, same idiom as pay/status-banner.tsx. */}
+        <Users size={40} strokeWidth={1.5} color={T.faint} className="mx-auto" style={{ marginBottom: 18 }} />
         <p style={{ fontSize: 18, fontWeight: 800, color: T.body, marginBottom: 8 }}>
           No groups yet
         </p>

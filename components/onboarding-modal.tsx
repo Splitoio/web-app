@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
-import { Loader2 } from "lucide-react";
+import { Loader2, Hand } from "lucide-react";
 import { T, A, INSET } from "@/lib/splito-design";
 
 const PLATFORM_DEFAULT_CURRENCY = "USD";
@@ -86,7 +86,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
           className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
           style={{ background: `${A}18`, border: `1px solid ${A}30` }}
         >
-          <span style={{ fontSize: 22 }}>👋</span>
+          <Hand size={22} strokeWidth={1.75} color={A} />
         </div>
 
         <h2

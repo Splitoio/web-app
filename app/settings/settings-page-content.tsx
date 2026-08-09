@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -275,6 +275,19 @@ const WORKSPACE_SECTIONS = [
 ] as const;
 
 type SectionId = (typeof ACCOUNT_SECTIONS)[number]["id"] | (typeof WORKSPACE_SECTIONS)[number]["id"];
+
+const ALL_SECTION_IDS: readonly string[] = [
+  ...ACCOUNT_SECTIONS.map((s) => s.id),
+  ...WORKSPACE_SECTIONS.map((s) => s.id),
+];
+
+/** `/settings?tab=settlement` deep-links straight to a rail section — falls
+ * back to "profile" for a missing/unknown value so a stale or hand-typed
+ * query param never lands on a blank pane. */
+function initialSectionFromSearchParams(searchParams: URLSearchParams): SectionId {
+  const requested = searchParams.get("tab");
+  return requested && ALL_SECTION_IDS.includes(requested) ? (requested as SectionId) : "profile";
+}
 
 function RailGroup({ label, items, sec, setSec }: { label: string; items: readonly { id: SectionId; label: string }[]; sec: SectionId; setSec: (id: SectionId) => void }) {
   return (
@@ -1060,11 +1073,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export function SettingsPageContent({ user: initialUser }: SettingsPageContentProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user: storeUser, setUser } = useAuthStore();
   const user = storeUser ?? initialUser;
 
-  const [sec, setSec] = useState<SectionId>("profile");
+  const [sec, setSec] = useState<SectionId>(() => initialSectionFromSearchParams(searchParams));
 
   // ── Profile ──
   const { mutate: updateUser, isPending: isSavingProfile } = useUpdateUser();
@@ -1262,7 +1276,12 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
   return (
     <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
       <div className="grid grid-cols-1 lg:grid-cols-[216px_1fr] gap-4 lg:gap-[26px] items-start">
-        <div className="flex flex-row lg:flex-col gap-5 lg:gap-[18px] overflow-x-auto lg:overflow-visible lg:sticky pb-1 lg:pb-0" style={{ top: 100 }}>
+        {/* Not sticky: `position: sticky` inside this items-start grid row anchors
+            to `top` whenever the paired content column is tall enough to leave
+            slack (and clamps flush when it isn't) — so the rail visibly jumped
+            between short and tall tabs even at scrollY 0. A plain top-anchored
+            column never moves, which is what "stays put across tabs" means here. */}
+        <div className="flex flex-row lg:flex-col gap-5 lg:gap-[18px] overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
           <RailGroup label="Account" items={ACCOUNT_SECTIONS} sec={sec} setSec={setSec} />
           {isBusiness && <RailGroup label="Workspace" items={WORKSPACE_SECTIONS} sec={sec} setSec={setSec} />}
         </div>

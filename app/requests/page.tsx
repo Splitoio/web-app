@@ -40,11 +40,12 @@ function csvEscape(value: string): string {
 }
 
 function toCsv(rows: RequestListItem[], isBusiness: boolean): string {
-  const header = ["Title", "Type", "Amount", "Currency", "Settle", "Status", "Created"];
+  const header = ["Title", "Type", "Group", "Amount", "Currency", "Settle", "Status", "Created"];
   const lines = rows.map((r) =>
     [
       r.name ?? "",
       listRowType(r.payerCount, isBusiness).label,
+      r.group?.name ?? "",
       String(r.amount),
       r.denominationCurrency ?? "",
       assetLabel(r.destinationAsset),
@@ -119,10 +120,10 @@ export default function RequestsPage() {
               whiteSpace: "nowrap",
             }}
           >
-            {r.name ?? (r.payerCount > 1 ? "Group request" : "Payment request")}
+            {r.name ?? (r.group ? r.group.name : r.payerCount > 1 ? "Group request" : "Payment request")}
           </p>
           <p style={{ margin: "3px 0 0", fontSize: 11.5, color: T.sub }}>
-            {listRowMeta(r.payerCount, r.paidCount, r.destinationChain)}
+            {listRowMeta(r.payerCount, r.paidCount, r.destinationChain, r.group?.name ?? null)}
           </p>
         </div>
       ),

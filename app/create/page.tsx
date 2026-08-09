@@ -7,20 +7,26 @@
 // attachments, contract-backed bills, per-workspace approval thresholds, named
 // payers with custom splits). The real backend (createRequestSchema in
 // request-money.controller.ts, model Request in schema.prisma) only supports:
-// one generic request, an even split across an anonymous payerCount, four
-// destination pairs, an optional name + expiresAt, and an optional
-// workspaceId. Blocks the design calls for that have no backend behavior yet
-// (split modes beyond even, contract linking, approval) are rendered as
-// visibly gated/disabled rather than wired to fake data — see comments below.
+// one generic request, an even split across either an anonymous payerCount
+// (1..50, no names) OR a real group's other members (named, requester
+// excluded — exactly one of the two, never both), four destination pairs, an
+// optional name + expiresAt, and an optional workspaceId. Blocks the design
+// calls for that have no backend behavior yet (split modes beyond even,
+// contract linking, approval) are rendered as visibly gated/disabled rather
+// than wired to fake data — see comments below.
 
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, Minus, Plus, Copy, Check } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Copy, Check, FileText, Users } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
+import { useGetSettlementPreference } from "@/features/user/hooks/use-update-profile";
 import { useActiveWorkspace } from "@/contexts/workspace";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/workspace";
 import { formatCurrency } from "@/utils/formatters";
+import { QueryKeys } from "@/lib/constants";
+import { getAllGroups } from "@/features/groups/api/client";
 import {
   createRequest,
   type CreateRequestResponse,
@@ -42,6 +48,7 @@ import {
   card,
   pill,
   eyebrow,
+  getUserColor,
   BORDER,
   INSET,
 } from "@/lib/splito-design";
@@ -49,7 +56,10 @@ import { chainLabel } from "@/components/requests/request-bits";
 import { FormErrorNotice } from "@/components/requests/form-error";
 import { toFormError, type FormError } from "@/lib/request-errors";
 
-// ─── Destination options — the four pairs asset-config.ts actually supports ──
+// ─── Destination options — settlement is Stellar-only (owner decision:
+// XLM and USDC on Stellar). Solana was never a settlement destination beyond
+// these two now-removed pairs — see app/page.tsx's CHAINS for the guest
+// flow's matching restriction. ──
 const DESTINATIONS: {
   chain: DestinationChain;
   asset: DestinationAsset;
@@ -59,8 +69,6 @@ const DESTINATIONS: {
 }[] = [
   { chain: "stellar", asset: "usdc-stellar", symbol: "USDC", sub: "Stellar · stable", color: "#4E9BE8" },
   { chain: "stellar", asset: "xlm", symbol: "XLM", sub: "Stellar · native", color: A },
-  { chain: "solana", asset: "usdc-solana", symbol: "USDC", sub: "Solana · stable", color: "#4E9BE8" },
-  { chain: "solana", asset: "sol", symbol: "SOL", sub: "Solana · native", color: P },
 ];
 
 // Mirrors the validator in app/page.tsx (guest create flow) — small enough,
@@ -149,6 +157,10 @@ function CreateForm({
 }) {
   const isPersonal = workspace.id === PERSONAL_WORKSPACE_ID;
   const { isConnected, address, walletType } = useWallet();
+  // Only tells the user whether Settings has an address on file for the
+  // selected chain — this form has never prefilled from it (only from a
+  // connected wallet, see canPrefillWallet below), and this doesn't add that.
+  const { data: settlementPrefs = [] } = useGetSettlementPreference();
 
   const [kind, setKind] = useState<Kind>("request"); // "request" is the landing state — split is never the default
   const [amount, setAmount] = useState("");
@@ -157,7 +169,9 @@ function CreateForm({
   // always sent on submit (see timeLockIn in the createRequest call) rather than
   // relying on the backend's User.timeLockInDefault fallback, which is false.
   const [lockIn, setLockIn] = useState(true);
-  const [payerCount, setPayerCount] = useState(2);
+  // "Request from a group" sends `groupId`, never an anonymous `payerCount` —
+  // the backend accepts exactly one of the two. See canSubmit/handleSubmit.
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [splitMode, setSplitMode] = useState<(typeof SPLIT_MODES)[number]>("Evenly");
   const [destIdx, setDestIdx] = useState(0);
   const [destinationAddress, setDestinationAddress] = useState("");
@@ -167,17 +181,44 @@ function CreateForm({
   // until dismissed — never a toast. See components/requests/form-error.tsx.
   const [submitError, setSubmitError] = useState<FormError | null>(null);
 
+  // Fetched only in "split" mode — GET /api/groups, the same endpoint and
+  // query key components/groups-list.tsx already uses for the Groups page,
+  // so the two share a cache. `?type=BUSINESS` is for orgs, not this
+  // personal request flow.
+  const { data: groupsData, isLoading: isLoadingGroups } = useQuery({
+    queryKey: [QueryKeys.GROUPS, "PERSONAL"],
+    queryFn: () => getAllGroups({ type: "PERSONAL" }),
+    enabled: kind === "split",
+  });
+  const groups = groupsData ?? [];
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
+  // The requester is always a member of their own group and is always
+  // excluded from the payers (backend behaviour, not a guess) — so the
+  // resulting payer count is members-minus-you, full stop. A group of one
+  // (just the requester) yields zero payers, which the backend 400s on
+  // ("This group has no other members to request from"); such groups are
+  // disabled in the picker below rather than left to fail on submit.
+  const selectedGroupMemberCount = selectedGroup ? (selectedGroup.groupUsers ?? []).length : 0;
+  const selectedGroupPayerCount = Math.max(selectedGroupMemberCount - 1, 0);
+
   const dest = DESTINATIONS[destIdx];
   const parsedAmount = Number(amount);
   const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const addressValid = isValidAddress(dest.chain, destinationAddress);
   /** The server rejected the address itself — mark the field, not just the notice. */
   const addressRejected = submitError?.field === "destinationAddress";
-  const effectivePayerCount = kind === "split" ? payerCount : 1;
-  const canSubmit = amountValid && addressValid && !submitting;
+  const effectivePayerCount = kind === "split" ? selectedGroupPayerCount : 1;
+  const canSubmit =
+    amountValid &&
+    addressValid &&
+    !submitting &&
+    (kind === "request" || (!!selectedGroupId && selectedGroupPayerCount > 0));
 
   const canPrefillWallet =
     dest.chain === "stellar" && walletType === "stellar" && isConnected && !!address;
+  const hasSettlementAddress = settlementPrefs.some(
+    (p) => p.chainId === dest.chain && !!p.wallet?.address
+  );
 
   // The design's "Bills against a contract" block, gated to business
   // workspaces. There is no contract-linking API for Requests yet (the
@@ -204,7 +245,9 @@ function CreateForm({
         destinationAsset: dest.asset,
         destinationChain: dest.chain,
         destinationAddress: destinationAddress.trim(),
-        payerCount: effectivePayerCount,
+        // Exactly one of the two — never both, never neither (the backend
+        // 400s either violation).
+        ...(kind === "split" ? { groupId: selectedGroupId! } : { payerCount: 1 }),
         name: title.trim() || undefined,
         expiresAt: expiresAtDate.toISOString(),
         workspaceId: isPersonal ? undefined : workspace.id,
@@ -214,7 +257,9 @@ function CreateForm({
         // rate" as on.
         timeLockIn: lockIn,
       });
-      onCreated(res, effectivePayerCount);
+      // Trust the server's count over our local guess — group mode derives it
+      // from actual membership at creation time (equals links.length).
+      onCreated(res, res.payerCount);
     } catch (err) {
       setSubmitError(toFormError(err));
     } finally {
@@ -222,7 +267,7 @@ function CreateForm({
     }
   };
 
-  const perPersonAmount = amountValid ? parsedAmount / Math.max(payerCount, 1) : 0;
+  const perPersonAmount = amountValid ? parsedAmount / Math.max(selectedGroupPayerCount, 1) : 0;
 
   return (
     <div className="grid gap-6 items-start lg:grid-cols-[1.4fr_1fr]">
@@ -340,44 +385,79 @@ function CreateForm({
 
         {kind === "split" && (
           <>
-            <FieldLabel>Who pays</FieldLabel>
-            <div
-              className="flex items-center gap-3 mb-2"
-              style={{
-                padding: "12px 15px",
-                borderRadius: 14,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.09)",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setPayerCount((n) => Math.max(2, n - 1))}
-                className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-white/10"
-                style={{ color: T.muted }}
-                aria-label="Fewer people"
+            <FieldLabel>Request from</FieldLabel>
+            {isLoadingGroups ? (
+              <div className="flex items-center justify-center" style={{ padding: "20px 0" }}>
+                <Loader2 className="h-4 w-4 animate-spin" style={{ color: T.muted }} />
+              </div>
+            ) : groups.length === 0 ? (
+              <div
+                className="text-center"
+                style={{
+                  padding: "28px 20px",
+                  borderRadius: 14,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  marginBottom: 8,
+                }}
               >
-                <Minus size={16} strokeWidth={2.5} />
-              </button>
-              <span
-                className="flex-1 text-center"
-                style={{ fontFamily: MONO, fontWeight: 800, fontSize: 15, color: "#fff" }}
-              >
-                {payerCount} {payerCount === 1 ? "person" : "people"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPayerCount((n) => Math.min(50, n + 1))}
-                className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-white/10"
-                style={{ color: T.muted }}
-                aria-label="More people"
-              >
-                <Plus size={16} strokeWidth={2.5} />
-              </button>
-            </div>
+                <Users size={28} strokeWidth={1.5} color={T.faint} className="mx-auto" style={{ marginBottom: 10 }} />
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.body }}>No groups yet</p>
+                <p style={{ margin: "4px 0 14px", fontSize: 11.5, color: T.sub }}>
+                  Create a group first, then come back to request from it.
+                </p>
+                <Link
+                  href="/groups"
+                  className="inline-block transition-all hover:opacity-90"
+                  style={{ borderRadius: 11, padding: "8px 16px", fontSize: 12.5, fontWeight: 700, background: A, color: "#0a0a0a" }}
+                >
+                  Create a group
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 mb-2" style={{ maxHeight: 260, overflowY: "auto" }}>
+                {groups.map((g) => {
+                  const memberCount = (g.groupUsers ?? []).length;
+                  const groupPayerCount = Math.max(memberCount - 1, 0);
+                  const solo = groupPayerCount === 0;
+                  const active = g.id === selectedGroupId;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      disabled={solo}
+                      onClick={() => setSelectedGroupId(g.id)}
+                      className="flex items-center gap-3 text-left transition-all hover:border-white/[0.18]"
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        background: active ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${active ? "rgba(167,139,250,0.35)" : "rgba(255,255,255,0.09)"}`,
+                        cursor: solo ? "not-allowed" : "pointer",
+                        opacity: solo ? 0.5 : 1,
+                      }}
+                    >
+                      <AvatarChip init={g.name.slice(0, 2).toUpperCase()} color={active ? P : getUserColor(g.name)} size={34} radius={11} />
+                      <div className="min-w-0 flex-1">
+                        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }} className="truncate">
+                          {g.name}
+                        </p>
+                        <p style={{ margin: "2px 0 0", fontSize: 11, color: T.sub }}>
+                          {solo
+                            ? "Just you in this group — invite someone first"
+                            : `${memberCount} members · ${groupPayerCount} ${groupPayerCount === 1 ? "payer" : "payers"} (you're excluded)`}
+                        </p>
+                      </div>
+                      {active && <Check size={17} strokeWidth={2.5} color={P} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <p style={{ margin: "0 0 8px", fontSize: 11.5, color: T.dim }}>
-              No names collected — each person gets their own private link. Dividing the same request
-              into named shares isn&rsquo;t supported yet.
+              {selectedGroup
+                ? `${selectedGroupPayerCount} ${selectedGroupPayerCount === 1 ? "person gets" : "people get"} a private link for their share — you're never one of the payers.`
+                : "Everyone in the group except you gets their own private link, labelled with their name where we have one."}
             </p>
 
             <div
@@ -450,7 +530,7 @@ function CreateForm({
                   flexShrink: 0,
                 }}
               >
-                📄
+                <FileText size={14} strokeWidth={1.75} color={T.dim} />
               </span>
               <div className="flex-1 min-w-0">
                 <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: T.body }}>No contract linked</p>
@@ -569,6 +649,17 @@ function CreateForm({
             {submitError && (
               <FormErrorNotice error={submitError} onDismiss={() => setSubmitError(null)} />
             )}
+            {/* Informational only — doesn't gate or prefill the field. Reacts to
+                the selected chain like the label above it does. */}
+            {!hasSettlementAddress && (
+              <p style={{ margin: "6px 0 0", fontSize: 11.5, lineHeight: 1.4, color: T.dim }}>
+                No {dest.chain === "stellar" ? "Stellar" : "Solana"} address on file — add one in{" "}
+                <Link href="/settings?tab=settlement" style={{ color: A }}>
+                  Settings
+                </Link>
+                , or type it in above.
+              </p>
+            )}
           </div>
         </div>
         {canPrefillWallet && address !== destinationAddress && (
@@ -636,7 +727,11 @@ function CreateForm({
               ? "Enter an amount to get your link"
               : !destinationAddress.trim()
                 ? `Enter a ${dest.chain === "stellar" ? "Stellar" : "Solana"} address above to get your link`
-                : `That doesn't look like a ${dest.chain === "stellar" ? "Stellar" : "Solana"} address`}
+                : !addressValid
+                  ? `That doesn't look like a ${dest.chain === "stellar" ? "Stellar" : "Solana"} address`
+                  : kind === "split" && !selectedGroupId
+                    ? "Pick a group to request from"
+                    : "That group has no one else to request from — pick another"}
           </p>
         )}
       </div>
@@ -650,7 +745,8 @@ function CreateForm({
       destSymbol={dest.symbol}
       destChainLabel={chainLabel(dest.chain)}
       kind={kind}
-      payerCount={payerCount}
+      payerCount={effectivePayerCount}
+      groupName={selectedGroup?.name ?? null}
       expiryDays={expiryDays}
     />
     </div>
@@ -667,6 +763,7 @@ function PreviewPanel({
   destChainLabel,
   kind,
   payerCount,
+  groupName,
   expiryDays,
 }: {
   workspaceName: string;
@@ -677,12 +774,26 @@ function PreviewPanel({
   destSymbol: string;
   destChainLabel: string;
   kind: Kind;
+  /** Requester excluded — see selectedGroupPayerCount in CreateForm. 0 while
+   * split mode has no group selected yet. */
   payerCount: number;
+  /** The selected group's name, split mode only — null until one is picked. */
+  groupName: string | null;
   expiryDays: number;
 }) {
   const rows: { k: string; v: string; color: string }[] = [
     { k: "Settles as", v: `${destSymbol} · ${destChainLabel}`, color: A },
-    { k: "Payers", v: kind === "split" ? `${payerCount} people, evenly` : "Single request", color: "#d4d4d4" },
+    ...(kind === "split" && groupName ? [{ k: "Group", v: groupName, color: "#d4d4d4" }] : []),
+    {
+      k: "Payers",
+      v:
+        kind !== "split"
+          ? "Single request"
+          : payerCount > 0
+            ? `${payerCount} ${payerCount === 1 ? "person" : "people"}, evenly — not you`
+            : "Pick a group",
+      color: "#d4d4d4",
+    },
     { k: "Account needed", v: "No", color: G },
     { k: "Expires", v: `in ${expiryDays} days`, color: "#d4d4d4" },
   ];
@@ -867,7 +978,10 @@ function CreatedShare({ result, payerCount }: { result: CreateRequestResponse; p
             >
               <div className="min-w-0">
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.bright }}>
-                  Person {i + 1} — {formatCurrency(Number(p.shareAmount), "USD")}
+                  {/* `name` is null for the anonymous flow AND for a group
+                      member with no name/email on file — same positional
+                      fallback either way. */}
+                  {p.name ?? `Person ${i + 1}`} — {formatCurrency(Number(p.shareAmount), "USD")}
                 </p>
                 <p style={{ margin: "2px 0 0", fontSize: 11, fontFamily: MONO, color: T.dim }} className="truncate">
                   {p.link}

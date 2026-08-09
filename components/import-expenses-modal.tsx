@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import type { ParsedExpenseItem, ParseNoteItem, InferredDate } from "@/features/expenses/api/client";
 import {
   EXPENSE_CATEGORIES as CATEGORIES,
-  getCategoryEmoji,
+  getCategoryIcon,
 } from "@/lib/expense-categories";
 
 /**
@@ -359,17 +359,19 @@ export default function ImportExpensesModal({
                               }`}
                               onClick={() => setEditingId(isEditing ? null : exp._id)}
                             >
-                              {/* Category emoji */}
+                              {/* Category icon */}
                               <div
                                 className="flex-shrink-0 flex items-center justify-center"
                                 style={{
                                   width: 36, height: 36, borderRadius: 10,
                                   background: "rgba(255,255,255,0.04)",
                                   border: "1px solid rgba(255,255,255,0.07)",
-                                  fontSize: 16,
                                 }}
                               >
-                                {getCategoryEmoji(exp.category)}
+                                {(() => {
+                                  const CategoryIcon = getCategoryIcon(exp.category);
+                                  return <CategoryIcon size={16} strokeWidth={1.75} color={T.soft} />;
+                                })()}
                               </div>
 
                               {/* Vendor + date + original text */}
@@ -466,7 +468,7 @@ export default function ImportExpensesModal({
                                               : { background: "transparent", color: T.muted, borderColor: "rgba(255,255,255,0.07)" }
                                           }
                                         >
-                                          <span className="text-[12px]">{cat.emoji}</span>
+                                          <cat.icon size={12} strokeWidth={1.75} />
                                           {cat.label}
                                         </button>
                                       ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { Activity } from "lucide-react";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
 import { formatRelativeTime } from "@/lib/utils";
@@ -293,7 +294,10 @@ export default function GroupActivityPage() {
             padding: "80px 20px",
           }}
         >
-          <p style={{ fontSize: 48, marginBottom: 18 }}>🧾</p>
+          {/* mx-auto centres the icon — Tailwind preflight makes svg display:block,
+              so the parent's text-align alone (which centred the old emoji) no
+              longer does; same idiom as pay/status-banner.tsx. */}
+          <Activity size={40} strokeWidth={1.5} color={T.faint} className="mx-auto" style={{ marginBottom: 18 }} />
           <p
             style={{
               fontSize: 18,

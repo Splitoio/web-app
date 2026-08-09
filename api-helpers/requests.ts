@@ -24,6 +24,9 @@ export type RequestPayerStatus =
 
 export interface RequestPayerView {
   payerId: string;
+  /** The group member's profile name — null with no name/email on file, or
+   * for an anonymous (payerCount) request. Visible to anyone with the link. */
+  name: string | null;
   shareAmount: number;
   status: RequestPayerStatus;
 }
@@ -39,6 +42,9 @@ export interface GetRequestResponse {
   status: RequestStatus;
   expiresAt: string;
   requesterName: string | null;
+  /** Set when the request was created against a group — null for the
+   * anonymous payerCount flow. */
+  group: { id: string; name: string } | null;
   payers: RequestPayerView[];
   paidCount: number;
   totalCount: number;
@@ -250,7 +256,16 @@ export interface CreateRequestBody {
   destinationAsset: DestinationAsset;
   destinationChain: DestinationChain;
   destinationAddress: string;
-  payerCount: number;
+  /**
+   * Exactly ONE of `payerCount` or `groupId` — never both, never neither
+   * (the backend 400s either violation). `payerCount` (1..50) is the
+   * anonymous flow with no named payers. `groupId` requests from every OTHER
+   * member of that group (the requester is always excluded from the
+   * payers) — 401 signed-out, 404 unknown group, 403 not a member, 400 a
+   * group with no other members.
+   */
+  payerCount?: number;
+  groupId?: string;
   name?: string;
   expiresAt?: string;
   /** Scope to a BUSINESS workspace instead of the requester's personal
@@ -266,6 +281,10 @@ export interface CreateRequestBody {
 
 export interface CreateRequestPayerLink {
   payerId: string;
+  /** The group member's profile name — null when they have no name/email on
+   * file, or always null for the anonymous `payerCount` flow. Falls back to
+   * the positional index in the UI exactly like an anonymous payer does. */
+  name: string | null;
   /** Decimal string, denomination currency (USD in v1) — per contract §1. */
   shareAmount: string;
   /** `${baseUrl}/pay/${token}?payer=${payerId}` — one link per payer, never
@@ -280,6 +299,12 @@ export interface CreateRequestResponse {
   links: CreateRequestPayerLink[];
   expiresAt: string;
   status: "OPEN";
+  /** Set when created via `groupId` — null for the anonymous `payerCount` flow. */
+  group: { id: string; name: string } | null;
+  /** Equals `links.length` — the actual payer count. In group mode this is
+   * members-minus-the-requester, so it can differ from the group's member
+   * count; always trust this over any locally-derived guess. */
+  payerCount: number;
 }
 
 /**
@@ -311,6 +336,8 @@ export interface RequestListItem {
   paidCount: number;
   /** Sum of the shares already paid, in the denomination currency. */
   receivedAmount: number;
+  /** Set when created via `groupId` — null for the anonymous payerCount flow. */
+  group: { id: string; name: string } | null;
 }
 
 export interface ListRequestsResponse {
@@ -324,8 +351,11 @@ export interface ListRequestsResponse {
 
 export interface RequestDetailPayer {
   payerId: string;
-  /** Positional label (1-based) — no payer names are ever collected. */
+  /** Positional label (1-based) — the fallback when `name` is null (an
+   * anonymous payer, or a group member with no name/email on file). */
   index: number;
+  /** The group member's profile name, or null — see `index` for the fallback. */
+  name: string | null;
   shareAmount: number;
   isPaid: boolean;
   status: RequestPayerStatus;
@@ -352,6 +382,8 @@ export interface RequestDetailResponse {
   /** null = personal request. Set when the request belongs to a business
    * workspace — the detail endpoint authorises owner OR workspace member. */
   workspaceId: string | null;
+  /** Set when created via `groupId` — null for the anonymous payerCount flow. */
+  group: { id: string; name: string } | null;
   payers: RequestDetailPayer[];
   payerCount: number;
   paidCount: number;

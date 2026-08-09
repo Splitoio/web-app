@@ -87,12 +87,20 @@ export function progressLabel(paidCount: number, payerCount: number): string | n
 }
 
 /**
- * The /requests list table's title-column subtitle. There is no split/invoice
- * flag in the data (see api-helpers/requests.ts RequestListItem) — payerCount
- * is the only real signal for "this got split", so it drives both this and
- * listRowType below.
+ * The /requests list table's title-column subtitle. There is no invoice flag
+ * in the data (see api-helpers/requests.ts RequestListItem) — payerCount is
+ * still the signal listRowType below uses for "this got split". `group` (set
+ * when the request was created via groupId, RequestListItem.group) is real
+ * identity though, so a group-linked request names the group instead of the
+ * generic "divided N ways".
  */
-export function listRowMeta(payerCount: number, paidCount: number, destinationChain: string | null): string {
+export function listRowMeta(
+  payerCount: number,
+  paidCount: number,
+  destinationChain: string | null,
+  groupName?: string | null
+): string {
+  if (groupName) return `${groupName} · ${paidCount} of ${payerCount} paid`;
   if (payerCount > 1) return `divided ${payerCount} ways · ${paidCount} paid`;
   return `1 payer · ${chainLabel(destinationChain)}`;
 }

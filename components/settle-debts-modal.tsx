@@ -1,7 +1,8 @@
 "use client";
 
-import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Link2, ArrowLeft, Receipt, Bell, Mail, UserX } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Link2, ArrowLeft, Receipt, Bell, Mail, UserX, Home, Utensils, Car } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import type { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn, slideVariants } from "@/utils/animations";
 import { toast } from "sonner";
@@ -955,7 +956,7 @@ export function SettleDebtsModal({
   const SETTLE_CHAIN_META: Record<string, { icon: string; color: string }> = {
     stellar: { icon: "✦", color: G },
     solana:  { icon: "◎", color: P },
-    base:    { icon: "🔵", color: "#3B82F6" },
+    base:    { icon: "●", color: "#3B82F6" },
   };
 
   const availableChains = organizedCurrencies?.chainGroups
@@ -1283,8 +1284,14 @@ export function SettleDebtsModal({
                             <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/40 px-0.5">Expenses</p>
                             {selectedMemberExpenses.map((exp) => {
                               const catKey = (exp.category || "").toUpperCase();
-                              const KNOWN_CATS: Record<string, string> = { ACCOMMODATION: "🏠", FOOD: "🍽", TRAVEL: "🚗", TRANSPORT: "🚗" };
-                              const catIcon = KNOWN_CATS[catKey] || KNOWN_CATS[catKey.split(/[\s-_]/)[0]] || ((exp.category || "").trim() && exp.category !== "OTHER" ? exp.category : "🧾");
+                              const catIconProps = { size: 15, strokeWidth: 1.75, className: "text-white/60" };
+                              const KNOWN_CATS: Record<string, ReactNode> = {
+                                ACCOMMODATION: <Home {...catIconProps} />,
+                                FOOD: <Utensils {...catIconProps} />,
+                                TRAVEL: <Car {...catIconProps} />,
+                                TRANSPORT: <Car {...catIconProps} />,
+                              };
+                              const catIcon = KNOWN_CATS[catKey] || KNOWN_CATS[catKey.split(/[\s-_]/)[0]] || ((exp.category || "").trim() && exp.category !== "OTHER" ? exp.category : <Receipt {...catIconProps} />);
                               return (
                                 <div
                                   key={exp.id}

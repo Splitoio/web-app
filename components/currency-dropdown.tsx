@@ -2,7 +2,7 @@
 
 import { useState, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, X, Map } from "lucide-react";
+import { Loader2, X, Map, Banknote, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
 import type { Currency } from "@/features/currencies/api/client";
@@ -70,8 +70,8 @@ const getCurrencyFlag = (c: Currency): string => {
   if (byId) return byId;
   // ISO 4217: many currency codes use first 2 letters as country code (e.g. VND -> VN)
   const id = (c.id || c.symbol || "").toUpperCase();
-  if (id.length >= 2) return countryCodeToFlag(id.slice(0, 2)) || "💱";
-  return "💱";
+  if (id.length >= 2) return countryCodeToFlag(id.slice(0, 2)) || "◆";
+  return "◆";
 };
 
 // Chain ID → display name and icon for section headers (Fiat, Aptos, Solana, Stellar, Base, etc.)
@@ -80,11 +80,11 @@ const CHAIN_DISPLAY: Record<string, { name: string; icon: string; color: string 
   Stellar: { name: "Stellar", icon: "✦", color: G },
   solana: { name: "Solana", icon: "◎", color: P },
   Solana: { name: "Solana", icon: "◎", color: P },
-  base: { name: "Base", icon: "🔵", color: "#3B82F6" },
-  Base: { name: "Base", icon: "🔵", color: "#3B82F6" },
+  base: { name: "Base", icon: "●", color: "#3B82F6" },
+  Base: { name: "Base", icon: "●", color: "#3B82F6" },
   aptos: { name: "Aptos", icon: "⬡", color: A },
   Aptos: { name: "Aptos", icon: "⬡", color: A },
-  "8453": { name: "Base", icon: "🔵", color: "#3B82F6" },
+  "8453": { name: "Base", icon: "●", color: "#3B82F6" },
 };
 
 const CHAIN_ORDER = ["Stellar", "Solana", "Base", "Aptos"];
@@ -434,7 +434,7 @@ export default function CurrencyDropdown({
                 transition: "all 0.2s",
               }}
             >
-              <span style={{ fontSize: 14 }}>💵</span>
+              <Banknote size={14} strokeWidth={1.75} />
               Fiat
             </button>
             <button
@@ -458,7 +458,7 @@ export default function CurrencyDropdown({
                 transition: "all 0.2s",
               }}
             >
-              <span style={{ fontSize: 14 }}>🔗</span>
+              <Link2 size={14} strokeWidth={1.75} />
               Crypto
             </button>
           </div>
@@ -631,7 +631,7 @@ export default function CurrencyDropdown({
             <span style={{ fontSize: 15 }} aria-hidden>
               {selected && selected.type === "FIAT" && getCurrencyFlag(selected)
                 ? getCurrencyFlag(selected)
-                : "💱"}
+                : "◆"}
             </span>
             <span style={{ color: T.bright, fontSize: 14, fontWeight: 700 }}>
               {isLoadingCurrencies
