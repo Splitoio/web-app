@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { isAuthRoute, isPublicRoute } from "@/lib/middleware-session";
 import { setSessionPresent } from "@/lib/session-presence";
+import { SessionStatusProvider, type SessionStatus } from "@/contexts/session";
 
 export function AuthProvider({
   children,
@@ -38,22 +39,28 @@ export function AuthProvider({
   // /login, /signup, /forgot-password, /reset-password — never fire a
   // session-requiring query here at all.
   const isAuthPage = isAuthRoute(pathname);
-  // "/" is the anonymous create-request landing (see
-  // lib/middleware-session.ts). It — and the other no-account public routes
-  // like /pay/* — must render immediately for an anonymous visitor: never
-  // blocked behind a user fetch, never redirected, whether that fetch is
-  // slow, down, or 401s. "/" still WANTS the fetch (to show "Recent" for a
-  // returning user), just never gated on it; /pay/* etc. skip the fetch
-  // entirely, same as auth pages.
+  // "/" is public — an anonymous visitor must never be blocked behind a user
+  // fetch there, whether it is slow, down, or 401s. But "/" is ALSO the
+  // dashboard for everyone who IS signed in, so when a session cookie exists
+  // it has to wait for the answer like any protected route: rendering through
+  // the in-flight fetch showed a signed-in user the full signed-OUT console
+  // ("Guest session", a locked workspace switcher, "No account needed") on
+  // every single load of the most-visited route in the app, which then flipped
+  // under them a moment later. Hence `neverGate` below turns on the ABSENCE of
+  // a session, not on the route being public.
+  //
+  // (This used to say "/" wants the fetch to show a "Recent" list. That list
+  // and its useRecentRequests hook are gone — "/" now renders either the
+  // dashboard or the create screen.)
   const isRoot = pathname === "/";
   const isPublicPage = isPublicRoute(pathname); // includes "/"
   // No session cookie => nobody to fetch. "/" used to fire GET /api/users/me
   // for every anonymous visitor and 401, which is noise on a page that is
-  // no-account by design. A returning user still has the cookie, so "/" still
-  // gets its user (and its "Recent" list) exactly as before.
+  // no-account by design. /pay/* and /invite/* opt out entirely: they are
+  // chrome-free and render nothing that depends on who is looking.
   const skipFetch = isAuthPage || (isPublicPage && !isRoot) || !hasSession;
-  const neverGate = isAuthPage || isPublicPage;
-  const { data: user, isPending } = useGetUser({ enabled: !skipFetch });
+  const neverGate = isAuthPage || (isPublicPage && !hasSession);
+  const { data: user, isPending, isError } = useGetUser({ enabled: !skipFetch });
   const posthog = usePostHog();
 
   useEffect(() => {
@@ -73,6 +80,28 @@ export function AuthProvider({
     }
   }, [user, setUser, setCurrencyDisplayMode, posthog]);
 
+  // The one place that decides how much the UI is allowed to assume — see
+  // contexts/session.tsx. `!user` has three different meanings and the screens
+  // below must not collapse them into "signed out".
+  const status: SessionStatus = !hasSession
+    ? // No cookie: there is nothing to wait for and nothing that can fail.
+      "anonymous"
+    : user
+      ? "authenticated"
+      : isError
+        ? // A cookie exists and the fetch FAILED. Not a signed-out visitor —
+          // a signed-in one whose backend hiccuped. Telling them to sign in
+          // would be a lie, and a sticky one (staleTime 5min, no refetch on
+          // focus), so screens show an error with a way out instead.
+          "error"
+        : skipFetch
+          ? // Cookie present, but this route opted out of the fetch (/pay/*,
+            // /invite/*). Nothing there renders a locked or gated surface, so
+            // trust the cookie rather than reporting a "loading" that would
+            // never resolve — a disabled query stays `isPending` forever.
+            "authenticated"
+          : "loading";
+
   // `skipFetch` must be part of this test: react-query reports a DISABLED query
   // as `isPending` forever, so gating on `isPending` alone would hang a
   // protected route behind a spinner for a request that was never sent.
@@ -84,5 +113,5 @@ export function AuthProvider({
     );
   }
 
-  return <>{children}</>;
+  return <SessionStatusProvider status={status}>{children}</SessionStatusProvider>;
 }

@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { A, G, MONO, T, Card, Btn, Tag, AvatarChip, getUserColor, Eyebrow, card } from "@/lib/splito-design";
-import { useAuthStore } from "@/stores/authStore";
-import { LockedScreen } from "@/components/shell/locked-feature";
+import { GatedScreen } from "@/components/shell/locked-feature";
 import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
 import { BusinessOnly, WorkspaceResolving } from "@/components/shell/business-only";
 import { isWorkspaceAdmin } from "@/lib/workspace";
@@ -219,15 +218,13 @@ function ApprovalsScreen() {
  * anonymous visitor is to never mount the component that owns it.
  */
 export default function ApprovalsPage() {
-  const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) {
-    return (
-      <LockedScreen
-        title="Needs approval"
-        reason="Sign in to see approvals"
-        blurb="Payments waiting on a decision before they can go out."
-      />
-    );
-  }
-  return <ApprovalsScreen />;
+  return (
+    <GatedScreen
+    title="Needs approval"
+    reason="Sign in to see approvals"
+    blurb="Payments waiting on a decision before they can go out."
+    >
+      <ApprovalsScreen />
+    </GatedScreen>
+  );
 }

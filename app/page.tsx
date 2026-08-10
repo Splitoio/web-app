@@ -1,8 +1,9 @@
 "use client";
 
-import { useAuthStore } from "@/stores/authStore";
+import { useSessionStatus } from "@/contexts/session";
 import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
 import { usePageTitle } from "@/contexts/page-title";
+import { ScreenSpinner, SessionErrorScreen } from "@/components/shell/locked-feature";
 import { CreateRequestExperience } from "@/components/create/create-request-experience";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { BusinessDashboard } from "@/components/dashboard/business-dashboard";
@@ -68,21 +69,32 @@ function DashboardScreen({ kind }: { kind: "personal" | "business" | null }) {
  * session request either.
  */
 export default function Page() {
-  const { isAuthenticated } = useAuthStore();
+  const status = useSessionStatus();
   const workspace = useActiveWorkspace();
   const isResolvingWorkspace = useIsResolvingWorkspace();
 
   // <Topbar/> titles "/" from lib/shell-nav.ts, which only knows it as
   // "Dashboard". Signed out the body is the create screen, so say so. Passing
-  // null signed-in leaves pageMetaFor() alone (contexts/page-title.tsx).
+  // null otherwise leaves pageMetaFor() alone (contexts/page-title.tsx).
   usePageTitle(
-    isAuthenticated ? null : "New request",
+    status === "anonymous" ? "New request" : null,
     "Ask in any currency, get paid in the one you want"
   );
 
-  if (isAuthenticated) {
+  // A cookie exists but GET /api/users/me failed. We cannot tell which of the
+  // two screens below is the right one, and guessing "signed out" would greet a
+  // signed-in user with a guest console telling them to sign in. Say what
+  // actually happened and offer a retry.
+  if (status === "error") return <SessionErrorScreen title="your dashboard" />;
+
+  if (status === "authenticated") {
     return <DashboardScreen kind={isResolvingWorkspace ? null : workspace.kind} />;
   }
+
+  // "loading" cannot reach here — AuthProvider holds the spinner for "/" whenever
+  // a session cookie exists — but if that ever changes, showing the create screen
+  // to a signed-in user is the wrong default, so wait rather than guess.
+  if (status === "loading") return <ScreenSpinner />;
 
   return <CreateRequestExperience />;
 }

@@ -10,8 +10,7 @@ import { DataTable, type DataTableColumn } from "@/components/shell/data-table";
 import { listRequests, type RequestListItem, type RequestStatus } from "@/api-helpers/requests";
 import { useActiveWorkspace } from "@/contexts/workspace";
 import { assetLabel, listRowMeta, listRowType } from "@/components/requests/request-bits";
-import { useAuthStore } from "@/stores/authStore";
-import { LockedScreen } from "@/components/shell/locked-feature";
+import { GatedScreen } from "@/components/shell/locked-feature";
 
 /**
  * The list-screen table (design 462-496). Filter pills map onto the four
@@ -291,15 +290,13 @@ function RequestsScreen() {
  * an anonymous visitor is to never mount the component that owns it.
  */
 export default function RequestsPage() {
-  const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) {
-    return (
-      <LockedScreen
-        title="Requests"
-        reason="Sign in to see your requests"
-        blurb="Every request you've sent lives here — who has paid, who hasn't, and what's still outstanding."
-      />
-    );
-  }
-  return <RequestsScreen />;
+  return (
+    <GatedScreen
+    title="Requests"
+    reason="Sign in to see your requests"
+    blurb="Every request you've sent lives here — who has paid, who hasn't, and what's still outstanding."
+    >
+      <RequestsScreen />
+    </GatedScreen>
+  );
 }

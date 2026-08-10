@@ -14,10 +14,15 @@
 // Creating a request NEVER requires an account (the backend's POST /api/requests
 // is session-optional — see createRequestSchema in request-money.controller.ts,
 // which takes an anonymous `payerCount` and find-or-creates a shadow user off
-// the destination address). What a signed-out visitor cannot do is the parts
-// that need an identity: requesting from a group, and billing against a
-// contract. Those render through components/shell/locked-feature.tsx as real,
-// disabled controls with a reason — never hidden, never fake.
+// the destination address). What a signed-out visitor cannot do is the part
+// that needs an identity: requesting from a GROUP. That renders through
+// components/shell/locked-feature.tsx as a real, disabled control with a
+// reason — never hidden, never fake.
+//
+// Contract linking is NOT locked, even though it is account-shaped: it isn't
+// built for anyone yet, so it keeps its "Soon" treatment for every visitor. A
+// lock has to mean "signing in unlocks this", or it is just a signup prompt
+// wearing a padlock.
 //
 // The design mock imagines a richer product (invoices, bills, categories, notes,
 // attachments, contract-backed bills, per-workspace approval thresholds, named
@@ -38,6 +43,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Copy, Check, FileText, Users, UserPlus, Minus, Plus } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
+import { useIsLocked } from "@/contexts/session";
 import { LockedFeature, LockedButton } from "@/components/shell/locked-feature";
 import { useGetSettlementPreference } from "@/features/user/hooks/use-update-profile";
 import { useActiveWorkspace } from "@/contexts/workspace";
@@ -171,16 +177,6 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <p style={{ ...eyebrow(), marginBottom: 8 }}>{children}</p>;
 }
 
-/**
- * The "Bills against" block is already a disabled "Soon" affordance for a
- * business workspace. Signed out it needs a *different* reason — an account,
- * not a future release — so it gets the lock wrapper on top. A fragment when
- * unlocked, so the authenticated markup is byte-for-byte what it was.
- */
-function LockedContract({ locked, children }: { locked: boolean; children: React.ReactNode }) {
-  if (!locked) return <>{children}</>;
-  return <LockedFeature reason="Sign in to bill against a contract">{children}</LockedFeature>;
-}
 
 function CreateForm({
   workspace,
@@ -194,6 +190,11 @@ function CreateForm({
   // Everything that needs an identity is locked rather than hidden; everything
   // the anonymous POST /api/requests supports stays fully live.
   const { isAuthenticated } = useAuthStore();
+  // Two different questions, deliberately not the same flag:
+  //   isAuthenticated — "is there a real user to fetch data for?" (query gating)
+  //   isLocked        — "should this say 'Sign in to …'?" (only when genuinely
+  //                      signed out; a failed /users/me must never say it)
+  const isLocked = useIsLocked();
   const { isConnected, address, walletType } = useWallet();
   // Only tells the user whether Settings has an address on file for the
   // selected chain — this form has never prefilled from it (only from a
@@ -285,11 +286,12 @@ function CreateForm({
   // not to a request) — shown as a real, disabled affordance rather than
   // wired to fabricated contract data.
   //
-  // Signed out there is no workspace, so `!isPersonal` alone would hide the
-  // block entirely — but linking a bill to a contract is one of the things an
-  // account buys, so the logged-out console shows it locked instead of
-  // pretending it doesn't exist.
-  const showContractLink = !isPersonal || !isAuthenticated;
+  // Deliberately NOT shown to signed-out visitors as a locked affordance:
+  // contract linking is not built for anyone (see the "Soon" pill below), so
+  // dressing it as "Sign in to bill against a contract" would promise that
+  // signing in unlocks it. It doesn't. A not-built feature gets the "Soon"
+  // treatment for everybody; only account-shaped capabilities get a lock.
+  const showContractLink = !isPersonal;
 
   // The design's approval-required notice. Workspace has no approval
   // threshold field yet (lib/workspace.ts) and Requests have no approval
@@ -353,7 +355,7 @@ function CreateForm({
             as the real tile, disabled, with the reason. Asking several people
             without an account is still possible: that's the payer-count stepper
             below, which sends anonymous slots instead of named members. */}
-        {isAuthenticated ? (
+        {!isLocked ? (
           <TypeTile
             active={kind === "split"}
             init="SP"
@@ -363,7 +365,7 @@ function CreateForm({
             onClick={() => setKind("split")}
           />
         ) : (
-          <LockedFeature reason="Sign in to request from a group">
+          <LockedFeature label="Request from a group" reason="Sign in to request from a group">
             <TypeTile
               active={false}
               init="SP"
@@ -685,7 +687,7 @@ function CreateForm({
         )}
 
         {showContractLink && (
-          <LockedContract locked={!isAuthenticated}>
+          <>
             <FieldLabel>Bills against</FieldLabel>
             <div
               className="flex items-center gap-3 mb-2"
@@ -719,7 +721,7 @@ function CreateForm({
               </div>
               <span style={pill(T.dim)}>Soon</span>
             </div>
-          </LockedContract>
+          </>
         )}
 
         <div style={{ height: 1, margin: "22px 0", background: "rgba(255,255,255,0.07)" }} />
@@ -924,10 +926,10 @@ function CreateForm({
         "Personal is requesting" would misdescribe what the payer will see.
         "You" is the honest placeholder until there is an identity. */}
     <PreviewPanel
-      workspaceName={isAuthenticated ? workspace.name : "You"}
-      workspaceInit={isAuthenticated ? workspace.initials : "YOU"}
+      workspaceName={isLocked ? "You" : workspace.name}
+      workspaceInit={isLocked ? "YOU" : workspace.initials}
       workspaceColor={workspace.color}
-      isSelf={!isAuthenticated}
+      isSelf={isLocked}
       amount={parsedAmount || 0}
       title={title}
       destSymbol={dest.symbol}
@@ -1032,7 +1034,7 @@ function CreatedShare({
   payerCount: number;
   onCreateAnother: () => void;
 }) {
-  const { isAuthenticated } = useAuthStore();
+  const isLocked = useIsLocked();
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const primaryLink = result.links[0]?.link ?? "";
@@ -1208,7 +1210,7 @@ function CreatedShare({
         {/* Tracking is a per-account view of a request — the link works, the
             request is real and payable, but only the signed-in requester can
             watch it. The link itself is above and needs nobody. */}
-        {isAuthenticated ? (
+        {!isLocked ? (
           <Link
             href={`/requests/${result.requestId}`}
             className="flex-1 text-center transition-all hover:border-white/20 hover:text-white"
@@ -1226,7 +1228,7 @@ function CreatedShare({
         {/* Signed out, "/" IS this screen, so a Link to it would be a no-op —
             same route, same mounted component, `created` still set. Reset the
             state instead. */}
-        {isAuthenticated ? (
+        {!isLocked ? (
           <Link
             href="/"
             className="flex-1 text-center transition-all hover:border-white/20 hover:text-white"
@@ -1251,7 +1253,7 @@ function CreatedShare({
 
 export function CreateRequestExperience() {
   const workspace = useActiveWorkspace();
-  const { isAuthenticated } = useAuthStore();
+  const isLocked = useIsLocked();
   const [created, setCreated] = useState<{ res: CreateRequestResponse; payerCount: number } | null>(null);
 
   // The shell's <Topbar/> already carries the title, but it only mounts at
@@ -1272,7 +1274,7 @@ export function CreateRequestExperience() {
       <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
         {/* One line of framing for someone who just arrived from the marketing
             site with no account: this works, right now, without signing up. */}
-        {!isAuthenticated && !created && (
+        {isLocked && !created && (
           <p
             className="mb-5 text-[13px]"
             style={{ color: T.muted, maxWidth: 560 }}

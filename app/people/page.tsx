@@ -9,8 +9,7 @@ import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useInviteFriend } from "@/features/friends/hooks/use-invite-friend";
 import { isValidEmail } from "@/utils/validation";
 import { Loader2, X } from "lucide-react";
-import { useAuthStore } from "@/stores/authStore";
-import { LockedScreen } from "@/components/shell/locked-feature";
+import { GatedScreen } from "@/components/shell/locked-feature";
 
 function EmailActionModal({
   title,
@@ -278,15 +277,13 @@ function PeopleScreen() {
  * never mount the component that owns them.
  */
 export default function PeoplePage() {
-  const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) {
-    return (
-      <LockedScreen
-        title="People"
-        reason="Sign in to see your people"
-        blurb="Everyone you have requested money from or paid."
-      />
-    );
-  }
-  return <PeopleScreen />;
+  return (
+    <GatedScreen
+    title="People"
+    reason="Sign in to see your people"
+    blurb="Everyone you have requested money from or paid."
+    >
+      <PeopleScreen />
+    </GatedScreen>
+  );
 }

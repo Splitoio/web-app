@@ -25,6 +25,7 @@ import { isNavItemActive, navGroupsFor, navItemId } from "@/lib/shell-nav";
 import { isWorkspaceAdmin, type Workspace } from "@/lib/workspace";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 import { LockedFeature } from "@/components/shell/locked-feature";
+import { useIsLocked } from "@/contexts/session";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -96,7 +97,12 @@ function WorkspaceSwitcherButton({
 export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useMobileMenu();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
+  // The lock is for a genuinely signed-out visitor only. A signed-in user whose
+  // GET /api/users/me failed also leaves the store empty, and showing
+  // them "Guest session" + a padlocked switcher would be a lie the 5-minute
+  // staleTime makes stick. See contexts/session.tsx.
+  const isLocked = useIsLocked();
   const { workspaces, businessCount, businessCap, canCreateBusiness } = useWorkspaces();
   const activeWorkspace = useActiveWorkspace();
   const setActiveWorkspace = useSetActiveWorkspace();
@@ -163,8 +169,12 @@ export function Sidebar() {
             contexts/workspace.tsx; the list query is gated off), so the real
             control renders disabled with its reason rather than opening onto a
             menu with one fake row and a "New workspace" button that 401s. */}
-        {!isAuthenticated ? (
-          <LockedFeature reason="Sign in to switch workspaces" className="mb-2">
+        {isLocked ? (
+          <LockedFeature
+            label="Workspace switcher"
+            reason="Sign in to switch workspaces"
+            className="mb-2"
+          >
             <WorkspaceSwitcherButton
               workspace={activeWorkspace}
               color={wsColor}
@@ -375,7 +385,7 @@ export function Sidebar() {
         </nav>
 
         {/* Account panel — guest upsell, or the signed-in user row. */}
-        {isAuthenticated && user ? (
+        {user ? (
           <Link
             href="/settings"
             onClick={close}
@@ -398,7 +408,7 @@ export function Sidebar() {
             </span>
             {Icons.chevD({ size: 13 })}
           </Link>
-        ) : (
+        ) : isLocked ? (
           <div
             style={{
               padding: "13px 14px",
@@ -427,7 +437,7 @@ export function Sidebar() {
               Create free account
             </Link>
           </div>
-        )}
+        ) : null}
       </div>
 
       <CreateWorkspaceModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />

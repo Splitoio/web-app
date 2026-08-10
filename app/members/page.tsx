@@ -47,7 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LockedScreen } from "@/components/shell/locked-feature";
+import { GatedScreen } from "@/components/shell/locked-feature";
 
 type Role = OrgRole;
 type Freq = "MONTHLY" | "WEEKLY" | "ONE_TIME";
@@ -1018,15 +1018,13 @@ const sendBtnStyle: React.CSSProperties = {
  * to never mount the component that owns them.
  */
 export default function MembersPage() {
-  const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) {
-    return (
-      <LockedScreen
-        title="Members"
-        reason="Sign in to see members"
-        blurb="Who is in this workspace, their role, and the terms they are on."
-      />
-    );
-  }
-  return <MembersScreen />;
+  return (
+    <GatedScreen
+    title="Members"
+    reason="Sign in to see members"
+    blurb="Who is in this workspace, their role, and the terms they are on."
+    >
+      <MembersScreen />
+    </GatedScreen>
+  );
 }

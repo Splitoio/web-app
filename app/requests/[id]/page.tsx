@@ -16,8 +16,7 @@ import {
 import { markParticipantAsPaid } from "@/features/expenses/api/client";
 import { sendReminder } from "@/features/reminders/api/client";
 import { usePageTitle } from "@/contexts/page-title";
-import { useAuthStore } from "@/stores/authStore";
-import { LockedScreen } from "@/components/shell/locked-feature";
+import { GatedScreen } from "@/components/shell/locked-feature";
 import {
   StatusChip,
   STATUS_STYLE,
@@ -665,15 +664,13 @@ function NudgeRow({
  * visitor is to never mount the component that owns it.
  */
 export default function RequestDetailPage() {
-  const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) {
-    return (
-      <LockedScreen
-        title="Request details"
-        reason="Sign in to see this request"
-        blurb="Tracking a request — its payers, its status and its history — belongs to the account that created it."
-      />
-    );
-  }
-  return <RequestDetailScreen />;
+  return (
+    <GatedScreen
+    title="Request details"
+    reason="Sign in to see this request"
+    blurb="Tracking a request — its payers, its status and its history — belongs to the account that created it."
+    >
+      <RequestDetailScreen />
+    </GatedScreen>
+  );
 }

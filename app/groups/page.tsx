@@ -5,8 +5,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { CreateGroupForm } from "@/components/create-group-form";
 import { Icons, T, A, BORDER } from "@/lib/splito-design";
-import { useAuthStore } from "@/stores/authStore";
-import { LockedScreen } from "@/components/shell/locked-feature";
+import { GatedScreen } from "@/components/shell/locked-feature";
 
 function GroupsScreen() {
   const searchParams = useSearchParams();
@@ -112,15 +111,13 @@ function GroupsScreen() {
  * an anonymous visitor is to never mount the component that owns it.
  */
 export default function GroupsPage() {
-  const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) {
-    return (
-      <LockedScreen
-        title="Groups"
-        reason="Sign in to see your groups"
-        blurb="Running tabs with the people you see often."
-      />
-    );
-  }
-  return <GroupsScreen />;
+  return (
+    <GatedScreen
+    title="Groups"
+    reason="Sign in to see your groups"
+    blurb="Running tabs with the people you see often."
+    >
+      <GroupsScreen />
+    </GatedScreen>
+  );
 }

@@ -10,8 +10,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { LogIncomeModal } from "@/components/log-income-modal";
 import { Row } from "@/components/shell/row";
 import { Card, HeroCard, Eyebrow, Btn, Icons, T, TYPE, getUserColor, G as G_ACCENT } from "@/lib/splito-design";
-import { useAuthStore } from "@/stores/authStore";
-import { LockedScreen } from "@/components/shell/locked-feature";
+import { GatedScreen } from "@/components/shell/locked-feature";
 
 /** "Received 1 Aug" — the trailing date on a stream row (design line 1229). */
 function formatReceivedDate(date: Date): string {
@@ -175,15 +174,13 @@ function TreasuryScreen() {
  * to never mount the component that owns them.
  */
 export default function TreasuryPage() {
-  const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) {
-    return (
-      <LockedScreen
-        title="Treasury"
-        reason="Sign in to see your treasury"
-        blurb="What has come in, where it came from, and what it settled into."
-      />
-    );
-  }
-  return <TreasuryScreen />;
+  return (
+    <GatedScreen
+    title="Treasury"
+    reason="Sign in to see your treasury"
+    blurb="What has come in, where it came from, and what it settled into."
+    >
+      <TreasuryScreen />
+    </GatedScreen>
+  );
 }
