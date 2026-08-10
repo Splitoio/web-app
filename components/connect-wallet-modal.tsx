@@ -10,7 +10,6 @@ import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { useAuthStore } from "@/stores/authStore";
 import {
   StellarWalletsKit,
-  WalletNetwork,
   allowAllModules,
   XBULL_ID,
 } from "@creit.tech/stellar-wallets-kit";

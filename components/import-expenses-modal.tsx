@@ -14,7 +14,7 @@ import {
   Check,
   ClipboardPaste,
 } from "lucide-react";
-import { Card, T, A } from "@/lib/splito-design";
+import { Card, T, A, R, BORDER } from "@/lib/splito-design";
 import { useParseExpenses } from "@/features/expenses/hooks/use-parse-expenses";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 import { useAuthStore } from "@/stores/authStore";
@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import type { ParsedExpenseItem, ParseNoteItem, InferredDate } from "@/features/expenses/api/client";
 import {
   EXPENSE_CATEGORIES as CATEGORIES,
-  getCategoryEmoji,
+  getCategoryIcon,
 } from "@/lib/expense-categories";
 
 /**
@@ -267,7 +267,7 @@ export default function ImportExpensesModal({
             className="relative z-10 w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl shadow-2xl"
             style={{
               background: "linear-gradient(145deg, #141414 0%, #0f0f0f 100%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: BORDER,
               boxShadow: "0 4px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -359,17 +359,19 @@ export default function ImportExpensesModal({
                               }`}
                               onClick={() => setEditingId(isEditing ? null : exp._id)}
                             >
-                              {/* Category emoji */}
+                              {/* Category icon */}
                               <div
                                 className="flex-shrink-0 flex items-center justify-center"
                                 style={{
                                   width: 36, height: 36, borderRadius: 10,
                                   background: "rgba(255,255,255,0.04)",
                                   border: "1px solid rgba(255,255,255,0.07)",
-                                  fontSize: 16,
                                 }}
                               >
-                                {getCategoryEmoji(exp.category)}
+                                {(() => {
+                                  const CategoryIcon = getCategoryIcon(exp.category);
+                                  return <CategoryIcon size={16} strokeWidth={1.75} color={T.soft} />;
+                                })()}
                               </div>
 
                               {/* Vendor + date + original text */}
@@ -386,7 +388,7 @@ export default function ImportExpensesModal({
 
                               {/* Amount + currency */}
                               <div className="flex-shrink-0 text-right">
-                                <p className="text-[14px] font-bold font-mono" style={{ color: "#F87171" }}>
+                                <p className="text-[14px] font-bold font-mono" style={{ color: R }}>
                                   {exp.amount.toLocaleString()} {exp.currency}
                                 </p>
                               </div>
@@ -466,7 +468,7 @@ export default function ImportExpensesModal({
                                               : { background: "transparent", color: T.muted, borderColor: "rgba(255,255,255,0.07)" }
                                           }
                                         >
-                                          <span className="text-[12px]">{cat.emoji}</span>
+                                          <cat.icon size={12} strokeWidth={1.75} />
                                           {cat.label}
                                         </button>
                                       ))}

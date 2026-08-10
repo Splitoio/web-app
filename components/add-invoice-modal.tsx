@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
-import { T, A } from "@/lib/splito-design";
+import { T, A, BORDER } from "@/lib/splito-design";
 
 interface AddInvoiceModalProps {
   isOpen: boolean;
@@ -90,7 +90,7 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceM
             className="relative z-10 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl"
             style={{
               background: "linear-gradient(145deg, #141414 0%, #0f0f0f 100%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: BORDER,
               boxShadow: "0 4px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
             onClick={(e) => e.stopPropagation()}

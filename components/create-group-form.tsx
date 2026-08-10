@@ -17,19 +17,19 @@ import { fadeIn, scaleIn } from "@/utils/animations";
 import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
-import { Card, Avatar, GroupAvatar, A, T, Icons } from "@/lib/splito-design";
+import { Card, Avatar, GroupAvatar, A, G, R, P, O, B, T, Icons, BORDER, INSET } from "@/lib/splito-design";
 
 const GROUP_COLORS = [
-  "#22D3EE",
-  "#A78BFA",
-  "#34D399",
-  "#FB923C",
+  A,
+  P,
+  G,
+  O,
   "#F472B6",
   "#FBBF24",
-  "#F87171",
-  "#818CF8",
+  R,
+  B,
 ];
-const MEMBER_COLORS = ["#22D3EE", "#A78BFA", "#34D399", "#FB923C", "#F472B6"];
+const MEMBER_COLORS = [A, P, G, O, "#F472B6"];
 
 interface CreateGroupFormProps {
   isOpen: boolean;
@@ -172,7 +172,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
 
   const inp = {
     width: "100%",
-    background: "rgba(255,255,255,0.05)",
+    background: INSET,
     border: "1.5px solid rgba(255,255,255,0.09)",
     borderRadius: 14,
     padding: "12px 16px",
@@ -355,7 +355,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                   disabled={!formData.name.trim()}
                   style={{
                     padding: 13,
-                    background: formData.name.trim() ? groupColor : "rgba(255,255,255,0.05)",
+                    background: formData.name.trim() ? groupColor : INSET,
                     color: formData.name.trim() ? "#0a0a0a" : "#555",
                     border: "none",
                     borderRadius: 14,
@@ -381,7 +381,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    background: "rgba(255,255,255,0.05)",
+                    background: INSET,
                     border: "1.5px solid rgba(255,255,255,0.09)",
                     borderRadius: 14,
                     padding: "11px 16px",
@@ -430,7 +430,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       background:
                         formData.memberEmail.trim() && isValidEmail(formData.memberEmail.trim())
                           ? A
-                          : "rgba(255,255,255,0.05)",
+                          : INSET,
                       color:
                         formData.memberEmail.trim() && isValidEmail(formData.memberEmail.trim())
                           ? "#0a0a0a"
@@ -560,7 +560,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     type="button"
                     onClick={() => setStep(1)}
                     style={{
-                      flex: 1, padding: 13, background: "rgba(255,255,255,0.05)",
+                      flex: 1, padding: 13, background: INSET,
                       color: T.body, border: "1px solid rgba(255,255,255,0.09)",
                       borderRadius: 14, fontSize: 14, fontWeight: 700,
                       cursor: "pointer", fontFamily: "inherit",
@@ -593,7 +593,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 <div
                   style={{
                     background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: BORDER,
                     borderRadius: 18,
                     padding: 20,
                     display: "flex",
@@ -669,7 +669,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     type="button"
                     onClick={() => setStep(2)}
                     style={{
-                      flex: 1, padding: 13, background: "rgba(255,255,255,0.05)",
+                      flex: 1, padding: 13, background: INSET,
                       color: T.body, border: "1px solid rgba(255,255,255,0.09)",
                       borderRadius: 14, fontSize: 14, fontWeight: 700,
                       cursor: "pointer", fontFamily: "inherit",
@@ -682,7 +682,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     disabled={createGroupMutation.isPending}
                     style={{
                       flex: 2, padding: 13,
-                      background: createGroupMutation.isPending ? "rgba(255,255,255,0.05)" : groupColor,
+                      background: createGroupMutation.isPending ? INSET : groupColor,
                       color: createGroupMutation.isPending ? "#555" : "#0a0a0a",
                       border: "none", borderRadius: 14, fontSize: 14, fontWeight: 800,
                       cursor: createGroupMutation.isPending ? "default" : "pointer",

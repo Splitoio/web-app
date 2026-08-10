@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { viewPdf } from "@/utils/file";
-import { Card, SectionLabel, T, A, Avatar, getUserColor } from "@/lib/splito-design";
+import { Card, SectionLabel, T, A, G, R, Avatar, getUserColor } from "@/lib/splito-design";
 import { ContractDocumentModal } from "@/components/contract-document-modal";
 import type { Contract } from "@/features/business/api/client";
 
@@ -116,7 +116,7 @@ function SignatureBox({
         </p>
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">
-        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: isSigned ? "#34D399" : T.dim }}>
+        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: isSigned ? G : T.dim }}>
           {label}
         </span>
         <Avatar init={initials(name)} color={avatarColor} size={36} />
@@ -317,7 +317,7 @@ export default function ContractViewPage() {
                 onClick={handleReject}
                 disabled={rejectMutation.isPending}
                 className="text-[12px] font-bold disabled:opacity-50"
-                style={{ color: "#F87171" }}
+                style={{ color: R }}
               >
                 {rejectMutation.isPending ? "Rejecting..." : "Reject"}
               </button>

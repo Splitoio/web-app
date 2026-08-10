@@ -1,8 +1,6 @@
 import { apiClient } from "@/api-helpers/client";
-import {
-  StellarWalletsKit,
-  WalletNetwork,
-} from "@creit.tech/stellar-wallets-kit";
+import { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
+import { STELLAR_WALLET_NETWORK } from "@/lib/chain-network";
 import {
   Connection,
   PublicKey,
@@ -33,19 +31,11 @@ const settleDebtStellar = async (
   unsignedTx: UnsignedTxResponse,
   wallet: StellarWallet
 ) => {
-  let networkPassphrase = WalletNetwork.TESTNET;
-
-  try {
-    const walletConfig = (wallet as any).config;
-    if (walletConfig && walletConfig.network) {
-      networkPassphrase = walletConfig.network;
-    }
-  } catch (error) {
-    console.error("[settleDebtStellar] Could not determine wallet network, using TESTNET as default", error);
-  }
-
+  // Same source the kit was constructed with, driven by NEXT_PUBLIC_CHAIN_NETWORK
+  // to mirror the backend's CHAIN_NETWORK — never sniffed off the kit's
+  // undocumented internal config.
   const signedTx = await wallet.signTransaction(unsignedTx.serializedTx, {
-    networkPassphrase,
+    networkPassphrase: STELLAR_WALLET_NETWORK,
   });
 
   const submitPayload = {

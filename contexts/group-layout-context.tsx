@@ -10,7 +10,6 @@ export type GroupLayoutContextValue = {
   isAdmin: boolean;
   openAddMember: () => void;
   openAddExpense: () => void;
-  openSettings: () => void;
   openSettle: (friendId?: string | null, specificAmount?: number, specificMemberAmounts?: Record<string, number>, expenseId?: string) => void;
   settleFriendId: string | null;
   settleSpecificAmount: number | undefined;

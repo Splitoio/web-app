@@ -1,42 +1,74 @@
 import { apiClient } from "@/api-helpers/client";
-import {
-  ExpenseSchema,
-  GroupBalanceSchema,
-  GroupSchema,
-  GroupUserSchema,
-  UserSchema,
-} from "@/api-helpers/modelSchema";
 import { z } from "zod";
 
-export const GetAllGroupsSchema = z.object({
-  ...GroupSchema.shape,
+/**
+ * Business workspaces are `Organization` rows, NOT groups.
+ *
+ * `Group` is bill-splitting only now: `GET /api/groups` ignores a `type` query
+ * param and `POST /api/groups` ignores a `type` body field, so anything that
+ * still asked the group endpoints for "business" data would silently render
+ * personal split groups instead of erroring. Every organization read/write
+ * below goes to `/api/organizations`.
+ */
+export const OrgRoleSchema = z.enum(["OWNER", "ADMIN", "MEMBER"]);
+export type OrgRole = z.infer<typeof OrgRoleSchema>;
 
-  createdBy: z.object({
-    id: z.string(),
-    name: z.string(),
-  }),
-  groupBalances: z.array(GroupBalanceSchema).optional().default([]),
-  groupUsers: z.array(z.any()).optional().default([]),
-  expenses: z.array(ExpenseSchema).optional().default([]),
+/** `role` is the CALLER's role in the org, not a property of the org itself. */
+export const OrganizationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  image: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  createdAt: z.coerce.date(),
+  role: OrgRoleSchema,
+  /** Present on the list (`joinedAt`) and on create/detail (`memberCount`). */
+  joinedAt: z.coerce.date().optional(),
+  memberCount: z.number().int().nonnegative().optional(),
 });
+export type Organization = z.infer<typeof OrganizationSchema>;
 
-export const DetailGroupSchema = z.object({
-  ...GroupSchema.shape,
-  groupUsers: z.array(
-    z.object({
-      ...GroupUserSchema.shape,
-      user: UserSchema,
-    })
-  ),
-  expenses: z.array(ExpenseSchema),
-  groupBalances: z.array(GroupBalanceSchema),
-  createdBy: z.object({
-    id: z.string(),
-    name: z.string(),
-  }),
+/**
+ * `GET /api/organizations/:id/members` — a FLAT list. It is not nested inside
+ * the organization payload the way `groupUsers` was nested in a group, so the
+ * detail screen fetches it separately.
+ */
+export const OrganizationMemberSchema = z.object({
+  userId: z.string(),
+  role: OrgRoleSchema,
+  joinedAt: z.coerce.date(),
+  name: z.string().nullable(),
+  email: z.string().nullable(),
+  image: z.string().nullable(),
 });
+export type OrganizationMember = z.infer<typeof OrganizationMemberSchema>;
 
-export type DetailOrganization = z.infer<typeof DetailGroupSchema>;
+export const InviteStatusSchema = z.enum(["PENDING", "ACCEPTED", "REVOKED"]);
+export type InviteStatus = z.infer<typeof InviteStatusSchema>;
+
+/**
+ * An invite is a PENDING offer — it creates no user and no membership. Nobody
+ * appears in the member list until they accept, so the members screen has to
+ * show invites as their own thing rather than pretending the person was added.
+ */
+export const OrganizationInviteSchema = z.object({
+  id: z.string(),
+  /** null = a shareable link invite anyone holding the token may accept. */
+  email: z.string().nullable(),
+  role: OrgRoleSchema,
+  status: InviteStatusSchema,
+  expiresAt: z.coerce.date(),
+  createdAt: z.coerce.date(),
+  acceptedAt: z.coerce.date().nullable(),
+  contractId: z.string().nullable(),
+  kind: z.enum(["email", "link"]),
+  createdBy: z
+    .object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable() })
+    .nullable(),
+  /** Only returned by create/resend — the list never leaks the token. */
+  inviteUrl: z.string().optional(),
+});
+export type OrganizationInvite = z.infer<typeof OrganizationInviteSchema>;
 
 export const InvoiceStatusSchema = z.enum(["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED", "APPROVED", "DECLINED", "CLEARED"]);
 export const InvoiceSchema = z.object({
@@ -115,23 +147,143 @@ export type IncomeStream = z.infer<typeof IncomeStreamSchema>;
 export type Invoice = z.infer<typeof InvoiceSchema>;
 
 export const getAllOrganizations = async () => {
-  const response = await apiClient.get("/groups", { params: { type: "BUSINESS" } });
-  return GetAllGroupsSchema.array().parse(response);
+  const response = await apiClient.get("/organizations");
+  return OrganizationSchema.array().parse(response);
 };
 
 export const createOrganization = async (payload: {
   name: string;
   description?: string;
-  currency?: string;
-  imageUrl?: string;
+  image?: string;
+  color?: string;
 }) => {
-  const response = await apiClient.post("/groups", { ...payload, type: "BUSINESS" });
-  return GroupSchema.parse(response);
+  const response = await apiClient.post("/organizations", payload);
+  return OrganizationSchema.parse(response);
 };
 
 export const getOrganizationById = async (organizationId: string) => {
-  const response = await apiClient.get(`/groups/${organizationId}`, { params: { type: "BUSINESS" } });
-  return DetailGroupSchema.safeParse(response).data;
+  const response = await apiClient.get(`/organizations/${organizationId}`);
+  return OrganizationSchema.safeParse(response).data;
+};
+
+export const updateOrganization = async (
+  organizationId: string,
+  payload: { name?: string; description?: string | null; image?: string | null; color?: string | null }
+) => {
+  const response = await apiClient.patch(`/organizations/${organizationId}`, payload);
+  return OrganizationSchema.parse(response);
+};
+
+export const deleteOrganization = async (organizationId: string) => {
+  await apiClient.delete(`/organizations/${organizationId}`);
+};
+
+// ─── Members ────────────────────────────────────────────────────────────────
+
+export const getOrganizationMembers = async (organizationId: string) => {
+  const response = await apiClient.get(`/organizations/${organizationId}/members`);
+  return OrganizationMemberSchema.array().parse(response);
+};
+
+/**
+ * The role a member ends up with is set once, here or at invite acceptance —
+ * there is no "add then demote" second request any more.
+ */
+export const updateOrganizationMemberRole = async (
+  organizationId: string,
+  userId: string,
+  role: OrgRole
+) => {
+  const response = await apiClient.patch(
+    `/organizations/${organizationId}/members/${userId}`,
+    { role }
+  );
+  return z
+    .object({ success: z.boolean(), userId: z.string(), role: OrgRoleSchema })
+    .parse(response);
+};
+
+export const removeOrganizationMember = async (organizationId: string, userId: string) => {
+  await apiClient.delete(`/organizations/${organizationId}/members/${userId}`);
+};
+
+// ─── Invites ────────────────────────────────────────────────────────────────
+
+export const getOrganizationInvites = async (
+  organizationId: string,
+  params?: { status?: InviteStatus }
+) => {
+  const response = await apiClient.get(`/organizations/${organizationId}/invites`, {
+    params: params?.status ? { status: params.status } : undefined,
+  });
+  return OrganizationInviteSchema.array().parse(response);
+};
+
+/**
+ * ONE request per invite. Omit `email` for a shareable link invite; omit
+ * `role` for MEMBER. `role: "OWNER"` is a 400 — ownership is transferred
+ * explicitly, never handed out by a link.
+ */
+export const createOrganizationInvite = async (
+  organizationId: string,
+  payload: { email?: string; role?: "ADMIN" | "MEMBER" }
+) => {
+  const response = await apiClient.post(`/organizations/${organizationId}/invites`, payload);
+  return OrganizationInviteSchema.parse(response);
+};
+
+export const revokeInvite = async (inviteId: string) => {
+  const response = await apiClient.post(`/invites/${inviteId}/revoke`, {});
+  return OrganizationInviteSchema.parse(response);
+};
+
+/** Resend ROTATES the token, so any link copied earlier stops working. */
+export const resendInvite = async (inviteId: string) => {
+  const response = await apiClient.post(`/invites/${inviteId}/resend`, {});
+  return OrganizationInviteSchema.parse(response);
+};
+
+/**
+ * `GET /api/invites/lookup?token=` — PUBLIC, no session. The landing page has
+ * to name the workspace and the invited email before the visitor has an
+ * account, otherwise signing up is a leap of faith.
+ */
+export const InviteLookupSchema = z.object({
+  organization: z.object({
+    id: z.string(),
+    name: z.string(),
+    image: z.string().nullable(),
+    color: z.string().nullable(),
+  }),
+  email: z.string().nullable(),
+  role: OrgRoleSchema,
+  status: InviteStatusSchema,
+  expiresAt: z.coerce.date(),
+  expired: z.boolean(),
+  /** Redeemable at all, independent of who is looking at it. */
+  acceptable: z.boolean(),
+  invitedByName: z.string().nullable(),
+  contractId: z.string().nullable(),
+});
+export type InviteLookup = z.infer<typeof InviteLookupSchema>;
+
+export const lookupInvite = async (token: string) => {
+  const response = await apiClient.get("/invites/lookup", { params: { token } });
+  return InviteLookupSchema.parse(response);
+};
+
+export const AcceptInviteResultSchema = z.object({
+  success: z.boolean(),
+  organizationId: z.string(),
+  organizationName: z.string(),
+  role: OrgRoleSchema,
+  alreadyMember: z.boolean(),
+});
+export type AcceptInviteResult = z.infer<typeof AcceptInviteResultSchema>;
+
+export const acceptInvite = async (token: string) => {
+  const response = await apiClient.post("/invites/accept", { token });
+  return AcceptInviteResultSchema.parse(response);
 };
 
 export const createInvoice = async (payload: {
@@ -213,9 +365,11 @@ export const deleteInvoice = async (invoiceId: string) => {
   await apiClient.delete(`/invoices/${invoiceId}`);
 };
 
-// Income received entries — fills the org treasury (admin only)
+// Income received entries — fills the org treasury (admin only). These moved
+// off `/api/groups/:groupId/streams` with everything else business-shaped;
+// same verbs, same bodies, organization id in the path.
 export const getStreamsByOrganization = async (organizationId: string) => {
-  const response = await apiClient.get(`/groups/${organizationId}/streams`);
+  const response = await apiClient.get(`/organizations/${organizationId}/streams`);
   return IncomeStreamSchema.array().parse(response);
 };
 
@@ -223,7 +377,7 @@ export const createStream = async (
   organizationId: string,
   payload: { name: string; currency?: string; amount: number; description?: string | null; receivedDate?: string }
 ) => {
-  const response = await apiClient.post(`/groups/${organizationId}/streams`, payload);
+  const response = await apiClient.post(`/organizations/${organizationId}/streams`, payload);
   return IncomeStreamSchema.parse(response);
 };
 
@@ -232,12 +386,12 @@ export const updateStream = async (
   streamId: string,
   payload: { name?: string; currency?: string; amount?: number; description?: string | null; receivedDate?: string }
 ) => {
-  const response = await apiClient.put(`/groups/${organizationId}/streams/${streamId}`, payload);
+  const response = await apiClient.put(`/organizations/${organizationId}/streams/${streamId}`, payload);
   return IncomeStreamSchema.parse(response);
 };
 
 export const deleteStream = async (organizationId: string, streamId: string) => {
-  await apiClient.delete(`/groups/${organizationId}/streams/${streamId}`);
+  await apiClient.delete(`/organizations/${organizationId}/streams/${streamId}`);
 };
 
 // Contracts
@@ -246,7 +400,14 @@ export const ContractSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
   createdById: z.string(),
+  /** Always lowercased by the backend now — compare case-insensitively anyway. */
   assignedToEmail: z.string(),
+  /**
+   * The PENDING invite `createContract` creates alongside the contract, so a
+   * contract and a direct invite land in the same pending list. Absent on
+   * contracts written before invites existed.
+   */
+  inviteId: z.string().nullable().optional(),
   assignedToUserId: z.string().nullable(),
   title: z.string().nullable(),
   description: z.string().nullable(),

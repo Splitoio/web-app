@@ -2,8 +2,10 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { joinGroupByToken } from "@/features/groups/api/client";
 import { toast } from "sonner";
+import { BG, T, card } from "@/lib/splito-design";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -41,17 +43,27 @@ export default function JoinPage() {
 
   if (!token?.trim()) return null;
 
+  const label =
+    status === "joining"
+      ? "Joining group…"
+      : status === "error"
+        ? "Redirecting…"
+        : status === "done"
+          ? "Taking you to the group…"
+          : "";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#101012]">
-      {status === "joining" && (
-        <p className="text-white/80 text-sm">Joining group…</p>
-      )}
-      {status === "error" && (
-        <p className="text-white/80 text-sm">Redirecting…</p>
-      )}
-      {status === "done" && (
-        <p className="text-white/80 text-sm">Taking you to the group…</p>
-      )}
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: BG }}
+    >
+      <div
+        className="flex flex-col items-center gap-4"
+        style={{ ...card(), padding: "32px 40px" }}
+      >
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: T.muted }} />
+        <p style={{ fontSize: 13.5, fontWeight: 600, color: T.body }}>{label}</p>
+      </div>
     </div>
   );
 }

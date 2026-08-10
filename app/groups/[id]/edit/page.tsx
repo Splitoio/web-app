@@ -1,539 +1,335 @@
 "use client";
 
-import { type Group, type Split, type Debt } from "@/stores/groups";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { useWallet } from "@/hooks/useWallet";
-import { splitter } from "@/utils/splitter";
-import Image from "next/image";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  useGetGroupById,
-  useUpdateGroup,
-} from "@/features/groups/hooks/use-create-group";
-import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { toast } from "sonner";
-import TimeLockToggle from "@/components/ui/TimeLockToggle";
+import { Loader2, Trash2 } from "lucide-react";
+import { useGroupLayout } from "@/contexts/group-layout-context";
+import {
+  useUpdateGroup,
+  useDeleteGroup,
+  useAddMembersToGroup,
+} from "@/features/groups/hooks/use-create-group";
+import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
+import { useUploadFile } from "@/features/files/hooks/use-balances";
+import { GroupInviteLink } from "@/components/group-invite-link";
+import { isValidEmail } from "@/utils/validation";
+import {
+  card,
+  eyebrow,
+  avatarChip,
+  getUserColor,
+  Toggle,
+  Icons,
+  T,
+  A,
+  R,
+  INSET,
+} from "@/lib/splito-design";
 
-export default function EditGroupPage({ params }: { params: { id: string } }) {
+const fieldStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  borderRadius: 13,
+  border: "1px solid rgba(255,255,255,0.09)",
+  background: "rgba(255,255,255,0.03)",
+  padding: "12px 15px",
+  fontSize: 14,
+  color: T.main,
+  outline: "none",
+  fontFamily: "inherit",
+};
+
+/**
+ * Group Settings — design's gSettings panel (1340-1391): name, photo &
+ * colour, add someone, "lock the rate", delete group. Colour is display-only
+ * (the backend never gained a PATCH for it — it's set once at creation, same
+ * as before this pass); invite-link generation was removed from the frontend
+ * in an earlier PR and isn't resurrected here.
+ */
+export default function GroupSettingsPage() {
   const router = useRouter();
-  const { data: group, isLoading } = useGetGroupById(params.id, { type: "PERSONAL" });
+  const { groupId, group, isAdmin } = useGroupLayout();
   const updateGroupMutation = useUpdateGroup();
-  const { address } = useWallet();
+  const deleteGroupMutation = useDeleteGroup();
+  const addMembersMutation = useAddMembersToGroup();
+  const addFriendMutation = useAddFriend();
   const uploadFileMutation = useUploadFile();
 
-  const [splits, setSplits] = useState<Split[]>([]);
-  const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    amount: "",
-    members: "",
-    splitType: "equal" as "equal" | "percentage" | "custom",
-    currency: "USD",
-    paidBy: "",
-    imageUrl: "",
-    lockPrice: false,
-  });
-
-  useEffect(() => {
-    if (group) {
-      // Assuming group.splits is no longer available in the API response
-      // setSplits(group.splits);
-      setFormData({
-        name: group.name,
-        description: group.description || "",
-        amount: "0", // Amount is not stored in the group anymore
-        members: "", // Members are now in a different format
-        splitType: "equal", // Not sure if this is stored in the API
-        currency: "USD",
-        paidBy: "", // Not sure if this is stored in the API
-        imageUrl: group.image || "",
-        lockPrice: group.lockPrice ?? false,
-      });
-      setImagePreview(group.image || null);
-    }
-  }, [group]);
-
-  useEffect(() => {
-    if (!formData.members || !formData.amount || !formData.paidBy || !address)
-      return;
-
-    const memberAddresses = formData.members.split(",").map((m) => m.trim());
-    const allMembers = Array.from(
-      new Set([address, ...memberAddresses])
-    ).filter(Boolean);
-
-    if (formData.splitType === "custom") {
-      const { splits: newSplits } = splitter(
-        formData.splitType as "equal" | "percentage",
-        Number(formData.amount),
-        allMembers,
-        formData.paidBy
-      );
-      setSplits(newSplits);
-    }
-  }, [
-    formData.members,
-    formData.amount,
-    formData.splitType,
-    formData.paidBy,
-    address,
-  ]);
-
-  const calculateDebts = (splits: Split[], paidBy: string): Debt[] => {
-    const debts: Debt[] = [];
-
-    splits.forEach((split) => {
-      if (split.address !== paidBy && split.amount > 0) {
-        debts.push({
-          from: split.address,
-          to: paidBy,
-          amount: split.amount,
-        });
-      }
-    });
-
-    return debts;
-  };
-
-  const updateCustomSplit = (address: string, amount: number) => {
-    setSplits((current) =>
-      current.map((split) =>
-        split.address === address ? { ...split, amount } : split
-      )
-    );
-  };
-
-  const validateSplits = () => {
-    const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0);
-    return Math.abs(totalSplit - Number(formData.amount)) < 0.01;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!group) return;
-
-    const payload: {
-      name: string;
-      description: string;
-      imageUrl?: string;
-      lockPrice: boolean;
-    } = {
-      name: formData.name,
-      description: formData.description,
-      lockPrice: formData.lockPrice,
-    };
-
-    // Only include imageUrl if it's not empty and not the placeholder
-    if (
-      formData.imageUrl &&
-      formData.imageUrl !== "/group_icon_placeholder.png"
-    ) {
-      payload.imageUrl = formData.imageUrl;
-    }
-
-    console.log("Sending update payload:", payload);
-    console.log("Current image preview:", imagePreview);
-
-    updateGroupMutation.mutate(
-      {
-        groupId: params.id,
-        payload,
-      },
-      {
-        onSuccess: (data) => {
-          toast.success("Group settings updated successfully");
-          // Optionally, redirect after a short delay
-          setTimeout(() => router.push(`/groups/${params.id}/splits`), 1200);
-        },
-        onError: (error) => {
-          toast.error("Failed to update group");
-        },
-      }
-    );
-  };
-
-  const handleSplitTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSplitType = e.target.value as "equal" | "percentage" | "custom";
-    setFormData((prev) => ({
-      ...prev,
-      splitType: newSplitType,
-    }));
-  };
-
-  const updatePercentage = (address: string, percentage: number) => {
-    setPercentages((current) => ({
-      ...current,
-      [address]: percentage,
-    }));
-
-    setSplits((current) =>
-      current.map((split) =>
-        split.address === address
-          ? {
-              ...split,
-              amount: (Number(formData.amount) * percentage) / 100,
-              percentage: percentage,
-            }
-          : split
-      )
-    );
-  };
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      // Show loading state
-      toast.loading("Uploading image...");
-
-      // Upload the file to Google Cloud Storage
-      const response = await uploadFileMutation.mutateAsync(file);
-
-      if (response.success) {
-        // Update form data with the image URL
-        setFormData((prev) => ({
-          ...prev,
-          imageUrl: response.data.downloadUrl,
-        }));
-        setImagePreview(response.data.downloadUrl);
-        toast.dismiss();
-        toast.success("Image uploaded successfully");
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.dismiss();
-      toast.error("Failed to upload image. Please try again.");
-    }
-  };
+  const [name, setName] = useState(group?.name ?? "");
+  const [addEmail, setAddEmail] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!group) return null;
 
+  if (!isAdmin) {
+    return (
+      <div style={{ ...card(), padding: "40px 26px", textAlign: "center" }}>
+        <p style={{ fontSize: 14, color: T.sub }}>
+          Only the group creator can manage settings.
+        </p>
+      </div>
+    );
+  }
+
+  const groupColor = group.color || getUserColor(group.name);
+  const groupInit = (group.name || "?").trim().slice(0, 2).toUpperCase();
+  const nameDirty = name.trim() !== group.name && name.trim().length > 0;
+
+  const saveName = () => {
+    if (!nameDirty) return;
+    updateGroupMutation.mutate(
+      { groupId, payload: { name: name.trim() } },
+      {
+        onSuccess: () => toast.success("Group renamed"),
+        onError: () => toast.error("Failed to update group"),
+      }
+    );
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const response = await uploadFileMutation.mutateAsync(file);
+      if (response.success) {
+        updateGroupMutation.mutate(
+          { groupId, payload: { imageUrl: response.data.downloadUrl } },
+          {
+            onSuccess: () => toast.success("Group photo updated"),
+            onError: () => toast.error("Failed to update group"),
+          }
+        );
+      }
+    } catch {
+      toast.error("Failed to upload image");
+    }
+  };
+
+  const handleAddSomeone = () => {
+    const email = addEmail.trim().toLowerCase();
+    if (!email) return;
+    if (!isValidEmail(email)) {
+      toast.error("Please enter a valid email address (e.g. name@example.com)");
+      return;
+    }
+    addMembersMutation.mutate(
+      { groupId, memberIdentifier: email },
+      {
+        onSuccess: () => {
+          addFriendMutation.mutate(email, { onError: () => {} });
+          toast.success("Added to the group");
+          setAddEmail("");
+        },
+        onError: (error) => toast.error(error?.message || "Failed to add member"),
+      }
+    );
+  };
+
+  const toggleLockRate = (next: boolean) => {
+    updateGroupMutation.mutate(
+      { groupId, payload: { lockPrice: next } },
+      {
+        onSuccess: () => toast.success(next ? "Rate locked for this group" : "Rate lock removed"),
+        onError: () => toast.error("Failed to update group"),
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    deleteGroupMutation.mutate(groupId, {
+      onSuccess: () => {
+        toast.success("Group deleted");
+        router.push("/groups");
+      },
+      onError: (error: unknown) => {
+        const message = (error as { message?: string })?.message ?? "";
+        toast.error(
+          message.includes("non-zero balance")
+            ? "Everyone needs to be settled up before this group can be deleted."
+            : message || "Failed to delete group"
+        );
+      },
+    });
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-white">Edit Group</h1>
-      <Card className="bg-zinc-950 border-white/10">
-        <CardContent className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div className="form-group">
-                  <label className="form-label">Group Image</label>
-                  <div className="mt-2 flex items-center gap-4">
-                    <div className="h-24 w-24 overflow-hidden rounded-2xl bg-zinc-900">
-                      {imagePreview ? (
-                        <Image
-                          src={imagePreview}
-                          alt="Preview"
-                          width={96}
-                          height={96}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-white/50">
-                          No image
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                      id="group-image"
-                    />
-                    <label
-                      htmlFor="group-image"
-                      className="cursor-pointer rounded-lg border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/5"
-                    >
-                      Change Image
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="name"
-                    className="block text-sm font-medium text-white"
-                  >
-                    Group Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))
-                    }
-                    className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="description"
-                    className="block text-sm font-medium text-white"
-                  >
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    rows={4}
-                    className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="amount"
-                      className="block text-sm font-medium text-white"
-                    >
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      id="amount"
-                      value={formData.amount}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          amount: e.target.value,
-                        }))
-                      }
-                      className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="currency"
-                      className="block text-sm font-medium text-white"
-                    >
-                      Currency
-                    </label>
-                    <select
-                      id="currency"
-                      value={formData.currency}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          currency: e.target.value,
-                        }))
-                      }
-                      className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="XLM">XLM</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Lock Price Toggle */}
-                <div className="mb-4 flex items-center gap-4">
-                  <TimeLockToggle
-                    value={formData.lockPrice}
-                    onChange={(val) => setFormData((prev) => ({ ...prev, lockPrice: val }))}
-                    label="Lock exchange rate (Fix the value at current exchange rate)"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="members"
-                    className="block text-sm font-medium text-white"
-                  >
-                    Members (Wallet Addresses)
-                  </label>
-                  <div className="mt-2 text-sm text-white/70 mb-2">
-                    Your address: {address} (automatically included)
-                  </div>
-                  <input
-                    type="text"
-                    id="members"
-                    value={formData.members}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        members: e.target.value,
-                      }))
-                    }
-                    className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
-                    placeholder="Enter other members' wallet addresses separated by commas"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="paidBy"
-                    className="block text-sm font-medium text-white"
-                  >
-                    Paid By
-                  </label>
-                  <select
-                    id="paidBy"
-                    value={formData.paidBy}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        paidBy: e.target.value,
-                      }))
-                    }
-                    className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
-                  >
-                    <option value="">Select who paid</option>
-                    <option value={address!}>You</option>
-                    {formData.members
-                      .split(",")
-                      .map((member) => member.trim())
-                      .filter(Boolean)
-                      .map((member) => (
-                        <option key={member} value={member}>
-                          {member}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="splitType"
-                    className="block text-sm font-medium text-white"
-                  >
-                    Split Type
-                  </label>
-                  <select
-                    id="splitType"
-                    value={formData.splitType}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                      const newSplitType = e.target.value as
-                        | "equal"
-                        | "percentage"
-                        | "custom";
-                      setFormData((prev) => ({
-                        ...prev,
-                        splitType: newSplitType,
-                      }));
-                    }}
-                    className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
-                  >
-                    <option value="equal">Equal Split</option>
-                    <option value="percentage">Percentage Split</option>
-                    <option value="custom">Custom Split</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {formData.splitType === "percentage" && splits.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h3 className="text-lg font-medium text-white">
-                  Percentage Split
-                </h3>
-                {splits.map((split) => (
-                  <div key={split.address} className="flex items-center gap-4">
-                    <span className="text-sm text-white/70 w-40 truncate">
-                      {split.address === address ? "You" : split.address}
-                    </span>
-                    <input
-                      type="number"
-                      value={percentages[split.address] || ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (/^\d*$/.test(value) && Number(value) <= 100) {
-                          updatePercentage(split.address, Number(value));
-                        }
-                      }}
-                      className="w-32 rounded-lg border border-white/10 bg-zinc-900 px-4 py-2 text-white"
-                      placeholder="Percentage"
-                    />
-                    <span className="text-sm text-white/70">%</span>
-                  </div>
-                ))}
-                <div className="mt-2 text-sm text-white/70">
-                  Total:{" "}
-                  {Object.values(percentages).reduce((sum, p) => sum + p, 0)}%
-                  {Math.abs(
-                    Object.values(percentages).reduce((sum, p) => sum + p, 0) -
-                      100
-                  ) > 0.01 && (
-                    <span className="text-red-500 ml-2">(Must equal 100%)</span>
-                  )}
-                </div>
-              </div>
+    <div style={{ ...card(), padding: "20px 22px" }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+        <div>
+          <p style={eyebrow()}>Name</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              style={fieldStyle}
+            />
+          </div>
+        </div>
+        <div>
+          <p style={eyebrow()}>Photo &amp; colour</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+            {group.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={group.image}
+                alt=""
+                style={{ width: 44, height: 44, borderRadius: 13, objectFit: "cover", flexShrink: 0 }}
+              />
+            ) : (
+              <span style={{ ...avatarChip(groupColor, 44, 13), fontSize: 14, flexShrink: 0 }}>
+                {groupInit}
+              </span>
             )}
+            <label
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: A,
+                cursor: uploadFileMutation.isPending ? "default" : "pointer",
+                opacity: uploadFileMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              {uploadFileMutation.isPending ? "Uploading…" : "Change photo"}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                disabled={uploadFileMutation.isPending}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
+        </div>
+      </div>
 
-            {formData.splitType === "custom" && splits.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h3 className="text-lg font-medium text-white">Custom Split</h3>
-                {splits.map((split) => (
-                  <div key={split.address} className="flex items-center gap-4">
-                    <span className="text-sm text-white/70 w-40 truncate">
-                      {split.address === address ? "You" : split.address}
-                    </span>
-                    <input
-                      type="number"
-                      value={split.amount}
-                      onChange={(e) =>
-                        updateCustomSplit(split.address, Number(e.target.value))
-                      }
-                      className="w-32 rounded-lg border border-white/10 bg-zinc-900 px-4 py-2 text-white"
-                      placeholder="Amount"
-                    />
-                    <span className="text-sm text-white/70">
-                      {formData.currency}
-                    </span>
-                  </div>
-                ))}
-                <div className="mt-2 text-sm text-white/70">
-                  Total: {splits.reduce((sum, split) => sum + split.amount, 0)}{" "}
-                  {formData.currency}
-                  {Math.abs(
-                    splits.reduce((sum, split) => sum + split.amount, 0) -
-                      Number(formData.amount)
-                  ) > 0.01 && (
-                    <span className="text-red-500 ml-2">
-                      (Must equal total amount: {formData.amount}{" "}
-                      {formData.currency})
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
+      <div style={{ height: 1, background: "rgba(255,255,255,0.07)", marginBottom: 20 }} />
 
-            <div className="flex gap-4 pt-4">
-              <button
-                type="submit"
-                className="flex-1 h-12 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 transition-colors border border-white/10"
-              >
-                Save Changes
-              </button>
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex-1 h-12 rounded-xl border border-white/10 text-white hover:bg-zinc-800 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      <div style={{ marginBottom: 22 }}>
+        <GroupInviteLink groupId={groupId} />
+      </div>
+
+      <p style={eyebrow()}>Add someone</p>
+      <div style={{ display: "flex", gap: 10, marginTop: 8, marginBottom: 22 }}>
+        <input
+          value={addEmail}
+          onChange={(e) => setAddEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAddSomeone()}
+          placeholder="Email address"
+          disabled={addMembersMutation.isPending}
+          style={{ ...fieldStyle, flex: 1 }}
+        />
+        <button
+          type="button"
+          onClick={handleAddSomeone}
+          disabled={addMembersMutation.isPending || !addEmail.trim()}
+          style={{
+            borderRadius: 13,
+            padding: "12px 20px",
+            fontSize: 12.5,
+            fontWeight: 700,
+            cursor: addMembersMutation.isPending ? "default" : "pointer",
+            background: A,
+            color: "#0a0a0a",
+            border: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            flexShrink: 0,
+          }}
+        >
+          {addMembersMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+        </button>
+      </div>
+
+      <div style={{ height: 1, background: "rgba(255,255,255,0.07)", marginBottom: 20 }} />
+
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 22 }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>
+            Lock the rate for this group
+          </p>
+          <p style={{ margin: "5px 0 0", fontSize: 12, lineHeight: 1.55, color: T.sub, maxWidth: 440 }}>
+            Freeze the exchange rate when a request is created, so nobody&apos;s share drifts with
+            the market before it&apos;s settled.
+          </p>
+        </div>
+        <Toggle on={!!group.lockPrice} onChange={toggleLockRate} label="Lock the rate for this group" />
+      </div>
+
+      {!confirmDelete ? (
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          className="w-full flex items-center justify-center gap-2"
+          style={{
+            borderRadius: 12,
+            padding: 11,
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            background: "rgba(248,113,113,0.07)",
+            color: R,
+            border: "1px solid rgba(248,113,113,0.2)",
+          }}
+        >
+          <Icons.trash size={14} /> Delete group
+        </button>
+      ) : (
+        <div>
+          <p style={{ margin: "0 0 10px", fontSize: 11.5, color: T.sub, textAlign: "center" }}>
+            Only possible once everyone is settled up. This can&apos;t be undone.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1"
+              style={{
+                padding: 11,
+                background: INSET,
+                border: "1px solid rgba(255,255,255,0.09)",
+                color: T.main,
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleteGroupMutation.isPending}
+              className="flex-1 flex items-center justify-center gap-2"
+              style={{
+                padding: 11,
+                background: R,
+                border: "none",
+                color: "#0a0a0a",
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: deleteGroupMutation.isPending ? "default" : "pointer",
+                fontFamily: "inherit",
+                opacity: deleteGroupMutation.isPending ? 0.7 : 1,
+              }}
+            >
+              {deleteGroupMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…
+                </>
+              ) : (
+                "Delete forever"
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

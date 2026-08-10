@@ -7,9 +7,9 @@ import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
-import { defaultPostLoginPath } from "@/lib/app-mode";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
+import { safeCallbackPath } from "@/lib/middleware-session";
 
 function GoogleIcon() {
   return (
@@ -25,24 +25,35 @@ function GoogleIcon() {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || defaultPostLoginPath;
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl")) ?? "/";
   const [showPassword, setShowPassword] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    // `?email=` is prefill only, never a lock: an invite link sends the address
+    // it was issued to (app/invite/[token]/page.tsx) so the invited person
+    // doesn't have to retype it, but they stay free to sign in as someone else.
+    email: searchParams.get("email") ?? "",
     password: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Two responsive copies of this form share the DOM (desktop card below vs
+    // the sm:hidden mobile block) — only one is ever on screen, but both are
+    // real <form> elements. offsetParent is null when an ancestor has
+    // display:none, which is exactly how Tailwind's hidden/sm:hidden hides
+    // the other copy, so this stops a submit on the off-screen copy (e.g. an
+    // automated form-filler that doesn't respect CSS visibility) from firing
+    // a second sign-in alongside the visible one.
+    if (e.currentTarget.offsetParent === null) return;
     setIsLoadingEmail(true);
 
     try {
       const { data, error } = await authClient.signIn.email({
         email: formData.email,
         password: formData.password,
-        callbackURL: defaultPostLoginPath,
+        callbackURL: "/",
       });
 
       if (error) {
@@ -52,9 +63,7 @@ export default function LoginPage() {
 
         // Use window.location instead of router.push to force a full page reload
         // This ensures cookies are properly set before navigating to protected pages
-        window.location.href = callbackUrl.startsWith("/")
-          ? callbackUrl
-          : defaultPostLoginPath;
+        window.location.href = callbackUrl;
         return; // Don't reset loading state as we're navigating away
       }
     } catch (error) {
@@ -88,7 +97,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#101012] flex items-center justify-center relative px-4 py-8">
+    <div className="min-h-screen w-full bg-[var(--splito-bg)] flex items-center justify-center relative px-4 py-8">
       <div className="absolute -left-1/3 lg:-left-1/4 w-full h-full bg-[url('/final_bgsvg.svg')] bg-no-repeat opacity-50 hidden sm:block" />
 
       <motion.div
@@ -117,7 +126,7 @@ export default function LoginPage() {
               Welcome Back
             </h1>
             <p className="text-center text-sm text-white/60 -mt-2">
-              Don&apos;t have an account yet?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/signup" className="text-white hover:underline font-medium">
                 Sign up
               </Link>
@@ -194,6 +203,8 @@ export default function LoginPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -213,7 +224,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >
@@ -245,7 +256,7 @@ export default function LoginPage() {
               Welcome Back
             </h1>
             <p className="text-center text-sm text-white/60 -mt-2">
-              Don&apos;t have an account yet?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/signup" className="text-white hover:underline font-medium">
                 Sign up
               </Link>
@@ -322,6 +333,8 @@ export default function LoginPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -337,7 +350,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >

@@ -1,117 +1,134 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Currency } from "@/features/currencies/api/client";
 import type { SettlementPreference } from "@/features/user/api/client";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import { ChangePasswordModal } from "@/components/change-password-modal";
 import type { User } from "@/api-helpers/modelSchema/UserSchema";
-import { Card, Btn, T, Icons, A, getUserColor } from "@/lib/splito-design";
+import type { Workspace } from "@/lib/workspace";
+import {
+  A, G, R, P, T, Icons, Btn, Toggle, Mono, Eyebrow, AvatarChip,
+  getUserColor, card, pill, fmt, SURFACE, BORDER, INSET,
+} from "@/lib/splito-design";
+import { signOut } from "@/lib/auth";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  useUpdateUser,
+  useGetSettlementPreference,
+  useSaveSettlementPreference,
+  useRemoveSettlementPreference,
+  useUpdateSettlementWallet,
+} from "@/features/user/hooks/use-update-profile";
+import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
+import {
+  useUserWallets, useAvailableChains, useAddWallet, useRemoveWallet, useSetWalletAsPrimary,
+} from "@/features/wallets/hooks/use-wallets";
+import { useActiveWorkspace, useWorkspaces, useSetActiveWorkspace } from "@/contexts/workspace";
+// A business workspace is an Organization, not a group — the group endpoints
+// ignore `type` now and would happily operate on the wrong record.
+import {
+  useDeleteOrganization,
+  useGetOrganizationMembers,
+  useUpdateOrganization,
+} from "@/features/business/hooks/use-organizations";
+import { useReminders } from "@/features/reminders/hooks/use-reminders";
+import { QueryKeys } from "@/lib/constants";
 import {
   StellarWalletsKit,
-  WalletNetwork,
   allowAllModules,
   XBULL_ID,
 } from "@creit.tech/stellar-wallets-kit";
+import { STELLAR_WALLET_NETWORK } from "@/lib/chain-network";
 
 export interface SettingsPageContentProps {
+  /** Server-gated in page.tsx; only used to seed state before the store hydrates. */
   user: User;
-  displayName: string;
-  setDisplayName: (v: string) => void;
-  preferredCurrency: string;
-  setPreferredCurrency: (v: string) => void;
-  onCurrencyChange?: (v: string) => void;
-  hasChanges: boolean;
-  handleSaveChanges: () => void;
-  isUpdatatingUser: boolean;
-  isUploadingImage: boolean;
-  uploadProgress: number;
-  uploadError: string;
-  handleImageUpload: (file: File) => void;
-  onLogout?: () => void;
-  isLoggingOut?: boolean;
-  groupCount?: number;
-  friendCount?: number;
-  settledCount?: number;
-  settlementPrefs: SettlementPreference[];
-  isLoadingPref: boolean;
-  isSavingPref: boolean;
-  isRemovingPref: boolean;
-  isUpdatingWallet: boolean;
-  onSaveSettlementPref: (data: { tokenIds: string[]; chainId: string; walletAddress: string }, onSuccess?: () => void) => void;
-  onRemoveSettlementPref: (chainId: string) => void;
-  onUpdateSettlementWallet: (walletAddress: string, chainId: string, onSuccess?: () => void) => void;
-  allCurrencies: Currency[];
-  currencyDisplay: "both" | "real" | "converted";
-  onCurrencyDisplayChange: (mode: "both" | "real" | "converted") => void;
 }
 
-const CURRENCY_FLAG: Record<string, string> = {
-  USD: "\u{1F1FA}\u{1F1F8}", EUR: "\u{1F1EA}\u{1F1FA}", GBP: "\u{1F1EC}\u{1F1E7}", JPY: "\u{1F1EF}\u{1F1F5}",
-  INR: "\u{1F1EE}\u{1F1F3}", CNY: "\u{1F1E8}\u{1F1F3}", AUD: "\u{1F1E6}\u{1F1FA}", CAD: "\u{1F1E8}\u{1F1E6}", CHF: "\u{1F1E8}\u{1F1ED}",
-};
+type CurrencyDisplay = "both" | "real" | "converted";
+
+// ─── Chain metadata (settlement rows + wallets share the same palette) ───────
 
 const CHAIN_META: Record<string, { color: string; icon: string; label: string }> = {
-  stellar:  { color: "#34D399", icon: "\u2726",     label: "Stellar" },
-  solana:   { color: "#A78BFA", icon: "\u25CE",     label: "Solana" },
-  base:     { color: "#3B82F6", icon: "\u{1F535}",  label: "Base" },
+  stellar: { color: G, icon: "✦", label: "Stellar" },
+  solana: { color: P, icon: "◎", label: "Solana" },
+  base: { color: "#3B82F6", icon: "\u{1F535}", label: "Base" },
 };
 
 function getChainMeta(chainId: string) {
-  return CHAIN_META[chainId] || CHAIN_META[chainId.toLowerCase()] || { color: "#666", icon: "\u25C6", label: chainId };
+  return CHAIN_META[chainId] || CHAIN_META[chainId.toLowerCase()] || { color: "#666", icon: "◆", label: chainId };
+}
+
+function truncateAddr(addr: string, front = 8, back = 6) {
+  if (!addr) return "";
+  return addr.length > front + back + 1 ? `${addr.slice(0, front)}…${addr.slice(-back)}` : addr;
 }
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
-function Row({ children, style = {}, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
+function Row({ children, last = false, style = {} }: { children: React.ReactNode; last?: boolean; style?: React.CSSProperties }) {
   return (
-    <div role={onClick ? "button" : undefined} onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "17px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", ...style }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 13, padding: "14px 0", borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.05)", ...style }}>
       {children}
     </div>
   );
 }
 
-function SLabel({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ color: T.soft, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14, marginTop: 28, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.07)", ...style }}>{children}</div>;
-}
-
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Intro({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div onClick={onChange} role="switch" aria-checked={on} style={{ width: 50, height: 30, borderRadius: 99, background: on ? A : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "all 0.25s", flexShrink: 0 }}>
-      <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: on ? 23 : 3, transition: "left 0.25s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+    <div style={{ marginBottom: 22 }}>
+      <p style={{ margin: "0 0 3px", fontSize: 16, fontWeight: 800, color: "#fff" }}>{title}</p>
+      <p style={{ margin: 0, fontSize: 12.5, color: T.sub }}>{subtitle}</p>
     </div>
   );
 }
 
-const CURRENCY_DISPLAY_OPTS: Array<{ id: "both" | "real" | "converted"; label: string }> = [
-  { id: "real", label: "Original" },
-  { id: "converted", label: "My currency" },
-  { id: "both", label: "Both" },
-];
-
-function Segmented({ value, onChange, fullWidth = false }: { value: "both" | "real" | "converted"; onChange: (v: "both" | "real" | "converted") => void; fullWidth?: boolean }) {
+function FieldBox({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
   return (
-    <div style={{ display: "inline-flex", width: fullWidth ? "100%" : undefined, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 3, gap: 2 }}>
-      {CURRENCY_DISPLAY_OPTS.map((opt) => {
-        const sel = value === opt.id;
+    <div style={{ borderRadius: 13, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.03)", padding: "12px 15px", fontSize: 14, color: muted ? T.sub : T.main, marginBottom: 18 }}>
+      {children}
+    </div>
+  );
+}
+
+function TextInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{
+        width: "100%", boxSizing: "border-box", borderRadius: 13, border: "1px solid rgba(255,255,255,0.09)",
+        background: "rgba(255,255,255,0.03)", padding: "12px 15px", fontSize: 14, color: "#e8e8e8",
+        outline: "none", fontFamily: "inherit", marginBottom: 18,
+      }}
+    />
+  );
+}
+
+function Segmented<Id extends string>({ options, value, onChange }: { options: { id: Id; label: string }[]; value: Id; onChange: (v: Id) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, background: INSET, width: "fit-content" }}>
+      {options.map((o) => {
+        const sel = value === o.id;
         return (
           <button
-            key={opt.id}
-            onClick={() => onChange(opt.id)}
-            style={{
-              flex: fullWidth ? 1 : undefined,
-              padding: "7px 14px", borderRadius: 9, border: "none",
-              background: sel ? A : "transparent",
-              color: sel ? "#0a0a0a" : T.body,
-              fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-              transition: "all 0.15s",
-            }}
+            key={o.id}
+            type="button"
+            aria-pressed={sel}
+            onClick={() => onChange(o.id)}
+            style={{ border: "none", margin: 0, fontFamily: "inherit", padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? A : "transparent", color: sel ? "#0a0a0a" : T.body, transition: "all .15s" }}
           >
-            {opt.label}
+            {o.label}
           </button>
         );
       })}
@@ -119,20 +136,102 @@ function Segmented({ value, onChange, fullWidth = false }: { value: "both" | "re
   );
 }
 
-function MobileCard({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, overflow: "hidden", ...style }}>{children}</div>;
+function Divider({ mb = 20 }: { mb?: number }) {
+  return <div style={{ height: 1, background: "rgba(255,255,255,0.07)", marginBottom: mb }} />;
 }
 
-function MobileRow({ children, last = false, onClick }: { children: React.ReactNode; last?: boolean; onClick?: () => void }) {
+function ToggleRow({ title, desc, on, onChange, disabled }: { title: string; desc?: string; on: boolean; onChange: () => void; disabled?: boolean }) {
   return (
-    <div onClick={onClick} role={onClick ? "button" : undefined} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.06)", cursor: onClick ? "pointer" : undefined }}>
-      {children}
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>{title}</p>
+        {desc && <p style={{ margin: "5px 0 0", fontSize: 12, lineHeight: 1.55, color: T.sub, maxWidth: 420 }}>{desc}</p>}
+      </div>
+      <Toggle on={on} onChange={onChange} disabled={disabled} label={title} />
     </div>
   );
 }
 
-function MSLabel({ children }: { children: React.ReactNode }) {
-  return <p style={{ color: "#666", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10, marginTop: 28 }}>{children}</p>;
+/** Un-buttons a <button> back down to plain inline text so it can carry the
+ * design's small text-link affordances (Remove, Change, + Add, …) while
+ * staying a real, keyboard-operable control. */
+function textBtn(style: React.CSSProperties = {}): React.CSSProperties {
+  return { background: "none", border: "none", padding: 0, margin: 0, fontFamily: "inherit", cursor: "pointer", ...style };
+}
+
+/** Shared visual for the ghost "ready to click" affordance — used on both a
+ * real <button> (GhostButton) and, where the destination is a route rather
+ * than an action, directly on a <Link> so we never nest a button inside an
+ * anchor (invalid HTML, confuses keyboard/screen-reader focus). */
+function ghostButtonStyle(style: React.CSSProperties = {}): React.CSSProperties {
+  return {
+    display: "block", width: "100%", boxSizing: "border-box", borderRadius: 12, padding: 11,
+    textAlign: "center", fontSize: 13, fontWeight: 700, cursor: "pointer", background: INSET,
+    color: T.body, border: "1px solid rgba(255,255,255,0.1)", transition: "all .2s", fontFamily: "inherit",
+    textDecoration: "none", margin: 0, ...style,
+  };
+}
+
+function GhostButton({ children, onClick, style = {} }: { children: React.ReactNode; onClick?: () => void; style?: React.CSSProperties }) {
+  return (
+    <button type="button" className="abtn" onClick={onClick} style={ghostButtonStyle(style)}>
+      {children}
+    </button>
+  );
+}
+
+function DangerButton({ children, onClick, disabled = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      className="abtn"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: "block", width: "100%", boxSizing: "border-box", borderRadius: 12, padding: 11, textAlign: "center",
+        fontSize: 13, fontWeight: 700, cursor: disabled ? "default" : "pointer", background: "rgba(248,113,113,0.07)",
+        color: R, border: "1px solid rgba(248,113,113,0.2)", transition: "all .2s", opacity: disabled ? 0.6 : 1, fontFamily: "inherit", margin: 0,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ConfirmDialog({ open, title, body, confirmLabel = "Confirm", danger = true, working = false, onConfirm, onCancel }: {
+  open: boolean; title: string; body: string; confirmLabel?: string; danger?: boolean; working?: boolean; onConfirm: () => void; onCancel: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCancel} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.18 }}
+            className="relative w-full max-w-md rounded-2xl shadow-2xl"
+            style={{ background: SURFACE, border: BORDER, boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {danger && <span style={{ color: R, display: "flex" }}>{Icons.trash({ size: 18 })}</span>}
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em" }}>{title}</h2>
+              </div>
+              <button type="button" onClick={onCancel} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.muted }}>&times;</button>
+            </div>
+            <div style={{ padding: "16px 24px 24px" }}>
+              <p style={{ color: T.body, fontSize: 14, lineHeight: 1.6 }}>{body}</p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
+                <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
+                <Btn variant={danger ? "danger" : "primary"} onClick={onConfirm} style={{ opacity: working ? 0.7 : 1 }}>
+                  {working ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Working…</span></> : <span>{confirmLabel}</span>}
+                </Btn>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 function AvatarUpload({ id, size, isUploadingImage, uploadProgress, uploadError, handleImageUpload, userColor, userInitial, userImage }: {
@@ -154,78 +253,326 @@ function AvatarUpload({ id, size, isUploadingImage, uploadProgress, uploadError,
         </button>
         <input id={id} type="file" accept="image/png, image/jpeg" className="hidden" disabled={isUploadingImage} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); }} />
       </label>
-      {uploadError && <p style={{ fontSize: 11, color: "#F87171", marginTop: 4, textAlign: "center" }}>{uploadError}</p>}
+      {uploadError && <p style={{ fontSize: 11, color: R, marginTop: 4, textAlign: "center" }}>{uploadError}</p>}
     </div>
   );
 }
 
-// ─── Settlement Preference Display ───────────────────────────────────────────
+// ─── Rail ─────────────────────────────────────────────────────────────────────
 
-function SettlementPrefItem({ pref, isRemoving, onEdit, onEditWallet, onRemove, isLast }: {
-  pref: SettlementPreference; isRemoving: boolean; onEdit: () => void; onEditWallet: () => void; onRemove: () => void; isLast: boolean;
+const ACCOUNT_SECTIONS = [
+  { id: "profile", label: "Profile" },
+  { id: "display", label: "Display & currency" },
+  { id: "wallets", label: "Wallets" },
+  { id: "settlement", label: "Settlement" },
+  { id: "reminders", label: "Reminders" },
+  { id: "security", label: "Security" },
+] as const;
+
+const WORKSPACE_SECTIONS = [
+  { id: "ws-general", label: "General" },
+  { id: "ws-tokens", label: "Accepted tokens" },
+  { id: "ws-approvals", label: "Approvals" },
+  { id: "ws-members", label: "Members" },
+] as const;
+
+type SectionId = (typeof ACCOUNT_SECTIONS)[number]["id"] | (typeof WORKSPACE_SECTIONS)[number]["id"];
+
+const ALL_SECTION_IDS: readonly string[] = [
+  ...ACCOUNT_SECTIONS.map((s) => s.id),
+  ...WORKSPACE_SECTIONS.map((s) => s.id),
+];
+
+/** `/settings?tab=settlement` deep-links straight to a rail section — falls
+ * back to "profile" for a missing/unknown value so a stale or hand-typed
+ * query param never lands on a blank pane. */
+function initialSectionFromSearchParams(searchParams: URLSearchParams): SectionId {
+  const requested = searchParams.get("tab");
+  return requested && ALL_SECTION_IDS.includes(requested) ? (requested as SectionId) : "profile";
+}
+
+function RailGroup({ label, items, sec, setSec }: { label: string; items: readonly { id: SectionId; label: string }[]; sec: SectionId; setSec: (id: SectionId) => void }) {
+  return (
+    <div>
+      <p style={{ margin: "0 0 6px", padding: "0 12px", fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: T.faded, whiteSpace: "nowrap" }}>{label}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 1 }} aria-label={label}>
+        {items.map((i) => {
+          const active = sec === i.id;
+          return (
+            <button
+              key={i.id}
+              type="button"
+              aria-current={active ? "true" : undefined}
+              className="nv"
+              onClick={() => setSec(i.id)}
+              style={{
+                width: "100%", display: "block", textAlign: "left", border: "none", margin: 0,
+                fontFamily: "inherit", padding: "8px 12px", borderRadius: 11, fontSize: 13, cursor: "pointer",
+                transition: "all .2s", background: active ? "rgba(255,255,255,0.07)" : "transparent",
+                color: active ? "#fff" : T.dim, fontWeight: active ? 700 : 500, whiteSpace: "nowrap",
+              }}
+            >
+              {i.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Account: Profile ─────────────────────────────────────────────────────────
+
+function ProfileSection({ user, displayName, setDisplayName, hasNameChange, isSavingName, onSaveName, preferredCurrency, onCurrencyChange, isUploadingImage, uploadProgress, uploadError, onImageUpload }: {
+  user: User; displayName: string; setDisplayName: (v: string) => void; hasNameChange: boolean; isSavingName: boolean; onSaveName: () => void;
+  preferredCurrency: string; onCurrencyChange: (v: string) => void;
+  isUploadingImage: boolean; uploadProgress: number; uploadError: string; onImageUpload: (file: File) => void;
+}) {
+  const userColor = getUserColor(displayName || user.name || "You");
+  const userInitial = (displayName || user.name || "Y").charAt(0).toUpperCase();
+  return (
+    <div>
+      <Intro title="Profile" subtitle="Applies to every workspace you're in." />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+        <AvatarUpload id="settings-avatar" size={56} isUploadingImage={isUploadingImage} uploadProgress={uploadProgress} uploadError={uploadError} handleImageUpload={onImageUpload} userColor={userColor} userInitial={userInitial} userImage={user.image} />
+        <label htmlFor="settings-avatar" className="abtn" style={{ borderRadius: 11, padding: "9px 15px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: INSET, color: T.body, border: "1px solid rgba(255,255,255,0.1)", transition: "all .2s" }}>
+          Upload photo
+        </label>
+      </div>
+
+      <Eyebrow style={{ marginBottom: 8 }}>Display name</Eyebrow>
+      <TextInput value={displayName} onChange={setDisplayName} placeholder="Your name" />
+
+      <Eyebrow style={{ marginBottom: 8 }}>Email</Eyebrow>
+      <FieldBox muted>{user.email || "—"}</FieldBox>
+
+      <Eyebrow style={{ marginBottom: 8 }}>Preferred currency</Eyebrow>
+      <CurrencyDropdown
+        selectedCurrencies={preferredCurrency ? [preferredCurrency] : []}
+        setSelectedCurrencies={(currencies) => onCurrencyChange(currencies[0] || "")}
+        mode="single"
+        showFiatCurrencies
+        filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"}
+        disableChainCurrencies
+      />
+
+      {hasNameChange && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+          <Btn variant="primary" onClick={onSaveName} disabled={isSavingName}>{isSavingName ? "Saving…" : "Save changes"}</Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Account: Display & currency ──────────────────────────────────────────────
+
+function DisplaySection({ currencyDisplay, onCurrencyDisplayChange, lockIn, onToggleLockIn, isSavingLockIn }: {
+  currencyDisplay: CurrencyDisplay; onCurrencyDisplayChange: (v: CurrencyDisplay) => void;
+  lockIn: boolean; onToggleLockIn: () => void; isSavingLockIn: boolean;
+}) {
+  return (
+    <div>
+      <Intro title="Display & currency" subtitle="How amounts read, and who carries the price move." />
+      <Eyebrow style={{ marginBottom: 8 }}>Show amounts as</Eyebrow>
+      <Segmented<CurrencyDisplay>
+        options={[{ id: "real", label: "Original" }, { id: "converted", label: "My currency" }, { id: "both", label: "Both" }]}
+        value={currencyDisplay}
+        onChange={onCurrencyDisplayChange}
+      />
+      <p style={{ margin: "8px 0 24px", fontSize: 12, color: T.dim }}>
+        Both shows <Mono style={{ color: T.soft }}>$60.00 · 60.00 USDC</Mono> everywhere.
+      </p>
+      <Divider mb={22} />
+      <ToggleRow
+        title="Lock the rate by default"
+        desc="New requests start with the exchange rate locked in, so a payer's move in the market doesn't change what you're owed."
+        on={lockIn}
+        onChange={onToggleLockIn}
+        disabled={isSavingLockIn}
+      />
+    </div>
+  );
+}
+
+// ─── Account: Wallets ──────────────────────────────────────────────────────────
+
+interface WalletRow { id: string; chainId: string; address: string; isDefault: boolean; chain?: { name: string } }
+
+function WalletsSection({ wallets, isLoading, chains, onSetDefault, isSettingDefault, onRemove, isRemoving, onAdd, isAdding }: {
+  wallets: WalletRow[]; isLoading: boolean; chains: { id: string; name: string; enabled: boolean }[];
+  onSetDefault: (chainId: string, address: string) => void; isSettingDefault: boolean;
+  onRemove: (id: string) => void; isRemoving: boolean;
+  onAdd: (data: { chainId: string; address: string }, onDone: () => void) => void; isAdding: boolean;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [chainId, setChainId] = useState("");
+  const [address, setAddress] = useState("");
+  // Only Stellar can be added going forward. A wallet already saved on any
+  // other chain still renders above (the `wallets` map isn't filtered) —
+  // this only narrows what's offered for a *new* add.
+  const enabledChains = chains.filter((c) => c.enabled && c.id === "stellar");
+
+  return (
+    <div>
+      <Intro title="Wallets" subtitle="Where settled money lands. One default per chain." />
+      {isLoading ? (
+        <div style={{ padding: "20px 0", display: "flex", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div>
+      ) : wallets.length === 0 ? (
+        <p style={{ fontSize: 13, color: T.muted, padding: "8px 0 4px" }}>No wallets linked yet.</p>
+      ) : (
+        wallets.map((w, i) => {
+          const meta = getChainMeta(w.chainId);
+          return (
+            <Row key={w.id} last={i === wallets.length - 1 && !adding}>
+              <div style={{ display: "flex", alignItems: "center", gap: 13, minWidth: 0, flex: 1 }}>
+                <AvatarChip init={(w.chain?.name || w.chainId).slice(0, 2).toUpperCase()} color={meta.color} size={36} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>{w.chain?.name || meta.label}</p>
+                  <Mono style={{ display: "block", marginTop: 2, fontSize: 11.5, color: T.sub }}>{truncateAddr(w.address)}</Mono>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                {w.isDefault ? (
+                  <span style={pill(A)}>Default</span>
+                ) : (
+                  <button type="button" onClick={() => onSetDefault(w.chainId, w.address)} disabled={isSettingDefault} style={textBtn({ fontSize: 12, fontWeight: 700, color: A })}>Set default</button>
+                )}
+                <button type="button" onClick={() => onRemove(w.id)} disabled={isRemoving} style={textBtn({ fontSize: 12, fontWeight: 600, color: T.dim })}>Remove</button>
+              </div>
+            </Row>
+          );
+        })
+      )}
+
+      {adding ? (
+        <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: BORDER, background: "rgba(255,255,255,0.02)" }}>
+          {enabledChains.length === 1 ? (
+            // Only one chain is offered — a picker would be theater. State it
+            // as a fact instead of a choice.
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <AvatarChip init="ST" color={getChainMeta(enabledChains[0].id).color} size={30} />
+              <div>
+                <Eyebrow style={{ marginBottom: 2 }}>Chain</Eyebrow>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>{enabledChains[0].name}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <Eyebrow style={{ marginBottom: 8 }}>Chain</Eyebrow>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                {enabledChains.map((c) => {
+                  const sel = chainId === c.id;
+                  return (
+                    <button key={c.id} type="button" aria-pressed={sel} onClick={() => setChainId(c.id)} style={{ fontFamily: "inherit", margin: 0, padding: "7px 13px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", background: sel ? `${A}1a` : INSET, border: `1px solid ${sel ? `${A}55` : "rgba(255,255,255,0.09)"}`, color: sel ? A : T.body }}>
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <Eyebrow style={{ marginBottom: 8 }}>Address</Eyebrow>
+          <TextInput value={address} onChange={setAddress} placeholder="Wallet address" />
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Btn variant="ghost" onClick={() => { setAdding(false); setAddress(""); setChainId(""); }}>Cancel</Btn>
+            <Btn
+              variant="primary"
+              disabled={!chainId || !address.trim() || isAdding}
+              onClick={() => onAdd({ chainId, address: address.trim() }, () => { setAdding(false); setAddress(""); setChainId(""); })}
+            >
+              {isAdding ? "Adding…" : "Add wallet"}
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <GhostButton onClick={() => { setChainId(enabledChains.length === 1 ? enabledChains[0].id : ""); setAdding(true); }} style={{ marginTop: 18 }}>Connect a wallet</GhostButton>
+      )}
+    </div>
+  );
+}
+
+// ─── Account: Settlement ───────────────────────────────────────────────────────
+
+function SettlementPrefItem({ pref, isRemoving, onEdit, onEditWallet, onRemove, last }: {
+  pref: SettlementPreference; isRemoving: boolean; onEdit: () => void; onEditWallet: () => void; onRemove: () => void; last: boolean;
 }) {
   const meta = getChainMeta(pref.chainId);
   const tokenSymbols = pref.tokens.map((t) => t.token.symbol).join(", ");
   const addr = pref.wallet?.address || "";
-  const truncated = addr.length > 16 ? `${addr.slice(0, 8)}\u2026${addr.slice(-6)}` : addr;
 
   return (
-    <Row style={{ borderBottom: isLast ? "none" : undefined }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <Row last={last}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: `${meta.color}18`, border: `1.5px solid ${meta.color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, color: "#fff" }}>{meta.icon}</div>
-        <div>
-          <p style={{ fontSize: 14, fontWeight: 700, color: T.bright }}>{tokenSymbols} <span style={{ color: T.muted, fontWeight: 500, fontSize: 13 }}>on {pref.chain.name}</span></p>
-          {pref.wallet && <p style={{ fontSize: 11, color: T.muted, fontFamily: "monospace", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={addr}>{truncated}</p>}
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.bright }}>{tokenSymbols} <span style={{ color: T.muted, fontWeight: 500, fontSize: 13 }}>on {pref.chain.name}</span></p>
+          {addr && (
+            <span title={addr} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <Mono style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{truncateAddr(addr)}</Mono>
+            </span>
+          )}
         </div>
       </div>
       <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
-        <button onClick={onEditWallet} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Edit Wallet</button>
+        <button onClick={onEditWallet} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Edit wallet</button>
         <button onClick={onEdit} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Change</button>
-        <button onClick={onRemove} disabled={isRemoving} style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: 10, padding: "7px 10px", color: "#F87171", fontSize: 11, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center" }}>{Icons.trash({})}</button>
+        <button onClick={onRemove} disabled={isRemoving} style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: 10, padding: "7px 10px", color: R, fontSize: 11, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center" }}>{Icons.trash({})}</button>
       </div>
     </Row>
   );
 }
 
-function SettlementPrefDisplay({ prefs, isLoading, isRemoving, onEdit, onEditWallet, onRemove, onAdd }: {
+function SettlementSection({ prefs, isLoading, isRemoving, onEdit, onEditWallet, onRemove, onAdd, showInheritNote }: {
   prefs: SettlementPreference[]; isLoading: boolean; isRemoving: boolean;
   onEdit: (chainId: string) => void; onEditWallet: (chainId: string) => void; onRemove: (chainId: string) => void; onAdd: () => void;
+  showInheritNote: boolean;
 }) {
-  if (isLoading) return <Row style={{ borderBottom: "none", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></Row>;
-
-  if (prefs.length === 0) {
-    return (
-      <Row style={{ borderBottom: "none", cursor: "pointer" }} onClick={onAdd}>
-        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
-        <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
-      </Row>
-    );
-  }
-
   return (
-    <>
-      {prefs.map((pref, i) => (
-        <SettlementPrefItem
-          key={pref.chainId}
-          pref={pref}
-          isRemoving={isRemoving}
-          onEdit={() => onEdit(pref.chainId)}
-          onEditWallet={() => onEditWallet(pref.chainId)}
-          onRemove={() => onRemove(pref.chainId)}
-          isLast={i === prefs.length - 1 && prefs.length >= 4}
-        />
-      ))}
-      {prefs.length < 4 && (
-        <Row style={{ borderBottom: "none", cursor: "pointer" }} onClick={onAdd}>
-          <p style={{ color: T.muted, fontSize: 13 }}>Add another chain</p>
-          <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
+    <div>
+      <Intro title="Settlement" subtitle="What you accept, and what every new request defaults to." />
+      {isLoading ? (
+        <div style={{ padding: "20px 0", display: "flex", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div>
+      ) : prefs.length === 0 ? (
+        <Row last>
+          <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
+          <button type="button" onClick={onAdd} style={textBtn({ color: A, fontSize: 13, fontWeight: 700 })}>+ Add</button>
         </Row>
+      ) : (
+        <>
+          {prefs.map((pref, i) => (
+            <SettlementPrefItem
+              key={pref.chainId}
+              pref={pref}
+              isRemoving={isRemoving}
+              onEdit={() => onEdit(pref.chainId)}
+              onEditWallet={() => onEditWallet(pref.chainId)}
+              onRemove={() => onRemove(pref.chainId)}
+              last={i === prefs.length - 1 && prefs.length >= 4}
+            />
+          ))}
+          {prefs.length < 4 && (
+            <Row last>
+              <p style={{ color: T.muted, fontSize: 13 }}>Add another chain</p>
+              <button type="button" onClick={onAdd} style={textBtn({ color: A, fontSize: 13, fontWeight: 700 })}>+ Add</button>
+            </Row>
+          )}
+        </>
       )}
-    </>
+
+      {showInheritNote && prefs.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.2)", marginTop: 18 }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: A }}>Every workspace inherits this</p>
+            <p style={{ margin: "3px 0 0", fontSize: 11.5, lineHeight: 1.5, color: T.muted }}>Business workspaces use your account default unless they override it.</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-// ─── Settlement Preference Modal ─────────────────────────────────────────────
+// ─── Settlement preference modal (add / edit-wallet) ──────────────────────────
 
 function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies, initialChainId, initialTokenIds, initialWalletAddress, mode, onUpdateWallet, isUpdatingWallet, existingChainIds = [] }: {
   isOpen: boolean; onClose: () => void;
@@ -242,17 +589,20 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
   const [isConnecting, setIsConnecting] = React.useState(false);
   const walletKitRef = React.useRef<StellarWalletsKit | null>(null);
 
-  // Derive unique chains from crypto currencies
   const cryptoTokens = allCurrencies.filter((c) => c.type !== "FIAT" && c.chainId);
-  const chainIds = [...new Set(cryptoTokens.map((c) => c.chainId!))];
-
+  // Only Stellar can be picked for a *new* preference. A chain the account
+  // already has a saved preference for (existingChainIds) stays offered here
+  // too, so "Change" on an existing non-Stellar preference still opens with
+  // its chain visible/editable instead of quietly vanishing.
+  const chainIds = [...new Set(cryptoTokens.map((c) => c.chainId!))].filter(
+    (cid) => cid === "stellar" || existingChainIds.includes(cid)
+  );
   const meta = getChainMeta(selectedChainId);
 
-  // Init StellarWalletsKit once
   React.useEffect(() => {
     if (!walletKitRef.current) {
       walletKitRef.current = new StellarWalletsKit({
-        network: WalletNetwork.PUBLIC,
+        network: STELLAR_WALLET_NETWORK,
         selectedWalletId: XBULL_ID,
         modules: allowAllModules(),
       });
@@ -260,7 +610,6 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
     return () => { walletKitRef.current = null; };
   }, []);
 
-  // Reset state on open
   React.useEffect(() => {
     if (isOpen) {
       if (mode === "edit-wallet") {
@@ -270,18 +619,14 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
         const availableChain = initialChainId || chainIds.find((c) => !existingChainIds.includes(c)) || chainIds[0] || "";
         setSelectedChainId(availableChain);
         const chainTokens = cryptoTokens.filter((c) => c.chainId === availableChain);
-        if (initialTokenIds?.length) {
-          setSelectedTokenIds(new Set(initialTokenIds));
-        } else {
-          setSelectedTokenIds(new Set(chainTokens.map((c) => c.id)));
-        }
+        if (initialTokenIds?.length) setSelectedTokenIds(new Set(initialTokenIds));
+        else setSelectedTokenIds(new Set(chainTokens.map((c) => c.id)));
         setWalletAddress(initialWalletAddress || "");
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // When chain changes (not on initial load), pre-select all tokens for the new chain
   const handleChainChange = (chainId: string) => {
     setSelectedChainId(chainId);
     const chainTokens = cryptoTokens.filter((c) => c.chainId === chainId);
@@ -299,10 +644,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
           walletKitRef.current.setWallet(sel.id);
           const resp = await walletKitRef.current.getAddress();
           const pk = typeof resp === "object" && resp !== null ? resp.address : resp;
-          if (pk && typeof pk === "string") {
-            setWalletAddress(pk);
-            toast.success("Stellar wallet connected");
-          }
+          if (pk && typeof pk === "string") { setWalletAddress(pk); toast.success("Stellar wallet connected"); }
           setIsConnecting(false);
         },
       });
@@ -319,11 +661,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
     try {
       const phantom = (window as unknown as Record<string, unknown>).phantom as Record<string, unknown> | undefined;
       const provider = phantom?.solana as { isPhantom?: boolean; connect: () => Promise<{ publicKey: { toString: () => string } }> } | undefined;
-      if (!provider?.isPhantom) {
-        toast.error("Phantom wallet not found. Install it from phantom.app");
-        setIsConnecting(false);
-        return;
-      }
+      if (!provider?.isPhantom) { toast.error("Phantom wallet not found. Install it from phantom.app"); setIsConnecting(false); return; }
       const resp = await provider.connect();
       const addr = resp.publicKey.toString();
       if (addr) { setWalletAddress(addr); toast.success("Solana wallet connected"); }
@@ -338,11 +676,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
     setIsConnecting(true);
     try {
       const eth = (window as unknown as Record<string, unknown>).ethereum as { request: (args: { method: string }) => Promise<string[]> } | undefined;
-      if (!eth) {
-        toast.error("No EVM wallet found. Install MetaMask or Coinbase Wallet.");
-        setIsConnecting(false);
-        return;
-      }
+      if (!eth) { toast.error("No EVM wallet found. Install MetaMask or Coinbase Wallet."); setIsConnecting(false); return; }
       const accounts = await eth.request({ method: "eth_requestAccounts" });
       if (accounts?.[0]) { setWalletAddress(accounts[0]); toast.success("Base wallet connected"); }
     } catch (err) {
@@ -351,15 +685,11 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
     } finally { setIsConnecting(false); }
   };
 
-  const canSave = mode === "edit-wallet"
-    ? walletAddress.trim().length > 0
-    : selectedChainId && selectedTokenIds.size > 0 && walletAddress.trim().length > 0;
-
+  const canSave = mode === "edit-wallet" ? walletAddress.trim().length > 0 : selectedChainId && selectedTokenIds.size > 0 && walletAddress.trim().length > 0;
   const handleSave = () => {
-    if (mode === "edit-wallet") { onUpdateWallet(walletAddress.trim()); }
-    else { onSave({ tokenIds: [...selectedTokenIds], chainId: selectedChainId, walletAddress: walletAddress.trim() }); }
+    if (mode === "edit-wallet") onUpdateWallet(walletAddress.trim());
+    else onSave({ tokenIds: [...selectedTokenIds], chainId: selectedChainId, walletAddress: walletAddress.trim() });
   };
-
   const isWorking = mode === "edit-wallet" ? isUpdatingWallet : isSaving;
   const connectSupported = ["stellar", "solana", "base"].includes(selectedChainId);
 
@@ -373,22 +703,28 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
             className="relative w-full max-w-lg rounded-[28px] p-7 shadow-2xl z-10"
             style={{ background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)", border: "1px solid rgba(255,255,255,0.09)", boxShadow: "0 40px 100px rgba(0,0,0,0.8)", maxHeight: "90vh", overflowY: "auto" }}
           >
-            {/* Header */}
             <div className="flex items-center justify-between mb-2">
-              <p style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
-                {mode === "edit-wallet" ? "Edit Wallet" : "Settlement Preference"}
-              </p>
+              <p style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{mode === "edit-wallet" ? "Edit wallet" : "Where you get paid"}</p>
               <button onClick={onClose} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", color: "#bbb", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>&times;</button>
             </div>
             <p style={{ color: T.muted, fontSize: 13, marginBottom: 22, lineHeight: 1.5 }}>
-              {mode === "edit-wallet"
-                ? "Update the wallet address where you\u2019ll receive settlements."
-                : "Select a chain, choose currencies, and provide a wallet address to receive split settlements."}
+              {mode === "edit-wallet" ? "Update the wallet address where you’ll receive payments." : "Choose a chain, the assets you’ll accept, and the wallet address your requests get paid into."}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {/* ── CHAIN SELECTOR ── */}
-              {mode !== "edit-wallet" && (
+              {mode !== "edit-wallet" && chainIds.length === 1 && (
+                // Only Stellar is offered and no other chain is already
+                // saved — a picker of one would be theater.
+                <div>
+                  <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>Chain</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 6px" }}>
+                    <span style={{ fontSize: 20, color: "#fff" }}>{getChainMeta(chainIds[0]).icon}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: getChainMeta(chainIds[0]).color }}>{getChainMeta(chainIds[0]).label}</span>
+                  </div>
+                </div>
+              )}
+
+              {mode !== "edit-wallet" && chainIds.length > 1 && (
                 <div>
                   <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>Chain</label>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -401,8 +737,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                           padding: "12px 6px", background: sel ? `${m.color}18` : "rgba(255,255,255,0.04)",
                           border: `1.5px solid ${sel ? `${m.color}55` : "rgba(255,255,255,0.08)"}`,
                           borderRadius: 16, cursor: alreadyUsed ? "not-allowed" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                          transition: "all 0.2s", fontFamily: "inherit", boxShadow: sel ? `0 0 16px ${m.color}22` : "none",
-                          opacity: alreadyUsed ? 0.35 : 1,
+                          transition: "all 0.2s", fontFamily: "inherit", boxShadow: sel ? `0 0 16px ${m.color}22` : "none", opacity: alreadyUsed ? 0.35 : 1,
                         }}>
                           <span style={{ fontSize: 20, color: "#fff" }}>{m.icon}</span>
                           <span style={{ fontSize: 11, fontWeight: 700, color: sel ? m.color : "#999" }}>{m.label}</span>
@@ -413,12 +748,9 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                 </div>
               )}
 
-              {/* ── TOKEN MULTI-SELECT DROPDOWN ── */}
               {mode !== "edit-wallet" && selectedChainId && (
                 <div>
-                  <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>
-                    Currencies on {meta.label}
-                  </label>
+                  <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>Currencies on {meta.label}</label>
                   <CurrencyDropdown
                     selectedCurrencies={[...selectedTokenIds]}
                     setSelectedCurrencies={(ids) => setSelectedTokenIds(new Set(ids))}
@@ -429,20 +761,15 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                 </div>
               )}
 
-              {/* ── WALLET ADDRESS (input with inline connect button) ── */}
               {(mode === "edit-wallet" || selectedChainId) && (
                 <div>
                   <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>
-                    Wallet Address <span style={{ color: "#F87171" }}>*</span>
+                    Wallet address <span style={{ color: R }}>*</span>
                   </label>
                   <div style={{ position: "relative" }}>
                     <input
                       type="text" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)}
-                      style={{
-                        width: "100%", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)",
-                        borderRadius: 14, padding: connectSupported ? "14px 140px 14px 16px" : "14px 16px",
-                        color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit",
-                      }}
+                      style={{ width: "100%", background: INSET, border: "1.5px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: connectSupported ? "14px 140px 14px 16px" : "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" }}
                       placeholder={`Enter ${meta.label} wallet address`}
                       autoFocus={mode === "edit-wallet"}
                     />
@@ -455,22 +782,12 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                           else if (selectedChainId === "base") handleConnectBase();
                         }}
                         disabled={isConnecting}
-                        style={{
-                          position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
-                          background: A, border: "none", borderRadius: 10, padding: "8px 14px",
-                          color: "#0a0a0a", fontSize: 12, fontWeight: 800, cursor: isConnecting ? "default" : "pointer",
-                          fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6,
-                          whiteSpace: "nowrap", transition: "all 0.2s",
-                        }}
+                        style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: A, border: "none", borderRadius: 10, padding: "8px 14px", color: "#0a0a0a", fontSize: 12, fontWeight: 800, cursor: isConnecting ? "default" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "all 0.2s" }}
                       >
-                        {isConnecting ? (
-                          <><Loader2 className="h-3.5 w-3.5 animate-spin" />Connecting</>
-                        ) : (
-                          <>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>
-                            Connect
-                          </>
-                        )}
+                        {isConnecting ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" />Connecting</>) : (<>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z" /></svg>
+                          Connect
+                        </>)}
                       </button>
                     )}
                   </div>
@@ -478,20 +795,12 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
               )}
 
               <div style={{ display: "flex", gap: 7, alignItems: "center", paddingLeft: 2 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                 <p style={{ color: T.muted, fontSize: 11, lineHeight: 1.4 }}>Settlements owed to you will be sent to this wallet in the selected currencies.</p>
               </div>
 
-              {/* Save */}
-              <button onClick={handleSave} disabled={!canSave || isWorking} style={{
-                width: "100%", padding: "15px",
-                background: canSave && !isWorking ? A : "rgba(255,255,255,0.05)",
-                color: canSave && !isWorking ? "#0a0a0a" : "#555",
-                border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800,
-                cursor: canSave && !isWorking ? "pointer" : "default",
-                fontFamily: "inherit", transition: "all 0.2s",
-              }}>
-                {isWorking ? "Saving..." : mode === "edit-wallet" ? "Update Wallet" : "Save Preference"}
+              <button onClick={handleSave} disabled={!canSave || isWorking} style={{ width: "100%", padding: "15px", background: canSave && !isWorking ? A : INSET, color: canSave && !isWorking ? "#0a0a0a" : "#555", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: canSave && !isWorking ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s" }}>
+                {isWorking ? "Saving…" : mode === "edit-wallet" ? "Update wallet" : "Save preference"}
               </button>
             </div>
           </motion.div>
@@ -501,259 +810,529 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
   );
 }
 
-// ─── Mobile Settlement Pref Display ──────────────────────────────────────────
+// ─── Account: Reminders ─────────────────────────────────────────────────────
+// There's no reminder-*preference* store (no frequency/channel settings to
+// persist), but GET /reminders is a real inbox: pending nudges other people
+// sent you, which you can mark paid (accept) or dismiss (reject). That's the
+// actual live feature here, so the section lists it rather than showing
+// static "Weekly / On / Off" copy.
 
-function MobileSettlementPrefItem({ pref, isLast, onEdit, onEditWallet, onRemove }: {
-  pref: SettlementPreference; isLast: boolean; onEdit: () => void; onEditWallet: () => void; onRemove: () => void;
-}) {
-  const meta = getChainMeta(pref.chainId);
-  const tokenSymbols = pref.tokens.map((t) => t.token.symbol).join(", ");
-  const addr = pref.wallet?.address || "";
-  const truncated = addr.length > 14 ? `${addr.slice(0, 6)}\u2026${addr.slice(-4)}` : addr;
-
-  return (
-    <>
-      <MobileRow>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: `${meta.color}18`, border: `1.5px solid ${meta.color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, color: "#fff" }}>{meta.icon}</div>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{tokenSymbols} <span style={{ color: T.muted, fontWeight: 500, fontSize: 12 }}>on {pref.chain.name}</span></p>
-            {pref.wallet && <p style={{ fontSize: 11, color: T.muted, fontFamily: "monospace", marginTop: 2 }}>{truncated}</p>}
-          </div>
-        </div>
-        <span style={{ color: T.dim, fontSize: 18 }}>&rsaquo;</span>
-      </MobileRow>
-      <MobileRow last={isLast}>
-        <div style={{ display: "flex", gap: 8, width: "100%" }}>
-          <button onClick={onEditWallet} style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "10px", color: T.body, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Edit Wallet</button>
-          <button onClick={onEdit} style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "10px", color: T.body, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Change</button>
-          <button onClick={onRemove} style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: 10, padding: "10px 14px", color: "#F87171", fontSize: 13, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center" }}>{Icons.trash({})}</button>
-        </div>
-      </MobileRow>
-    </>
-  );
-}
-
-function MobileSettlementPref({ prefs, isLoading, onEdit, onEditWallet, onRemove, onAdd }: {
-  prefs: SettlementPreference[]; isLoading: boolean;
-  onEdit: (chainId: string) => void; onEditWallet: (chainId: string) => void; onRemove: (chainId: string) => void; onAdd: () => void;
-}) {
-  if (isLoading) return <MobileRow last><div style={{ display: "flex", justifyContent: "center", width: "100%" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div></MobileRow>;
-
-  if (prefs.length === 0) {
-    return (
-      <MobileRow last onClick={onAdd}>
-        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
-        <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
-      </MobileRow>
-    );
+function reminderLabel(r: {
+  reminderType: string;
+  content?: string | null;
+  split?: { name?: string; amount: number; expenseParticipants?: { amount: number }[] | null } | null;
+}): { text: string; owed: number | null } {
+  if (r.reminderType === "SPLIT" && r.split) {
+    const owed = r.split.expenseParticipants?.[0]?.amount ?? r.split.amount;
+    return { text: r.split.name ? `about "${r.split.name}"` : "about a shared expense", owed };
   }
+  if (r.reminderType === "USER") return { text: "says you owe them", owed: null };
+  return { text: r.content?.trim() || "sent you a nudge", owed: null };
+}
+
+function RemindersSection() {
+  const { reminders, isLoading, acceptReminder, isAccepting, rejectReminder, isRejecting } = useReminders();
+  const list = reminders ?? [];
 
   return (
-    <>
-      {prefs.map((pref, i) => (
-        <MobileSettlementPrefItem
-          key={pref.chainId}
-          pref={pref}
-          isLast={i === prefs.length - 1 && prefs.length >= 4}
-          onEdit={() => onEdit(pref.chainId)}
-          onEditWallet={() => onEditWallet(pref.chainId)}
-          onRemove={() => onRemove(pref.chainId)}
-        />
-      ))}
-      {prefs.length < 4 && (
-        <MobileRow last onClick={onAdd}>
-          <p style={{ color: T.muted, fontSize: 13 }}>Add another chain</p>
-          <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
-        </MobileRow>
+    <div>
+      <Intro title="Reminders" subtitle="Nudges people have sent you about money you owe." />
+      {isLoading ? (
+        <div style={{ padding: "20px 0", display: "flex", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div>
+      ) : list.length === 0 ? (
+        <p style={{ fontSize: 13, color: T.muted, padding: "8px 0 20px" }}>No nudges right now.</p>
+      ) : (
+        list.map((r, i) => {
+          const senderName = r.sender?.name || "Someone";
+          const { text, owed } = reminderLabel(r);
+          const amount = typeof r.amount === "number" ? r.amount : owed;
+          return (
+            <Row key={r.id} last={i === list.length - 1}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                <AvatarChip init={senderName.charAt(0).toUpperCase()} color={getUserColor(senderName)} size={36} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>
+                    {senderName} <span style={{ color: T.muted, fontWeight: 500, fontSize: 12.5 }}>{text}</span>
+                  </p>
+                  {typeof amount === "number" && <Mono style={{ display: "block", marginTop: 2, fontSize: 12, color: R }}>{fmt(amount)}</Mono>}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
+                <button onClick={() => rejectReminder(r.id)} disabled={isRejecting} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 12px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Dismiss</button>
+                <button onClick={() => acceptReminder(r.id)} disabled={isAccepting} style={{ background: `${G}1a`, border: `1px solid ${G}40`, borderRadius: 10, padding: "7px 12px", color: G, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Mark paid</button>
+              </div>
+            </Row>
+          );
+        })
       )}
-    </>
+      <Divider mb={16} />
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: T.dim }}>Automatic nudge scheduling isn't configurable yet — these are nudges people sent you directly.</p>
+    </div>
   );
 }
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ─── Account: Security ─────────────────────────────────────────────────────────
 
-export function SettingsPageContent(props: SettingsPageContentProps) {
-  const {
-    user, displayName, setDisplayName, preferredCurrency, setPreferredCurrency,
-    onCurrencyChange, hasChanges: _hasChanges, handleSaveChanges, isUpdatatingUser,
-    isUploadingImage, uploadProgress, uploadError, handleImageUpload,
-    onLogout, isLoggingOut = false,
-    groupCount = 0, friendCount = 0, settledCount = 0,
-    settlementPrefs, isLoadingPref, isSavingPref, isRemovingPref, isUpdatingWallet,
-    onSaveSettlementPref, onRemoveSettlementPref, onUpdateSettlementWallet,
-    allCurrencies,
-    currencyDisplay, onCurrencyDisplayChange,
-  } = props;
+function SecuritySection({ onChangePassword, onLogout, isLoggingOut }: { onChangePassword: () => void; onLogout: () => void; isLoggingOut: boolean }) {
+  return (
+    <div>
+      <Intro title="Security" subtitle="Sign-in and active sessions." />
+      <Row>
+        <div>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>Password</p>
+          <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.sub }}>Change your password any time.</p>
+        </div>
+        <button type="button" onClick={onChangePassword} style={textBtn({ fontSize: 12.5, fontWeight: 700, color: A })}>Change</button>
+      </Row>
+      <Row>
+        <div>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>Active sessions</p>
+          <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.sub }}>Session management isn't available yet.</p>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: T.dim }}>—</span>
+      </Row>
+      <Row last>
+        <div>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>Product analytics</p>
+          <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.sub }}>Anonymous usage data</p>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: G }}>On</span>
+      </Row>
+      <DangerButton onClick={onLogout} disabled={isLoggingOut}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+          {isLoggingOut && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {isLoggingOut ? "Signing out…" : "Sign out"}
+        </span>
+      </DangerButton>
+    </div>
+  );
+}
 
-  const [notificationsOn, setNotificationsOn] = React.useState(true);
-  const [editingProfile, setEditingProfile] = React.useState(false);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
-  const [prefModalOpen, setPrefModalOpen] = React.useState(false);
-  const [prefModalMode, setPrefModalMode] = React.useState<"add" | "edit-wallet">("add");
-  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = React.useState(false);
-  const [activeChainId, setActiveChainId] = React.useState<string | null>(null);
+// ─── Workspace: General ────────────────────────────────────────────────────────
 
+function WsGeneralSection({ workspace, name, setName, hasChange, onSave, isSaving, onDelete, isDeleting }: {
+  workspace: Workspace; name: string; setName: (v: string) => void; hasChange: boolean; onSave: () => void; isSaving: boolean;
+  onDelete: () => void; isDeleting: boolean;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  return (
+    <div>
+      <Intro title="Workspace" subtitle={`Applies to ${workspace.name} only.`} />
+      <Eyebrow style={{ marginBottom: 8 }}>Name</Eyebrow>
+      <TextInput value={name} onChange={setName} placeholder="Workspace name" />
+      {hasChange && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 18 }}>
+          <Btn variant="primary" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Btn>
+        </div>
+      )}
+      <Eyebrow style={{ marginBottom: 8 }}>Invoice numbering</Eyebrow>
+      <FieldBox muted>Not configurable yet</FieldBox>
+      <DangerButton onClick={() => setConfirmOpen(true)}>Delete workspace</DangerButton>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete workspace"
+        body={`This permanently deletes ${workspace.name} and everything in it — requests, members, contracts. This can't be undone.`}
+        confirmLabel="Delete"
+        working={isDeleting}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={onDelete}
+      />
+    </div>
+  );
+}
+
+// ─── Workspace: Accepted tokens ────────────────────────────────────────────
+// Read-only now. The per-workspace override was backed by GET/POST/DELETE
+// /groups/:groupId/accepted-tokens, and `GroupAcceptedToken` hangs off
+// `Group` — but a business workspace is an `Organization`, so those endpoints
+// 403 on a workspace id (group.controller.ts gates on GroupUser membership).
+// There is no organization-level equivalent on the backend and inventing one
+// here would only fail at runtime. What is still true is which account default
+// the workspace inherits, so that is what this shows.
+
+function WsTokensSection({ workspace, accountPrefs }: {
+  workspace: Workspace; accountPrefs: SettlementPreference[];
+}) {
+  const accountSummary = accountPrefs.length === 0
+    ? "You haven't set an account default yet — set one in Account → Settlement."
+    : accountPrefs.map((p) => `${p.tokens.map((t) => t.token.symbol).join(", ")} on ${p.chain.name}`).join(" · ");
+  const accountWallet = accountPrefs.find((p) => p.wallet)?.wallet;
+
+  return (
+    <div>
+      <Intro title="Accepted tokens" subtitle={`What ${workspace.name} settles into.`} />
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: G }}>Using your account default</p>
+          <p style={{ margin: "3px 0 0", fontSize: 11.5, color: T.muted }}>{accountSummary}{accountWallet ? `, into ${truncateAddr(accountWallet.address)}.` : "."}</p>
+        </div>
+      </div>
+      <p style={{ margin: "16px 0 0", fontSize: 12, lineHeight: 1.6, color: T.dim }}>
+        A per-workspace override isn&apos;t available yet — business workspaces have no
+        accepted-token store of their own, so everything in {workspace.name} settles into your
+        account default.
+      </p>
+    </div>
+  );
+}
+
+// ─── Workspace: Approvals (no threshold/approver model on the backend yet) ────
+
+function WsApprovalsSection({ workspace }: { workspace: Workspace }) {
+  return (
+    <div>
+      <Intro title="Approvals" subtitle={`Money out of ${workspace.name} above a threshold needs a second pair of eyes.`} />
+      <div style={{ opacity: 0.5, pointerEvents: "none" }}>
+        <Eyebrow style={{ marginBottom: 8 }}>Threshold</Eyebrow>
+        <FieldBox><Mono>—</Mono></FieldBox>
+        <Eyebrow style={{ marginBottom: 8 }}>Approver</Eyebrow>
+        <FieldBox>Not set</FieldBox>
+      </div>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: T.dim }}>Approval routing isn't configurable yet — every request currently goes straight out.</p>
+    </div>
+  );
+}
+
+// ─── Workspace: Members (preview only — the full screen lives at /members) ──────
+
+/** `GET /api/organizations/:id/members` — flat, and `role` can be OWNER. */
+interface MemberPreview { userId: string; role: string; name: string | null; email: string | null }
+
+function WsMembersSection({ workspace, members, isLoading }: { workspace: Workspace; members: MemberPreview[]; isLoading: boolean }) {
+  return (
+    <div>
+      <Intro title="Members & roles" subtitle="Admins manage roles, approvals and workspace settings." />
+      {isLoading ? (
+        <div style={{ padding: "16px 0", display: "flex", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div>
+      ) : members.length === 0 ? (
+        <p style={{ fontSize: 13, color: T.muted, marginBottom: 20 }}>No members yet.</p>
+      ) : (
+        <>
+          <div style={{ display: "flex" }}>
+            {members.slice(0, 6).map((m, i) => (
+              <AvatarChip
+                key={m.userId}
+                init={(m.name || m.email || "?").charAt(0).toUpperCase()}
+                color={getUserColor(m.name)}
+                size={34}
+                style={{ marginLeft: i === 0 ? 0 : -8, border: "2px solid #0d0d0d" }}
+              />
+            ))}
+            {members.length > 6 && (
+              <span style={{ marginLeft: -8, width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 800, color: T.body, border: "2px solid #0d0d0d" }}>
+                +{members.length - 6}
+              </span>
+            )}
+          </div>
+          <p style={{ margin: "14px 0 20px", fontSize: 12.5, color: T.sub }}>{members.length} {members.length === 1 ? "member" : "members"} in {workspace.name}.</p>
+        </>
+      )}
+      <Link href="/members" className="abtn" style={ghostButtonStyle()}>
+        Manage members
+      </Link>
+    </div>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+export function SettingsPageContent({ user: initialUser }: SettingsPageContentProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const { user: storeUser, setUser } = useAuthStore();
+  const user = storeUser ?? initialUser;
+
+  const [sec, setSec] = useState<SectionId>(() => initialSectionFromSearchParams(searchParams));
+
+  // ── Profile ──
+  const { mutate: updateUser, isPending: isSavingProfile } = useUpdateUser();
+  const [displayName, setDisplayName] = useState(user.name ?? "");
+  const [preferredCurrency, setPreferredCurrency] = useState(user.currency ?? "USD");
+  useEffect(() => {
+    setDisplayName(user.name ?? "");
+    setPreferredCurrency(user.currency ?? "USD");
+  }, [user.id, user.name, user.currency]);
+
+  const hasNameChange = displayName.trim().length > 0 && displayName.trim() !== (user.name ?? "");
+
+  const saveProfileName = () => {
+    const name = displayName.trim();
+    updateUser({ name }, {
+      onSuccess: () => { setUser({ ...user, name }); toast.success("Profile updated"); },
+      onError: () => toast.error("Failed to update profile"),
+    });
+  };
+
+  const changeCurrency = (currency: string) => {
+    if (!currency || currency === user.currency) return;
+    setPreferredCurrency(currency);
+    updateUser({ currency }, {
+      onSuccess: () => { setUser({ ...user, currency }); toast.success("Currency updated"); },
+      onError: () => { toast.error("Failed to update currency"); setPreferredCurrency(user.currency); },
+    });
+  };
+
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
+
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+    try {
+      setIsUploadingImage(true);
+      setUploadProgress(0);
+      setUploadError("");
+
+      const response = await fetch(`${API_URL}/api/files/upload-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ fileType: file.type, fileName: file.name, folder: "profile-pictures" }),
+      });
+      if (!response.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, downloadUrl } = await response.json();
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", uploadUrl);
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) setUploadProgress(Math.round((event.loaded / event.total) * 100));
+      };
+      await new Promise((resolve, reject) => {
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve(xhr.response) : reject(new Error(`Upload failed with status ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error("Upload failed"));
+        xhr.send(file);
+      });
+
+      updateUser({ image: downloadUrl }, {
+        onSuccess: () => { setUser({ ...user, image: downloadUrl }); toast.success("Profile picture updated successfully"); },
+        onError: () => toast.error("Failed to update profile picture"),
+      });
+    } catch (error) {
+      console.error("Image upload error:", error);
+      setUploadError(error instanceof Error ? error.message : "Failed to upload image");
+      toast.error("Failed to upload profile picture");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // ── Display & currency ──
+  const currencyDisplay = useCurrencyDisplayStore((s) => s.mode) as CurrencyDisplay;
+  const setCurrencyDisplayMode = useCurrencyDisplayStore((s) => s.setMode);
+  const changeCurrencyDisplay = (mode: CurrencyDisplay) => {
+    if (mode === currencyDisplay) return;
+    const prev = currencyDisplay;
+    setCurrencyDisplayMode(mode);
+    updateUser({ currencyDisplay: mode }, {
+      onSuccess: () => setUser({ ...user, currencyDisplay: mode }),
+      onError: () => { setCurrencyDisplayMode(prev); toast.error("Failed to update currency display"); },
+    });
+  };
+
+  const [lockIn, setLockIn] = useState(user.timeLockInDefault ?? true);
+  useEffect(() => setLockIn(user.timeLockInDefault ?? true), [user.timeLockInDefault]);
+  const [isSavingLockIn, setIsSavingLockIn] = useState(false);
+  const toggleLockIn = () => {
+    const next = !lockIn;
+    setLockIn(next);
+    setIsSavingLockIn(true);
+    updateUser({ timeLockInDefault: next }, {
+      onSuccess: () => { setUser({ ...user, timeLockInDefault: next }); setIsSavingLockIn(false); },
+      onError: () => { setLockIn(!next); setIsSavingLockIn(false); toast.error("Failed to update"); },
+    });
+  };
+
+  const { data: currencyData } = useGetAllCurrencies();
+  const allCurrencies = currencyData?.currencies || [];
+
+  // ── Wallets ──
+  const { data: walletsData, isLoading: isLoadingWallets } = useUserWallets();
+  const { data: chainsData } = useAvailableChains();
+  const { mutate: addWalletMutate, isPending: isAddingWallet } = useAddWallet();
+  const { mutate: removeWalletMutate, isPending: isRemovingWallet } = useRemoveWallet();
+  const { mutate: setPrimaryWalletMutate, isPending: isSettingPrimary } = useSetWalletAsPrimary();
+
+  // ── Settlement ──
+  const { data: settlementPrefs = [], isLoading: isLoadingPref } = useGetSettlementPreference();
+  const { mutate: savePref, isPending: isSavingPref } = useSaveSettlementPreference();
+  const { mutate: removePref, isPending: isRemovingPref } = useRemoveSettlementPreference();
+  const { mutate: updateWalletPref, isPending: isUpdatingWalletPref } = useUpdateSettlementWallet();
+  const [prefModalOpen, setPrefModalOpen] = useState(false);
+  const [prefModalMode, setPrefModalMode] = useState<"add" | "edit-wallet">("add");
+  const [activeChainId, setActiveChainId] = useState<string | null>(null);
+  const [removePrefConfirmOpen, setRemovePrefConfirmOpen] = useState(false);
   const activePref = activeChainId ? settlementPrefs.find((p) => p.chainId === activeChainId) : null;
-
-  const userEmail = user?.email ?? "";
-  const userInitial = (displayName || user?.name || "Y").charAt(0).toUpperCase();
-  const userColor = getUserColor(user?.name || "You");
-  const currencyFlag = CURRENCY_FLAG[preferredCurrency] ?? "\u{1F4B1}";
-
   const openPrefModalForChain = (mode: "add" | "edit-wallet", chainId?: string) => {
     setActiveChainId(chainId ?? null);
     setPrefModalMode(mode);
     setPrefModalOpen(true);
   };
 
-  return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-      {/* Sticky header */}
-      <div className="hidden sm:block" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", position: "sticky", top: 0, background: "rgba(11,11,11,0.95)", backdropFilter: "blur(20px)", zIndex: 40 }}>
-        <div className="flex items-center" style={{ padding: "0 28px", height: 70 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff" }}>Settings</h1>
-        </div>
-      </div>
+  // ── Security ──
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await signOut();
+      setUser(null);
+      toast.success("Logged out successfully");
+      router.push("/login");
+    } catch {
+      toast.error("Failed to log out. Please try again.");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
-      {/* ── MOBILE ── */}
-      <div className="sm:hidden flex-1 overflow-y-auto px-4 pb-10">
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 28, paddingBottom: 24 }}>
-          <AvatarUpload id="profile-upload-mobile" size={90} isUploadingImage={isUploadingImage} uploadProgress={uploadProgress} uploadError={uploadError} handleImageUpload={handleImageUpload} userColor={userColor} userInitial={userInitial} userImage={user.image} />
-          <p style={{ color: "#fff", fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 16, marginBottom: 3 }}>{displayName || "You"}</p>
-          <p style={{ color: T.muted, fontSize: 14, fontWeight: 500, marginBottom: 18 }}>{userEmail || "you@email.com"}</p>
-          {editingProfile ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 260, marginBottom: 4 }}>
-              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)", borderRadius: 12, padding: "11px 14px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", width: "100%", fontWeight: 500 }} />
-              <button onClick={() => { handleSaveChanges(); setEditingProfile(false); }} disabled={isUpdatatingUser} style={{ background: A, border: "none", borderRadius: 12, padding: "12px", color: "#0a0a0a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>{isUpdatatingUser ? "Saving\u2026" : "Save"}</button>
-              <button onClick={() => setEditingProfile(false)} style={{ background: "none", border: "none", color: T.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-            </div>
-          ) : (
-            <button onClick={() => setEditingProfile(true)} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "10px 25px", color: "#fff", fontWeight: 500, fontSize: 15, cursor: "pointer", fontFamily: "inherit" }}>Edit Profile</button>
+  // ── Workspace ──
+  const workspace = useActiveWorkspace();
+  const { businessCount } = useWorkspaces();
+  const setActiveWorkspace = useSetActiveWorkspace();
+  const isBusiness = workspace.kind === "business";
+
+  useEffect(() => {
+    if (!isBusiness && (sec === "ws-general" || sec === "ws-tokens" || sec === "ws-approvals" || sec === "ws-members")) {
+      setSec("profile");
+    }
+  }, [isBusiness, sec]);
+
+  // Members are their own fetch now — they are no longer nested in the
+  // workspace payload the way `group.groupUsers` was.
+  const { data: orgMembers = [], isLoading: isLoadingMembers } = useGetOrganizationMembers(
+    isBusiness ? workspace.id : ""
+  );
+  const [wsName, setWsName] = useState(workspace.name);
+  useEffect(() => setWsName(workspace.name), [workspace.id, workspace.name]);
+  const { mutate: updateOrgMutate, isPending: isSavingWsName } = useUpdateOrganization();
+  const { mutate: deleteOrgMutate, isPending: isDeletingWs } = useDeleteOrganization();
+
+  const saveWsName = () => {
+    const name = wsName.trim();
+    if (!name || name === workspace.name) return;
+    updateOrgMutate({ organizationId: workspace.id, payload: { name } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.WORKSPACES] });
+        toast.success("Workspace renamed");
+      },
+      onError: (err: unknown) =>
+        toast.error((err as { message?: string })?.message || "Failed to rename workspace"),
+    });
+  };
+
+  const deleteWorkspace = () => {
+    deleteOrgMutate(workspace.id, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.WORKSPACES] });
+        setActiveWorkspace("personal");
+        toast.success("Workspace deleted");
+        router.push("/");
+      },
+      onError: (result: unknown) => {
+        const message = (result as { message?: string } | undefined)?.message;
+        toast.error(message || "Failed to delete workspace — only the owner can delete it");
+      },
+    });
+  };
+
+  const wallets: WalletRow[] = walletsData?.accounts ?? [];
+
+  return (
+    <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-[216px_1fr] gap-4 lg:gap-[26px] items-start">
+        {/* Not sticky: `position: sticky` inside this items-start grid row anchors
+            to `top` whenever the paired content column is tall enough to leave
+            slack (and clamps flush when it isn't) — so the rail visibly jumped
+            between short and tall tabs even at scrollY 0. A plain top-anchored
+            column never moves, which is what "stays put across tabs" means here. */}
+        <div className="flex flex-row lg:flex-col gap-5 lg:gap-[18px] overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
+          <RailGroup label="Account" items={ACCOUNT_SECTIONS} sec={sec} setSec={setSec} />
+          {isBusiness && <RailGroup label="Workspace" items={WORKSPACE_SECTIONS} sec={sec} setSec={setSec} />}
+        </div>
+
+        <div style={{ minWidth: 0, ...card({ padding: "20px 22px" }) }}>
+          {sec === "profile" && (
+            <ProfileSection
+              user={user}
+              displayName={displayName}
+              setDisplayName={setDisplayName}
+              hasNameChange={hasNameChange}
+              isSavingName={isSavingProfile}
+              onSaveName={saveProfileName}
+              preferredCurrency={preferredCurrency}
+              onCurrencyChange={changeCurrency}
+              isUploadingImage={isUploadingImage}
+              uploadProgress={uploadProgress}
+              uploadError={uploadError}
+              onImageUpload={handleImageUpload}
+            />
+          )}
+          {sec === "display" && (
+            <DisplaySection
+              currencyDisplay={currencyDisplay}
+              onCurrencyDisplayChange={changeCurrencyDisplay}
+              lockIn={lockIn}
+              onToggleLockIn={toggleLockIn}
+              isSavingLockIn={isSavingLockIn}
+            />
+          )}
+          {sec === "wallets" && (
+            <WalletsSection
+              wallets={wallets}
+              isLoading={isLoadingWallets}
+              chains={chainsData?.chains ?? []}
+              onSetDefault={(chainId, address) => setPrimaryWalletMutate({ chainId, address })}
+              isSettingDefault={isSettingPrimary}
+              onRemove={(id) => removeWalletMutate(id)}
+              isRemoving={isRemovingWallet}
+              onAdd={(data, onDone) => addWalletMutate(data, { onSuccess: onDone })}
+              isAdding={isAddingWallet}
+            />
+          )}
+          {sec === "settlement" && (
+            <SettlementSection
+              prefs={settlementPrefs}
+              isLoading={isLoadingPref}
+              isRemoving={isRemovingPref}
+              onEdit={(chainId) => openPrefModalForChain("add", chainId)}
+              onEditWallet={(chainId) => openPrefModalForChain("edit-wallet", chainId)}
+              onRemove={(chainId) => { setActiveChainId(chainId); setRemovePrefConfirmOpen(true); }}
+              onAdd={() => openPrefModalForChain("add")}
+              showInheritNote={businessCount > 0}
+            />
+          )}
+          {sec === "reminders" && <RemindersSection />}
+          {sec === "security" && (
+            <SecuritySection
+              onChangePassword={() => setIsChangePasswordOpen(true)}
+              onLogout={handleLogout}
+              isLoggingOut={isLoggingOut}
+            />
+          )}
+          {isBusiness && sec === "ws-general" && (
+            <WsGeneralSection
+              workspace={workspace}
+              name={wsName}
+              setName={setWsName}
+              hasChange={wsName.trim().length > 0 && wsName.trim() !== workspace.name}
+              onSave={saveWsName}
+              isSaving={isSavingWsName}
+              onDelete={deleteWorkspace}
+              isDeleting={isDeletingWs}
+            />
+          )}
+          {isBusiness && sec === "ws-tokens" && (
+            <WsTokensSection workspace={workspace} accountPrefs={settlementPrefs} />
+          )}
+          {isBusiness && sec === "ws-approvals" && <WsApprovalsSection workspace={workspace} />}
+          {isBusiness && sec === "ws-members" && (
+            <WsMembersSection workspace={workspace} members={orgMembers} isLoading={isLoadingMembers} />
           )}
         </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, textAlign: "center", paddingBottom: 16, paddingInline: 80 }}>
-          {[[String(groupCount), "Groups"], [String(friendCount), "Friends"], [String(settledCount), "Settled"]].map(([num, label]) => (
-            <div key={label}><p style={{ fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{num}</p><p style={{ fontSize: 11, fontWeight: 600, color: T.muted, marginTop: 1 }}>{label}</p></div>
-          ))}
-        </div>
-        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", marginBottom: 4 }} />
-
-        <MSLabel>Preferences</MSLabel>
-        <MobileCard>
-          <MobileRow>
-            <div><p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Notifications</p><p style={{ fontSize: 13, color: T.muted, marginTop: 2, fontWeight: 500 }}>Email &amp; push reminders</p></div>
-            <Toggle on={notificationsOn} onChange={() => setNotificationsOn((p) => !p)} />
-          </MobileRow>
-          <MobileRow>
-            <div><p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Default Currency</p><p style={{ fontSize: 13, color: T.muted, marginTop: 2, fontWeight: 500 }}>{preferredCurrency || "USD"}</p></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.muted }}><span style={{ fontSize: 20 }}>{currencyFlag}</span><span style={{ fontSize: 16 }}>&rsaquo;</span></div>
-          </MobileRow>
-          <MobileRow>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Show amounts in</p>
-              <p style={{ fontSize: 13, color: T.muted, marginTop: 2, fontWeight: 500 }}>When an expense was paid in a different currency</p>
-              <div style={{ marginTop: 12 }}>
-                <Segmented value={currencyDisplay} onChange={onCurrencyDisplayChange} fullWidth />
-              </div>
-            </div>
-          </MobileRow>
-          <MobileRow last>
-            <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Language</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.muted }}><span style={{ fontSize: 14, fontWeight: 500 }}>English</span><span style={{ fontSize: 16 }}>&rsaquo;</span></div>
-          </MobileRow>
-        </MobileCard>
-
-        <MSLabel>Settlement Preference</MSLabel>
-        <MobileCard>
-          <MobileSettlementPref
-            prefs={settlementPrefs}
-            isLoading={isLoadingPref}
-            onEdit={(chainId) => openPrefModalForChain("add", chainId)}
-            onEditWallet={(chainId) => openPrefModalForChain("edit-wallet", chainId)}
-            onRemove={(chainId) => { setActiveChainId(chainId); setIsRemoveConfirmOpen(true); }}
-            onAdd={() => openPrefModalForChain("add")}
-          />
-        </MobileCard>
-
-        <MSLabel>Security</MSLabel>
-        <MobileCard>
-          <MobileRow last onClick={() => setIsChangePasswordOpen(true)}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Change Password</p>
-            <span style={{ color: T.muted, fontSize: 18 }}>&rsaquo;</span>
-          </MobileRow>
-        </MobileCard>
-
-        <button type="button" onClick={() => !isLoggingOut && onLogout?.()} disabled={isLoggingOut} style={{ width: "100%", marginTop: 24, padding: "18px", borderRadius: 20, background: "rgba(200,40,40,0.15)", border: "1px solid rgba(248,113,113,0.2)", color: "#F87171", fontSize: 17, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", opacity: isLoggingOut ? 0.7 : 1 }}>Sign Out</button>
-        <div style={{ height: 40 }} />
-      </div>
-
-      {/* ── DESKTOP ── */}
-      <div className="hidden sm:block flex-1 overflow-y-auto px-7 pt-6 pb-10" style={{ maxWidth: 660 }}>
-        <SLabel>Profile</SLabel>
-        <Card style={{ padding: "22px", marginBottom: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22, paddingBottom: 22, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-            <AvatarUpload id="profile-upload" size={64} isUploadingImage={isUploadingImage} uploadProgress={uploadProgress} uploadError={uploadError} handleImageUpload={handleImageUpload} userColor={userColor} userInitial={userInitial} userImage={user.image} />
-            <div>
-              <p style={{ color: T.bright, fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em" }}>{displayName || "You"}</p>
-              <p style={{ color: T.muted, fontSize: 12, fontWeight: 500, marginTop: 2 }}>{userEmail || "you@email.com"}</p>
-            </div>
-          </div>
-          <Row><span style={{ color: T.body, fontSize: 14, fontWeight: 600 }}>Display Name</span><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", width: 220, fontWeight: 500 }} /></Row>
-          <Row style={{ borderBottom: "none" }}><span style={{ color: T.body, fontSize: 14, fontWeight: 600 }}>Email</span><input value={userEmail} onChange={() => {}} style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", width: 220, fontWeight: 500 }} /></Row>
-          <div style={{ paddingTop: 18, display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={handleSaveChanges} disabled={isUpdatatingUser} style={{ background: A, border: "none", borderRadius: 12, padding: "10px 22px", color: "#0a0a0a", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Save Changes</button>
-          </div>
-        </Card>
-
-        <SLabel>Preferences</SLabel>
-        <Card style={{ padding: "0 22px" }}>
-          <Row><div><p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Notifications</p><p style={{ color: T.muted, fontSize: 12, marginTop: 2, fontWeight: 500 }}>Email reminders and updates</p></div><Toggle on={notificationsOn} onChange={() => setNotificationsOn((p) => !p)} /></Row>
-          <Row style={{ alignItems: "center" }}>
-            <p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Default Currency</p>
-            <div style={{ minWidth: 220 }}>
-              <CurrencyDropdown selectedCurrencies={preferredCurrency ? [preferredCurrency] : []} setSelectedCurrencies={(currencies) => { const c = currencies[0] || ""; setPreferredCurrency(c); onCurrencyChange?.(c); }} mode="single" showFiatCurrencies={true} filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"} disableChainCurrencies={true} />
-            </div>
-          </Row>
-          <Row style={{ borderBottom: "none", alignItems: "center" }}>
-            <div>
-              <p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Show amounts in</p>
-              <p style={{ color: T.muted, fontSize: 12, marginTop: 2, fontWeight: 500 }}>When an expense was paid in a different currency</p>
-            </div>
-            <Segmented value={currencyDisplay} onChange={onCurrencyDisplayChange} />
-          </Row>
-        </Card>
-
-        <SLabel>Settlement Preference</SLabel>
-        <Card style={{ padding: "0 22px" }}>
-          <SettlementPrefDisplay
-            prefs={settlementPrefs}
-            isLoading={isLoadingPref}
-            isRemoving={isRemovingPref}
-            onEdit={(chainId) => openPrefModalForChain("add", chainId)}
-            onEditWallet={(chainId) => openPrefModalForChain("edit-wallet", chainId)}
-            onRemove={(chainId) => { setActiveChainId(chainId); setIsRemoveConfirmOpen(true); }}
-            onAdd={() => openPrefModalForChain("add")}
-          />
-        </Card>
-
-        <SLabel>Security</SLabel>
-        <Card style={{ padding: "0 22px" }}>
-          <Row style={{ borderBottom: "none", cursor: "pointer" }} onClick={() => setIsChangePasswordOpen(true)}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ color: T.body, display: "flex" }}>{Icons.shield({})}</span><p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Change Password</p></div>
-            <span style={{ color: T.dim, display: "flex" }}>{Icons.chevR({})}</span>
-          </Row>
-        </Card>
-
-        <SLabel>Account</SLabel>
-        <Card style={{ padding: "0 22px" }}>
-          <Row style={{ borderBottom: "none", cursor: onLogout && !isLoggingOut ? "pointer" : undefined, opacity: isLoggingOut ? 0.7 : 1 }} onClick={() => !isLoggingOut && onLogout?.()}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ color: "#F87171", display: "flex" }}>{Icons.logout({})}</span><p style={{ color: "#F87171", fontSize: 14, fontWeight: 700 }}>Sign Out</p></div>
-            <span style={{ color: T.dim, display: "flex" }}>{Icons.chevR({})}</span>
-          </Row>
-        </Card>
-        <div style={{ height: 40 }} />
       </div>
 
       <ChangePasswordModal isOpen={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)} />
@@ -761,50 +1340,30 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       <SettlementPrefModal
         isOpen={prefModalOpen}
         onClose={() => setPrefModalOpen(false)}
-        onSave={(data) => { onSaveSettlementPref(data, () => setPrefModalOpen(false)); }}
+        onSave={(data) => savePref(data, { onSuccess: () => { toast.success("Settlement preference saved"); setPrefModalOpen(false); } })}
         isSaving={isSavingPref}
         allCurrencies={allCurrencies}
         initialChainId={activePref?.chainId}
         initialTokenIds={activePref?.tokens.map((t) => t.tokenId)}
         initialWalletAddress={activePref?.wallet?.address}
         mode={prefModalMode}
-        onUpdateWallet={(addr) => { if (activePref) onUpdateSettlementWallet(addr, activePref.chainId, () => setPrefModalOpen(false)); }}
-        isUpdatingWallet={isUpdatingWallet}
+        onUpdateWallet={(addr) => { if (activePref) updateWalletPref({ walletAddress: addr, chainId: activePref.chainId }, { onSuccess: () => { toast.success("Wallet address updated"); setPrefModalOpen(false); } }); }}
+        isUpdatingWallet={isUpdatingWalletPref}
         existingChainIds={settlementPrefs.map((p) => p.chainId)}
       />
 
-      <AnimatePresence>
-        {isRemoveConfirmOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsRemoveConfirmOpen(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.18 }}
-              className="relative w-full max-w-md rounded-2xl shadow-2xl"
-              style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 0" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#F87171", display: "flex" }}>{Icons.trash({ size: 18 })}</span>
-                  <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em" }}>Remove Preference</h2>
-                </div>
-                <button type="button" onClick={() => setIsRemoveConfirmOpen(false)} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.muted }}>✕</button>
-              </div>
-              <div style={{ padding: "16px 24px 24px" }}>
-                <p style={{ color: T.body, fontSize: 14, lineHeight: 1.6 }}>You won&apos;t be able to receive crypto settlements until you set a new preference.</p>
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-                  <Btn variant="ghost" onClick={() => setIsRemoveConfirmOpen(false)}>Cancel</Btn>
-                  <Btn variant="danger" onClick={() => { if (activeChainId) onRemoveSettlementPref(activeChainId); setIsRemoveConfirmOpen(false); }} style={{ opacity: isRemovingPref ? 0.7 : 1 }}>
-                    {isRemovingPref ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Removing…</span></> : <span>Remove</span>}
-                  </Btn>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={removePrefConfirmOpen}
+        title="Remove preference"
+        body="You won't be able to receive crypto settlements on this chain until you set a new preference."
+        confirmLabel={isRemovingPref ? "Removing…" : "Remove"}
+        working={isRemovingPref}
+        onCancel={() => setRemovePrefConfirmOpen(false)}
+        onConfirm={() => {
+          if (activeChainId) removePref(activeChainId, { onSuccess: () => toast.success("Settlement preference removed"), onError: () => toast.error("Failed to remove settlement preference") });
+          setRemovePrefConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }

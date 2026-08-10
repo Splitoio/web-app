@@ -5,11 +5,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   StellarWalletsKit,
-  WalletNetwork,
   allowAllModules,
   XBULL_ID,
   ISupportedWallet,
 } from "@creit.tech/stellar-wallets-kit";
+import { STELLAR_WALLET_NETWORK } from "@/lib/chain-network";
 
 import { useWallet as useAptosWallet } from "@aptos-labs/wallet-adapter-react";
 
@@ -101,7 +101,8 @@ export function useWallet() {
     try {
       setIsConnecting(true);
       const kit = new StellarWalletsKit({
-        network: WalletNetwork.PUBLIC,
+        // Driven by NEXT_PUBLIC_CHAIN_NETWORK, mirroring the backend's CHAIN_NETWORK.
+        network: STELLAR_WALLET_NETWORK,
         selectedWalletId: XBULL_ID,
         modules: allowAllModules(),
       });

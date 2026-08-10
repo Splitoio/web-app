@@ -2,14 +2,14 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Loader2, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
-import { defaultPostLoginPath } from "@/lib/app-mode";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
+import { safeCallbackPath } from "@/lib/middleware-session";
 import posthog from "posthog-js";
 
 function GoogleIcon() {
@@ -25,19 +25,33 @@ function GoogleIcon() {
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Where to send the new account once it can sign in. An invite link passes
+  // its own `/invite/<token>` here so the person lands back on the invite and
+  // joins the workspace, instead of being dropped on a bare dashboard.
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    // Prefill only — see the same note on the login page.
+    email: searchParams.get("email") ?? "",
     phoneNumber: "",
     password: "",
     agreeToTerms: false,
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Two responsive copies of this form share the DOM (desktop card below vs
+    // the sm:hidden mobile block) — only one is ever on screen, but both are
+    // real <form> elements. offsetParent is null when an ancestor has
+    // display:none, which is exactly how Tailwind's hidden/sm:hidden hides
+    // the other copy, so this stops a submit on the off-screen copy (e.g. an
+    // automated form-filler that doesn't respect CSS visibility) from firing
+    // a second sign-up alongside the visible one.
+    if (e.currentTarget.offsetParent === null) return;
     setIsLoadingEmail(true);
 
     try {
@@ -45,7 +59,7 @@ export default function SignupPage() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        callbackURL: defaultPostLoginPath,
+        callbackURL: callbackUrl ?? "/",
       });
 
       if (error) {
@@ -53,7 +67,15 @@ export default function SignupPage() {
       } else if (data) {
         posthog.capture("user_signed_up", { method: "email" });
         toast.success("Account created! You can sign in now.");
-        router.push("/login");
+        // Carry the invite destination (and the invited email) through the
+        // sign-in step — the login page honours both, and if better-auth has
+        // already seated a session (autoSignIn), proxy.ts forwards this same
+        // callbackUrl instead of dumping the new account on the dashboard.
+        const params = new URLSearchParams();
+        if (formData.email) params.set("email", formData.email);
+        if (callbackUrl) params.set("callbackUrl", callbackUrl);
+        const query = params.toString();
+        router.push(query ? `/login?${query}` : "/login");
       }
     } catch (error) {
       const apiError = error as ApiError;
@@ -87,7 +109,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#101012] flex items-center justify-center relative px-4 py-8">
+    <div className="min-h-screen w-full bg-[var(--splito-bg)] flex items-center justify-center relative px-4 py-8">
       <div className="absolute -left-1/3 lg:-left-1/4 w-full h-full bg-[url('/final_bgsvg.svg')] bg-no-repeat opacity-50 hidden sm:block" />
 
       <motion.div
@@ -151,16 +173,19 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="form-group">
                 <label htmlFor="name-desktop" className="form-label">Name</label>
-                <input
-                  type="text"
-                  id="name-desktop"
-                  className="form-input !rounded-[12px] !bg-[#0D0D0F] !pl-4 !border-white/10"
-                  placeholder="Your name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  disabled={isLoadingEmail || isLoadingGoogle}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="name-desktop"
+                    className="form-input !rounded-[12px] !bg-[#0D0D0F] !pl-12 !border-white/10"
+                    placeholder="Your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    disabled={isLoadingEmail || isLoadingGoogle}
+                  />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
+                </div>
               </div>
               <div className="form-group">
                 <label htmlFor="email-desktop" className="form-label">Email</label>
@@ -197,6 +222,8 @@ export default function SignupPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -207,9 +234,9 @@ export default function SignupPage() {
                   type="checkbox"
                   id="terms-desktop"
                   className="appearance-none rounded-[7px] border border-white/10 w-5 h-5 bg-[#0D0D0F] cursor-pointer relative
-                    checked:border-[#22D3EE] checked:bg-[#22D3EE]/20
+                    checked:border-splito-a checked:bg-splito-a/20
                     checked:after:content-['✓'] checked:after:absolute checked:after:left-1/2 checked:after:top-1/2
-                    checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:text-[#22D3EE] checked:after:text-sm"
+                    checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:text-splito-a checked:after:text-sm"
                   checked={formData.agreeToTerms}
                   onChange={(e) => setFormData({ ...formData, agreeToTerms: e.target.checked })}
                   required
@@ -225,7 +252,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >
@@ -292,16 +319,19 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="form-group">
                 <label htmlFor="name-mobile" className="text-sm font-medium text-white/80 mb-2 block">Name</label>
-                <input
-                  type="text"
-                  id="name-mobile"
-                  className="w-full bg-[#0D0D0F] border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-white/20 placeholder-white/40"
-                  placeholder="Your name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  disabled={isLoadingEmail || isLoadingGoogle}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="name-mobile"
+                    className="w-full bg-[#0D0D0F] border border-white/10 rounded-xl px-4 pl-11 py-3 text-white focus:ring-2 focus:ring-white/20 placeholder-white/40"
+                    placeholder="Your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    disabled={isLoadingEmail || isLoadingGoogle}
+                  />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
+                </div>
               </div>
               <div className="form-group">
                 <label htmlFor="email-mobile" className="text-sm font-medium text-white/80 mb-2 block">Email</label>
@@ -337,6 +367,8 @@ export default function SignupPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoadingEmail || isLoadingGoogle}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -346,7 +378,7 @@ export default function SignupPage() {
                 <input
                   type="checkbox"
                   id="terms-mobile"
-                  className="rounded border border-white/10 w-5 h-5 bg-[#0D0D0F] cursor-pointer accent-[#22D3EE]"
+                  className="rounded border border-white/10 w-5 h-5 bg-[#0D0D0F] cursor-pointer accent-splito-a"
                   checked={formData.agreeToTerms}
                   onChange={(e) => setFormData({ ...formData, agreeToTerms: e.target.checked })}
                   required
@@ -362,7 +394,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
-                  bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base
+                  bg-splito-a text-[#0a0a0a] font-semibold text-base
                   transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoadingEmail || isLoadingGoogle}
               >

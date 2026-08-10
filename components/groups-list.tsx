@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getAllGroups } from "@/features/groups/api/client";
@@ -10,10 +10,9 @@ import { QueryKeys } from "@/lib/constants";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
-import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
 import { useGetAllCurrencies, useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-import { G, T } from "@/lib/splito-design";
+import { G, T, Btn } from "@/lib/splito-design";
 import { GroupsListContent } from "@/components/groups-list-content";
 
 export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
@@ -22,10 +21,9 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     isLoading: isGroupsLoading,
     error,
   } = useQuery({
-    queryKey: [QueryKeys.GROUPS, "PERSONAL"],
-    queryFn: () => getAllGroups({ type: "PERSONAL" }),
+    queryKey: [QueryKeys.GROUPS, "list"],
+    queryFn: getAllGroups,
   });
-  const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
   const { user } = useAuthStore();
   const { data: allCurrencies } = useGetAllCurrencies();
@@ -98,91 +96,6 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     }
   }, [error, router]);
 
-  const [_editingId, setEditingId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleteSuccess, setDeleteSuccess] = useState(false);
-  const [groupToDelete, setGroupToDelete] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest(".group-menu")) {
-        setEditingId(null);
-      }
-    };
-
-    document.addEventListener("click", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
-
-  const _handleDeleteGroup = (
-    e: React.MouseEvent,
-    groupId: string,
-    groupName: string
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Show delete modal
-    setGroupToDelete({ id: groupId, name: groupName });
-    setShowDeleteModal(true);
-    setIsDeleting(false);
-    setDeleteError(null);
-    setDeleteSuccess(false);
-  };
-
-  const confirmDelete = () => {
-    if (!groupToDelete) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    deleteGroupMutation.mutate(groupToDelete.id, {
-      onSuccess: () => {
-        setIsDeleting(false);
-        setDeleteSuccess(true);
-        setEditingId(null);
-        // We'll close the modal after a short delay
-        setTimeout(() => {
-          setShowDeleteModal(false);
-          setGroupToDelete(null);
-          setDeleteSuccess(false);
-        }, 1500);
-      },
-      onError: (error: unknown) => {
-        setIsDeleting(false);
-
-        // Cast to a modified error type to handle the API error format
-        type ExtendedApiError = ApiError & {
-          data?: {
-            error?: string;
-          };
-        };
-
-        const apiError = error as ExtendedApiError;
-
-        if (
-          apiError?.message?.includes("non-zero balance") ||
-          apiError?.data?.error?.includes("non-zero balance")
-        ) {
-          setDeleteError(
-            "You have unsettled balances in this group. Please clear all dues before deleting."
-          );
-        } else {
-          setDeleteError(apiError?.message || "Failed to delete group");
-        }
-      },
-    });
-  };
-
   if (isGroupsLoading || !groupsData) {
     return (
       <div className="flex items-center justify-center py-8 sm:py-12">
@@ -196,24 +109,29 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
   if (groupsData.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "80px 20px" }}>
-        <p style={{ fontSize: 48, marginBottom: 18 }}>👥</p>
+        {/* Tailwind's preflight sets `svg { display: block }`, so the parent's
+            text-align (which centred the old emoji glyph) no longer centres
+            this icon — mx-auto does, same idiom as pay/status-banner.tsx. */}
+        <Users size={40} strokeWidth={1.5} color={T.faint} className="mx-auto" style={{ marginBottom: 18 }} />
         <p style={{ fontSize: 18, fontWeight: 800, color: T.body, marginBottom: 8 }}>
           No groups yet
         </p>
         <p style={{ fontSize: 14, color: T.sub, marginBottom: 24 }}>
-          Create a group to start tracking expenses and settle debts with your friends
+          Create a group to start requesting money together — rent, trips, anything shared
         </p>
-        <button
-          type="button"
-          onClick={() =>
-            document.dispatchEvent(new CustomEvent("open-create-group-modal"))
-          }
-          className="inline-flex items-center gap-2 rounded-xl text-[13px] font-extrabold text-[#0a0a0a] transition-opacity hover:opacity-90"
-          style={{ background: "#22D3EE", padding: "10px 18px" }}
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          New Group
-        </button>
+        {/* Btn renders as a flex element, so textAlign on the parent can't centre
+            it — the flex wrapper is what keeps this CTA centred in the empty state. */}
+        <div className="flex justify-center">
+          <Btn
+            variant="primary"
+            onClick={() =>
+              document.dispatchEvent(new CustomEvent("open-create-group-modal"))
+            }
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            New Group
+          </Btn>
+        </div>
       </div>
     );
   }
@@ -229,13 +147,5 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     unsettledCount,
     totalGroupsCount: groupsData.length,
     currencyCount,
-    showDeleteModal,
-    setShowDeleteModal,
-    groupToDelete,
-    setGroupToDelete,
-    deleteSuccess,
-    deleteError,
-    isDeleting,
-    confirmDelete,
   });
 }

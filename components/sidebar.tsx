@@ -1,487 +1,400 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  UserPlus,
-  LayoutDashboard,
-  ChevronLeft,
-  ChevronsUpDown,
-  Plus,
-  Activity,
-  FileSignature,
-  FileText,
-  Receipt,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Icons, getUserColor } from "@/lib/splito-design";
+import {
+  A,
+  BORDER,
+  INSET,
+  Icons,
+  MONO,
+  PANEL,
+  RADIUS,
+  SHADOW,
+  T,
+  avatarChip,
+  getUserColor,
+  initialsFrom,
+  navGroupLabel,
+} from "@/lib/splito-design";
+import { isNavItemActive, navGroupsFor, navItemId } from "@/lib/shell-nav";
+import { isWorkspaceAdmin } from "@/lib/workspace";
+import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
-import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
-import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
-import { APP_MODE } from "@/lib/app-mode";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  useActiveWorkspace,
+  useSetActiveWorkspace,
+  useWorkspaces,
+} from "@/contexts/workspace";
 
-function isOrgAdmin(
-  org: { userId: string; groupUsers?: { userId: string; role?: string | null }[] },
-  currentUserId: string
-): boolean {
-  if (org.userId === currentUserId) return true;
-  const membership = org.groupUsers?.find((gu) => gu.userId === currentUserId);
-  return membership?.role === "ADMIN";
-}
+const SIDEBAR_WIDTH = 258;
 
-const dropdownVariants = {
-  hidden: { opacity: 0, y: 4, scale: 0.98 },
-  visible: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: 4, scale: 0.98 },
-};
-
+/**
+ * The one sidebar. There is no personal/business fork in the chrome itself —
+ * only the nav groups differ, and which set renders is decided by the active
+ * workspace, never by the URL.
+ */
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const isOrganizationMode =
-    APP_MODE === "organization" || pathname.startsWith("/organization");
   const { isOpen, close } = useMobileMenu();
-  const { user } = useAuthStore();
-  const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
-  const orgSwitcherRef = useRef<HTMLDivElement>(null);
+  const { user, isAuthenticated } = useAuthStore();
+  const { workspaces, businessCount, businessCap, canCreateBusiness } = useWorkspaces();
+  const activeWorkspace = useActiveWorkspace();
+  const setActiveWorkspace = useSetActiveWorkspace();
 
-  const { data: organizations = [], isError: isOrgsError } = useGetAllOrganizations({
-    enabled: isOrganizationMode && !!user,
-  });
-  const { data: groups = [] } = useGetAllGroups({ type: "PERSONAL" });
-  const logo = "/logo.svg";
-
-  const orgPathMatch = pathname.match(/^\/organization\/([^/]+)\/(invoices|finances|streams|expenses|activity|contracts|members|settings)$/);
-  const currentOrgId = orgPathMatch?.[1] ?? null;
-  const currentOrgTab = orgPathMatch?.[2] ?? "invoices";
-  const linkOrgId = currentOrgId ?? organizations[0]?.id ?? null;
-  const currentOrg = (currentOrgId ? organizations.find((o) => o.id === currentOrgId) : organizations[0]) ?? null;
-  const isAdminOfLinkOrg = !!currentOrg && !!user && isOrgAdmin(currentOrg, user.id);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (orgSwitcherRef.current && !orgSwitcherRef.current.contains(e.target as Node)) {
-        setOrgSwitcherOpen(false);
+    const onClickOutside = (e: MouseEvent) => {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setSwitcherOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  const navGroups = navGroupsFor(activeWorkspace.kind, isWorkspaceAdmin(activeWorkspace));
+  const wsColor = activeWorkspace.color || A;
+  // The cap is the server's verdict (`GET /api/workspaces`), not local
+  // arithmetic — the row is disabled with a reason rather than failing on submit.
+  const capReason = canCreateBusiness
+    ? undefined
+    : `You've reached the limit of ${businessCap} workspaces`;
+
   return (
-    <div className="hidden min-[1025px]:block">
+    <>
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/70 brightness-50 min-[1025px]:hidden z-50"
+          className="fixed inset-0 bg-black/70 min-[1025px]:hidden z-50"
           onClick={close}
         />
       )}
 
       <div
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen transition-all duration-300 ease-in-out shadow-xl min-[1025px]:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full",
-          "w-[226px] border-r border-white/[0.07]"
+          "fixed left-0 top-0 z-50 h-screen flex flex-col transition-transform duration-300 ease-in-out min-[1025px]:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full"
         )}
-        style={{ background: "linear-gradient(180deg, #0e0e0e 0%, #0b0b0b 100%)" }}
+        style={{
+          width: SIDEBAR_WIDTH,
+          padding: "18px 12px 14px",
+          borderRight: "1px solid rgba(255,255,255,0.07)",
+          background: "linear-gradient(180deg,#0e0e0e 0%,#0b0b0b 100%)",
+        }}
       >
-        <div className="flex h-full flex-col px-[14px] py-[22px]">
-          {/* Logo/Brand – same in both modes */}
-          <div className="flex items-center relative pl-2 gap-2.5 mb-8">
-            <Link href={isOrganizationMode ? "https://splito.io" : "/"} onClick={close} className="z-10 flex items-center">
-              <Image src={logo} alt="Splito Logo" width={120} height={32} className="h-8 w-auto" />
-            </Link>
-            <button
-              onClick={close}
-              className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-[#17171A] text-white/70 hover:text-white transition-colors min-[1025px]:hidden"
-              aria-label="Close menu"
+        {/* Logo */}
+        <div className="relative flex items-center px-2 mb-4">
+          <Link href="/" onClick={close} className="flex items-center">
+            <Image src="/logo.svg" alt="Splito" width={120} height={24} className="h-6 w-auto" />
+          </Link>
+          <button
+            onClick={close}
+            aria-label="Close menu"
+            className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-[#17171A] text-white/70 hover:text-white transition-colors min-[1025px]:hidden"
+          >
+            <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
+          </button>
+        </div>
+
+        {/* Workspace switcher */}
+        <div ref={switcherRef}>
+          <button
+            id="sidebar-workspace-switcher"
+            type="button"
+            onClick={() => setSwitcherOpen((v) => !v)}
+            className="tile w-full flex items-center gap-2.5 text-left transition-all"
+            style={{
+              padding: "10px 11px",
+              borderRadius: RADIUS.tile,
+              background: INSET,
+              border: "1px solid rgba(255,255,255,0.09)",
+              marginBottom: 4,
+            }}
+          >
+            <span style={avatarChip(wsColor, 32, 10)}>{activeWorkspace.initials}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block truncate" style={{ fontSize: 13, fontWeight: 700, color: T.main }}>
+                {activeWorkspace.name}
+              </span>
+              <span
+                className="block"
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: wsColor,
+                }}
+              >
+                {activeWorkspace.kind === "business" ? "Business" : "Personal"}
+              </span>
+            </span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 9l5-5 5 5M7 15l5 5 5-5" />
+            </svg>
+          </button>
+
+          {switcherOpen && (
+            <div
+              className="fade-up"
+              style={{
+                borderRadius: RADIUS.tile,
+                background: PANEL,
+                border: "1px solid rgba(255,255,255,0.1)",
+                padding: 6,
+                marginBottom: 6,
+                boxShadow: SHADOW.dropdown,
+              }}
             >
-              <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
-            </button>
-          </div>
-
-          {/* Main Navigation */}
-          <nav className="flex flex-col gap-0.5">
-            {/* Dashboard - shared; in personal mode use design styling */}
-            {(!isOrganizationMode ? (
-              <Link
-                id="sidebar-dashboard-link"
-                href="/"
-                onClick={close}
-                className={cn(
-                  "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                  pathname === "/" && !pathname.startsWith("/groups/")
-                    ? "bg-white/[0.09] text-white font-bold"
-                    : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                )}
-              >
-                <span className={pathname === "/" ? "text-[#22D3EE]" : "inherit"}>{Icons.home({})}</span>
-                Dashboard
-              </Link>
-            ) : (
-              <Link
-                id="sidebar-dashboard-link"
-                href="/organization"
-                onClick={close}
-                className={cn(
-                  "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                  pathname === "/organization"
-                    ? "bg-white/[0.09] text-white font-bold"
-                    : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                )}
-              >
-                <span className={pathname === "/organization" ? "text-[#22D3EE]" : "inherit"}><LayoutDashboard className="h-4 w-4" strokeWidth={1.5} /></span>
-                Dashboard
-              </Link>
-            ))}
-
-            {/* ── Organization mode: connection error hint when APIs fail ── */}
-            {isOrganizationMode && !linkOrgId && isOrgsError && (
-              <div className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <p className="text-amber-200/90 text-xs font-medium">Couldn&apos;t load organizations</p>
-                <Link
-                  href="/organization"
-                  onClick={close}
-                  className="text-amber-300/80 text-xs hover:text-amber-200 mt-0.5 inline-block underline"
+              <p style={{ ...navGroupLabel(), letterSpacing: "0.1em", color: T.dim, margin: "6px 10px" }}>
+                Workspaces
+              </p>
+              {workspaces.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveWorkspace(w.id);
+                    setSwitcherOpen(false);
+                    close();
+                  }}
+                  className="nv w-full flex items-center gap-2.5 text-left"
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 11,
+                    background:
+                      w.id === activeWorkspace.id ? "rgba(255,255,255,0.06)" : "transparent",
+                  }}
                 >
-                  View details on dashboard →
-                </Link>
-              </div>
-            )}
-
-            {/* ── Organization mode links (when an org is selected) ── */}
-            {isOrganizationMode && linkOrgId && (
-              <>
-                <Link
-                  id="sidebar-org-invoices-link"
-                  href={`/organization/${linkOrgId}/invoices`}
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === `/organization/${linkOrgId}/invoices`
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === `/organization/${linkOrgId}/invoices` ? "text-[#22D3EE]" : "inherit"}><FileText className="h-4 w-4" strokeWidth={1.5} /></span>
-                  Invoices
-                </Link>
-
-                {isAdminOfLinkOrg && (() => {
-                  const financesActive =
-                    pathname === `/organization/${linkOrgId}/finances` ||
-                    pathname === `/organization/${linkOrgId}/expenses` ||
-                    pathname === `/organization/${linkOrgId}/streams`;
-                  return (
-                    <Link
-                      id="sidebar-org-finances-link"
-                      href={`/organization/${linkOrgId}/finances`}
-                      onClick={close}
-                      className={cn(
-                        "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                        financesActive
-                          ? "bg-white/[0.09] text-white font-bold"
-                          : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                      )}
-                    >
-                      <span className={financesActive ? "text-[#22D3EE]" : "inherit"}><Receipt className="h-4 w-4" strokeWidth={1.5} /></span>
-                      Finances
-                    </Link>
-                  );
-                })()}
-
-                {isAdminOfLinkOrg && (
-                  <Link
-                    id="sidebar-org-activity-link"
-                    href={`/organization/${linkOrgId}/activity`}
-                    onClick={close}
-                    className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                      pathname === `/organization/${linkOrgId}/activity`
-                        ? "bg-white/[0.09] text-white font-bold"
-                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                    )}
-                  >
-                    <span className={pathname === `/organization/${linkOrgId}/activity` ? "text-[#22D3EE]" : "inherit"}><Activity className="h-4 w-4" strokeWidth={1.5} /></span>
-                    Activity
-                  </Link>
-                )}
-
-                <Link
-                  id="sidebar-org-contracts-link"
-                  href={`/organization/${linkOrgId}/contracts`}
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === `/organization/${linkOrgId}/contracts`
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === `/organization/${linkOrgId}/contracts` ? "text-[#22D3EE]" : "inherit"}><FileSignature className="h-4 w-4" strokeWidth={1.5} /></span>
-                  Contracts
-                </Link>
-
-                {isAdminOfLinkOrg && (
-                  <Link
-                    id="sidebar-org-members-link"
-                    href={`/organization/${linkOrgId}/members`}
-                    onClick={close}
-                    className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                      pathname === `/organization/${linkOrgId}/members`
-                        ? "bg-white/[0.09] text-white font-bold"
-                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                    )}
-                  >
-                    <span className={pathname === `/organization/${linkOrgId}/members` ? "text-[#22D3EE]" : "inherit"}><UserPlus className="h-4 w-4" strokeWidth={1.5} /></span>
-                    Members
-                  </Link>
-                )}
-
-                <Link
-                  id="sidebar-org-settings-link"
-                  href={`/organization/${linkOrgId}/settings`}
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === `/organization/${linkOrgId}/settings`
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === `/organization/${linkOrgId}/settings` ? "text-[#22D3EE]" : "inherit"}>{Icons.settings({})}</span>
-                  Settings
-                </Link>
-              </>
-            )}
-
-            {/* ── Personal mode links (My Groups, Friends, Settings) ── */}
-            {!isOrganizationMode && (
-              <>
-                <Link
-                  id="sidebar-groups-link"
-                  href="/groups"
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === "/groups" || pathname.startsWith("/groups/")
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === "/groups" || pathname.startsWith("/groups/") ? "text-[#22D3EE]" : "inherit"}>{Icons.groups({})}</span>
-                  My Groups
-                </Link>
-                <Link
-                  id="sidebar-friends-link"
-                  href="/friends"
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === "/friends"
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === "/friends" ? "text-[#22D3EE]" : "inherit"}>{Icons.friends({})}</span>
-                  Friends
-                </Link>
-                <Link
-                  id="sidebar-settings-link"
-                  href="/settings"
-                  onClick={close}
-                  className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                    pathname === "/settings"
-                      ? "bg-white/[0.09] text-white font-bold"
-                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                  )}
-                >
-                  <span className={pathname === "/settings" ? "text-[#22D3EE]" : "inherit"}>{Icons.settings({})}</span>
-                  Settings
-                </Link>
-              </>
-            )}
-          </nav>
-
-          {/* Personal mode: GROUPS section + New group + user card */}
-          {!isOrganizationMode && (
-            <>
-              <div className="mt-7 flex-1 overflow-y-auto min-h-0">
-                <p className="text-[10px] font-extrabold tracking-[0.12em] uppercase px-[13px] mb-2" style={{ color: "#777" }}>GROUPS</p>
-                <div className="flex flex-col gap-px">
-                  {groups.map((g) => {
-                    const isActive = pathname.startsWith(`/groups/${g.id}`);
-                    return (
-                      <Link
-                        key={g.id}
-                        href={`/groups/${g.id}`}
-                        onClick={close}
-                        className={cn(
-                          "splito-nav-item flex items-center py-[9px] px-[13px] rounded-[12px] transition-all",
-                          isActive ? "bg-white/[0.09] text-white font-bold" : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                        )}
-                      >
-                        <span className="text-[13px] truncate flex-1">
-                          {g.name}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      close();
-                      if (pathname === "/groups") {
-                        document.dispatchEvent(new CustomEvent("open-create-group-modal"));
-                      } else {
-                        router.push("/groups?openCreate=1");
-                      }
-                    }}
-                    className="w-full flex items-center gap-[9px] rounded-[12px] py-[9px] px-[13px] bg-transparent my-1.5 transition-all cursor-pointer"
-                    style={{ border: "1.5px dashed rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}
-                  >
-                    <span className="text-[15px] leading-none">+</span>
-                    <span className="text-[13px] font-medium">New group</span>
-                  </button>
-                </div>
-              </div>
-              <div className="mt-auto">
-                <div className="flex items-center gap-2.5 py-3 px-[13px] rounded-2xl bg-white/[0.05] border border-white/[0.08]">
-                  <div
-                    className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0"
-                    style={{
-                      background: `${getUserColor(user?.name || "You")}1a`,
-                      border: `2px solid ${getUserColor(user?.name || "You")}33`,
-                      color: getUserColor(user?.name || "You"),
-                    }}
-                  >
-                    {user?.name?.charAt(0)?.toUpperCase() || "Y"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-bold truncate" style={{ color: "#e8e8e8" }}>{user?.name || "You"}</p>
-                    <p className="text-[11px] truncate font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>{user?.email || "you@email.com"}</p>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Bottom Section (organization mode only; pinned to bottom in web view) */}
-          {isOrganizationMode && (
-              <div className="mt-auto pt-3">
-                <div className="relative" ref={orgSwitcherRef}>
-                  <button
-                    id="sidebar-org-switcher-button"
-                    type="button"
-                    onClick={() => setOrgSwitcherOpen((v) => !v)}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 py-3 px-[13px] rounded-2xl text-left transition-colors",
-                      "bg-white/[0.05] border border-white/[0.08]",
-                      "hover:bg-white/[0.07] hover:border-white/[0.1]",
-                      orgSwitcherOpen && "bg-white/[0.07] border-white/[0.1]"
-                    )}
-                  >
-                    <div
-                      className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0"
+                  <span style={avatarChip(w.color || A, 26, 8)}>{w.initials}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate" style={{ fontSize: 12.5, fontWeight: 600, color: T.main }}>
+                      {w.name}
+                    </span>
+                    <span
+                      className="block"
                       style={{
-                        background: `${getUserColor(currentOrg?.name || "?")}1a`,
-                        border: `2px solid ${getUserColor(currentOrg?.name || "?")}33`,
-                        color: getUserColor(currentOrg?.name || "?"),
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        letterSpacing: "0.04em",
+                        textTransform: "uppercase",
+                        color: T.dim,
                       }}
                     >
-                      {currentOrg ? currentOrg.name.charAt(0).toUpperCase() : "?"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold truncate" style={{ color: "#e8e8e8" }}>
-                        {currentOrg?.name ?? "Select organization"}
-                      </p>
-                      <p className="text-[11px] truncate font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>Organization</p>
-                    </div>
-                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" style={{ color: "rgba(255,255,255,0.45)" }} strokeWidth={1.5} />
-                  </button>
+                      {w.kind === "business" ? "Business" : "Personal"}
+                    </span>
+                  </span>
+                </button>
+              ))}
 
-                <AnimatePresence>
-                  {orgSwitcherOpen && (
-                    <motion.div
-                      variants={dropdownVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="absolute left-0 right-0 bottom-full mb-1 rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[1001] max-h-[320px] overflow-y-auto"
-                    >
-                      <div className="px-4 py-2 mb-1">
-                        <p className="text-xs text-white/40 uppercase tracking-wider font-medium">Organizations</p>
-                      </div>
+              <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "6px 4px" }} />
 
-                      {organizations.length === 0 ? (
-                        <div className="px-4 py-3 text-sm">
-                          {isOrgsError ? (
-                            <span className="text-amber-400/90">Connection error. See dashboard for details.</span>
-                          ) : (
-                            <span className="text-white/60">No organizations</span>
-                          )}
-                        </div>
-                      ) : (
-                        organizations.map((org) => (
-                          <Link
-                            key={org.id}
-                            href={`/organization/${org.id}/${currentOrgTab}`}
-                            onClick={() => { close(); setOrgSwitcherOpen(false); }}
-                            className={cn(
-                              "flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
-                              org.id === currentOrgId
-                                ? "bg-white/10 text-white"
-                                : "text-white/90 hover:bg-white/5 hover:text-white"
-                            )}
-                          >
-                            <div
-                              className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                              style={{
-                                background: `${getUserColor(org.name)}1a`,
-                                border: `1.5px solid ${getUserColor(org.name)}33`,
-                                color: getUserColor(org.name),
-                              }}
-                            >
-                              {org.name.charAt(0).toUpperCase()}
-                            </div>
-                            <span className="truncate">{org.name}</span>
-                          </Link>
-                        ))
-                      )}
-
-                      <Link
-                        id="sidebar-create-org-link"
-                        href="/organization/create"
-                        onClick={() => { close(); setOrgSwitcherOpen(false); }}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:bg-white/5 hover:text-white transition-colors"
-                      >
-                        <Plus className="h-4 w-4" strokeWidth={1.5} />
-                        Create organization
-                      </Link>
-
-                      <div className="border-t border-white/10 mt-2 pt-2">
-                        <Link
-                          href="/organization/organizations"
-                          onClick={() => { close(); setOrgSwitcherOpen(false); }}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
-                        >
-                          Manage all organizations
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-          </div>
+              <button
+                type="button"
+                disabled={!canCreateBusiness}
+                title={capReason}
+                onClick={() => {
+                  setSwitcherOpen(false);
+                  close();
+                  setCreateOpen(true);
+                }}
+                className="nv w-full flex items-center gap-2.5 text-left"
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 11,
+                  color: T.sub,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: canCreateBusiness ? "pointer" : "not-allowed",
+                  opacity: canCreateBusiness ? 1 : 0.5,
+                }}
+              >
+                <span style={{ width: 26, textAlign: "center", fontSize: 15 }}>+</span>
+                New workspace
+                <span className="flex-1" />
+                <span style={{ fontSize: 10.5, fontWeight: 700, color: T.faded, fontFamily: MONO }}>
+                  {businessCount} / {businessCap}
+                </span>
+              </button>
+              {capReason && (
+                <p
+                  style={{
+                    margin: "2px 10px 4px",
+                    fontSize: 10.5,
+                    lineHeight: 1.4,
+                    color: T.faded,
+                  }}
+                >
+                  {capReason}.
+                </p>
+              )}
+            </div>
           )}
         </div>
+
+        {/* Search — ⌘K opens it once the palette lands. Until then this is
+            rendered as a visibly gated affordance rather than a live-looking
+            control that silently does nothing when clicked. */}
+        <button
+          type="button"
+          disabled
+          aria-disabled="true"
+          title="Search is coming soon"
+          className="nv flex items-center gap-2.5 w-full text-left transition-all"
+          style={{
+            padding: "9px 12px",
+            borderRadius: RADIUS.control,
+            margin: "6px 0 14px",
+            color: T.dim,
+            opacity: 0.55,
+            cursor: "not-allowed",
+          }}
+        >
+          <span>{Icons.search({ size: 15 })}</span>
+          <span className="flex-1" style={{ fontSize: 13, fontWeight: 500 }}>
+            Search
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "2px 6px",
+              borderRadius: 6,
+              background: "rgba(255,255,255,0.06)",
+              color: T.faded,
+              fontFamily: MONO,
+            }}
+          >
+            ⌘K
+          </span>
+        </button>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto min-h-0 -mx-0.5 px-0.5">
+          {navGroups.map((group) => (
+            <div key={group.label} style={{ marginBottom: 18 }}>
+              <p style={{ ...navGroupLabel(), margin: "0 0 6px", padding: "0 13px" }}>
+                {group.label}
+              </p>
+              <div className="flex flex-col gap-px">
+                {group.items.map((item) => {
+                  const active = isNavItemActive(item.href, pathname ?? "");
+                  return (
+                    <Link
+                      key={item.href}
+                      id={navItemId(item.href)}
+                      href={item.href}
+                      onClick={close}
+                      className="nv flex items-center gap-2.5 transition-all"
+                      style={{
+                        borderRadius: RADIUS.control,
+                        padding: "9px 13px",
+                        fontSize: 13.5,
+                        background: active ? "rgba(255,255,255,0.07)" : "transparent",
+                        color: active ? T.main : "rgba(255,255,255,0.6)",
+                        fontWeight: active ? 700 : 500,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 2,
+                          flexShrink: 0,
+                          background: active ? item.dot : "rgba(255,255,255,0.18)",
+                        }}
+                      />
+                      <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                      {item.badge ? (
+                        <span
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 800,
+                            padding: "2px 7px",
+                            borderRadius: RADIUS.pill,
+                            fontFamily: MONO,
+                            background: `${item.dot}1a`,
+                            color: item.dot,
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Account panel — guest upsell, or the signed-in user row. */}
+        {isAuthenticated && user ? (
+          <Link
+            href="/settings"
+            onClick={close}
+            className="nv flex items-center gap-2.5 transition-all"
+            style={{ padding: "9px 11px", borderRadius: 14 }}
+          >
+            <span style={avatarChip(getUserColor(user.name ?? user.email ?? null), 30)}>
+              {initialsFrom(user.name, user.email)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate" style={{ fontSize: 12.5, fontWeight: 700, color: T.main }}>
+                {user.name || user.email}
+              </span>
+              <span
+                className="block truncate"
+                style={{ fontSize: 10.5, fontWeight: 500, color: "rgba(255,255,255,0.4)" }}
+              >
+                {user.email}
+              </span>
+            </span>
+            {Icons.chevD({ size: 13 })}
+          </Link>
+        ) : (
+          <div
+            style={{
+              padding: "13px 14px",
+              borderRadius: 16,
+              background: "rgba(34,211,238,0.06)",
+              border: "1px solid rgba(34,211,238,0.2)",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: A }}>Guest session</p>
+            <p style={{ margin: "4px 0 10px", fontSize: 11, lineHeight: 1.5, color: T.muted }}>
+              Everything here lives in this browser only.
+            </p>
+            <Link
+              href="/signup"
+              onClick={close}
+              className="btn block text-center"
+              style={{
+                padding: 8,
+                borderRadius: 10,
+                background: A,
+                color: "#0a0a0a",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              Create free account
+            </Link>
+          </div>
+        )}
       </div>
-    </div>
+
+      <CreateWorkspaceModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+    </>
   );
 }
+
+export { SIDEBAR_WIDTH };

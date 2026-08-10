@@ -209,11 +209,56 @@ input[type="number"] {
   }
 }
 
-/* Splito design – personal view */
+/* ─── Splito design tokens ─────────────────────────────────────────────────
+   Ported from .design/INDEX.md §1. Dark-only: there is no light theme and
+   nothing here is behind a `.dark` selector. The shadcn HSL vars above are
+   the primitive layer (components/ui/*) and are deliberately left alone —
+   product surfaces consume these tokens via lib/splito-design.tsx instead of
+   re-typing a hex. */
+:root {
+  /* accents */
+  --splito-a: #22d3ee; /* cyan   — brand / primary */
+  --splito-g: #34d399; /* green  — positive, cleared */
+  --splito-r: #f87171; /* red    — negative, overdue */
+  --splito-p: #a78bfa; /* purple — split, Solana */
+  --splito-o: #fb923c; /* orange — pending, warning */
+  --splito-b: #818cf8; /* indigo — Ethereum */
+
+  /* surfaces */
+  --splito-bg: #0b0b0b;
+  --splito-surface: linear-gradient(145deg, #111 0%, #0d0d0d 100%);
+  --splito-hero: linear-gradient(135deg, #141414 0%, #0f0f0f 100%);
+  --splito-panel: #17171a;
+  --splito-border: rgba(255, 255, 255, 0.08);
+
+  /* type */
+  --splito-mono: var(--font-dm-mono), "DM Mono", monospace;
+}
+
+html,
+body {
+  background: #0b0b0b;
+}
+
+/* Splito design – app shell wrapper. Instrument Sans is the UI face (set on
+   <body> by app/layout.tsx); this only pins the background. */
 .splito-page-wrap {
   background: #0b0b0b;
   min-height: 100vh;
-  font-family: var(--font-dm-sans), "DM Sans", "Segoe UI", sans-serif;
+}
+
+a {
+  color: #22d3ee;
+  text-decoration: none;
+}
+a:hover {
+  color: #67e8f9;
+}
+
+/* Every number, amount, address and token symbol renders in DM Mono. */
+.mono,
+.font-dm-mono {
+  font-family: var(--splito-mono);
 }
 /* Spinner animation for loading states */
 @keyframes spin {
@@ -243,7 +288,13 @@ input[type="number"] {
   50%       { opacity: 0.3; }
 }
 
-/* Short-name hover aliases used across components */
+/* Hover classes — the design's five interaction primitives (INDEX.md §1
+   "Hover classes"). Applied as plain class names on any element:
+     .nv   nav rows / switcher rows / settings rail
+     .rw   list, activity, payer, group and stream rows
+     .btn  filled buttons
+     .abtn outline buttons
+     .tile clickable cards and tiles */
 .rw:hover {
   background: rgba(255, 255, 255, 0.03) !important;
 }
@@ -252,13 +303,24 @@ input[type="number"] {
   color: #e8e8e8 !important;
 }
 .btn:hover {
-  opacity: 0.85;
-  transform: translateY(-1px);
+  opacity: 0.87;
 }
 .abtn:hover {
-  border-color: rgba(34, 211, 238, 0.35) !important;
-  color: #22d3ee !important;
-  background: rgba(34, 211, 238, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+}
+.tile:hover {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+/* Keyboard focus ring for the same interactive primitives — A is spec'd in
+   INDEX.md §1 as the "focus rings" role. Only shows on :focus-visible so
+   mouse clicks don't get an outline flash. */
+.nv:focus-visible,
+.rw:focus-visible,
+.abtn:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--splito-a);
+  outline-offset: 2px;
 }
 .sbtn:hover {
   background: #22d3ee !important;
@@ -392,6 +454,20 @@ input::placeholder {
     transform: translateY(0);
   }
 }
-.font-dm-mono {
-  font-family: "DM Mono", monospace;
+/* Fade-up mount animation used by every screen and panel (design `fU`). */
+.fade-up {
+  animation: fU 0.28s ease;
+}
+
+/* ─── Shell geometry (design lines 39, 123, 141) ──────────────────────────
+   Sidebar 258px fixed · topbar 72px sticky · content 26px 30px 60px capped at
+   1240px. Below 1025px the sidebar becomes a drawer, so the offset drops. */
+@media (min-width: 1025px) {
+  .splito-shell {
+    padding-left: 258px;
+  }
+  .splito-content {
+    padding: 26px 30px 60px;
+    max-width: 1240px;
+  }
 }

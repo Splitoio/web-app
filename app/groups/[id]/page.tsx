@@ -9,7 +9,7 @@ export default function GroupDetailsPage() {
   const id = typeof params.id === "string" ? params.id : params.id?.[0];
 
   useEffect(() => {
-    if (id) router.replace(`/groups/${id}/splits`);
+    if (id) router.replace(`/groups/${id}/balances`);
   }, [id, router]);
 
   return null;

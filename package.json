@@ -4,8 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:personal": "NEXT_PUBLIC_APP_MODE=personal APP_MODE=personal next dev",
-    "dev:organization": "NEXT_PUBLIC_APP_MODE=organization APP_MODE=organization next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

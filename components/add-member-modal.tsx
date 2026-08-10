@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { isValidEmail } from "@/utils/validation";
-import { A, T } from "@/lib/splito-design";
+import { GroupInviteLink } from "@/components/group-invite-link";
+import { A, T, INSET } from "@/lib/splito-design";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -146,7 +147,7 @@ export function AddMemberModal({
               Add {label}
             </p>
             <p style={{ color: T.mid, fontSize: 12, marginTop: 4 }}>
-              Invite someone by their email address.
+              Share a link, or invite by email.
             </p>
           </div>
           <button
@@ -168,6 +169,15 @@ export function AddMemberModal({
           >
             ×
           </button>
+        </div>
+
+        <div className="mb-5">
+          <GroupInviteLink groupId={groupId} />
+        </div>
+        <div className="flex items-center gap-2 mb-5">
+          <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: T.dim }}>or</span>
+          <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
         </div>
 
         {/* Email field */}
@@ -195,7 +205,7 @@ export function AddMemberModal({
             disabled={isDisabled}
             style={{
               width: "100%",
-              background: "rgba(255,255,255,0.05)",
+              background: INSET,
               border: "1.5px solid rgba(255,255,255,0.09)",
               borderRadius: 14,
               padding: "12px 16px",
@@ -216,7 +226,7 @@ export function AddMemberModal({
           style={{
             width: "100%",
             padding: "13px",
-            background: canSubmit ? A : "rgba(255,255,255,0.05)",
+            background: canSubmit ? A : INSET,
             color: canSubmit ? "#0a0a0a" : "#555",
             border: "none",
             borderRadius: 14,

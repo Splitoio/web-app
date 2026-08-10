@@ -69,11 +69,49 @@ const config: Config = {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        // Splito design palette (.design/INDEX.md §1). Mirrors the constants
+        // exported from lib/splito-design.tsx — change both together.
+        splito: {
+          bg: "#0b0b0b",
+          panel: "#17171A",
+          a: "#22D3EE",
+          g: "#34D399",
+          r: "#F87171",
+          p: "#A78BFA",
+          o: "#FB923C",
+          b: "#818CF8",
+        },
+      },
+      fontFamily: {
+        // Numbers, amounts, addresses and token symbols only.
+        mono: ["var(--font-dm-mono)", "DM Mono", "monospace"],
+      },
+      backgroundImage: {
+        "splito-surface": "linear-gradient(145deg,#111 0%,#0d0d0d 100%)",
+        "splito-hero": "linear-gradient(135deg,#141414 0%,#0f0f0f 100%)",
+      },
+      boxShadow: {
+        "splito-hero": "0 8px 40px rgba(0,0,0,0.5)",
+        "splito-modal": "0 40px 100px rgba(0,0,0,0.8)",
+        "splito-dropdown": "0 12px 32px rgba(0,0,0,0.6)",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        card: "20px",
+        stat: "18px",
+        hero: "24px",
+        pill: "99px",
+      },
+      keyframes: {
+        fU: {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        fU: "fU 0.28s ease",
       },
     },
   },

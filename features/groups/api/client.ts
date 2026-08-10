@@ -1,6 +1,7 @@
 import { apiClient } from "@/api-helpers/client";
 import {
-  ExpenseSchema,
+  RequestSchema,
+  RequestPayerSchema,
   GroupBalanceSchema,
   GroupSchema,
   GroupUserSchema,
@@ -23,18 +24,11 @@ export const GetAllGroupsSchema = z.object({
   }),
   groupBalances: z.array(GroupBalanceSchema).optional().default([]),
   groupUsers: z.array(z.any()).optional().default([]),
-  expenses: z.array(ExpenseSchema).optional().default([]),
+  expenses: z.array(RequestSchema).optional().default([]),
 });
 
-const ExpenseParticipantSchema = z.object({
-  expenseId: z.string(),
-  userId: z.string(),
-  amount: z.number(),
-  isPaid: z.boolean().default(false),
-});
-
-export const ExpenseWithParticipantsSchema = ExpenseSchema.extend({
-  expenseParticipants: z.array(ExpenseParticipantSchema).optional(),
+export const ExpenseWithParticipantsSchema = RequestSchema.extend({
+  expenseParticipants: z.array(RequestPayerSchema).optional(),
 });
 
 export const DetailGroupSchema = z.object({
@@ -55,34 +49,35 @@ export const DetailGroupSchema = z.object({
 });
 
 export type DetailGroup = z.infer<typeof DetailGroupSchema>;
+
+/**
+ * `Group` is bill-splitting ONLY. The `type` discriminator is gone from the
+ * schema and every group endpoint IGNORES a `type` param — so asking these for
+ * "business" data silently returns personal split groups rather than erroring.
+ * Business workspaces live at /api/organizations (features/business/api/client.ts).
+ */
 export const createGroup = async (payload: {
   name: string;
   description?: string;
   imageUrl?: string;
   color?: string;
-  type?: "PERSONAL" | "BUSINESS";
 }) => {
   const response = await apiClient.post("/groups", payload);
   return GroupSchema.parse(response);
 };
 
-export const getAllGroups = async (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
-  const response = await apiClient.get("/groups", { params });
+export const getAllGroups = async () => {
+  const response = await apiClient.get("/groups");
   return GetAllGroupsSchema.array().parse(response);
 };
 
-export const getGroupById = async (
-  groupId: string,
-  options?: { type?: "PERSONAL" | "BUSINESS" }
-) => {
-  const params = options?.type ? { type: options.type } : undefined;
-  const response = await apiClient.get(`/groups/${groupId}`, { params });
+export const getGroupById = async (groupId: string) => {
+  const response = await apiClient.get(`/groups/${groupId}`);
   return DetailGroupSchema.safeParse(response).data;
 };
 
-export const getAllGroupsWithBalances = async (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
-  const query = params?.type ? { type: params.type } : undefined;
-  const response = await apiClient.get("/groups/balances", { params: query });
+export const getAllGroupsWithBalances = async () => {
+  const response = await apiClient.get("/groups/balances");
   return GroupSchema.array().parse(response);
 };
 
@@ -150,14 +145,9 @@ export const deleteGroup = async (groupId: string) => {
   return GenericResponseSchema.parse(response);
 };
 
-export const updateMemberRole = async (
-  groupId: string,
-  userId: string,
-  role: "ADMIN" | "MEMBER"
-) => {
-  const response = await apiClient.put(`/groups/${groupId}/members/${userId}/role`, { role });
-  return response;
-};
+// `PUT /groups/:groupId/members/:userId/role` is GONE: roles were only ever a
+// business concept and `GroupUser.role` no longer exists. Organization roles
+// go through PATCH /api/organizations/:id/members/:userId instead.
 
 export const removeMemberFromGroup = async (groupId: string, userId: string) => {
   const response = await apiClient.delete(`/groups/${groupId}/members/${userId}`);
@@ -208,4 +198,40 @@ export const markAsPaid = async (
     payload
   );
   return response;
+};
+
+// ─── Group accepted tokens (per-workspace settlement override) ──────────────
+// Mirrors features/user/api/client.ts's accepted-tokens trio, scoped to a
+// business workspace instead of the account. GroupAcceptedToken rows have
+// their own id — that row id, not the underlying Token's id, is what
+// removeGroupAcceptedToken's URL param takes (see group.controller.ts
+// removeGroupAcceptedToken: it looks up by GroupAcceptedToken.id).
+
+export interface GroupAcceptedToken {
+  id: string;
+  groupId: string;
+  tokenId: string;
+  chainId: string;
+  isDefault: boolean;
+  symbol: string;
+  chainName?: string;
+}
+
+export const getGroupAcceptedTokens = async (groupId: string): Promise<GroupAcceptedToken[]> => {
+  const response = await apiClient.get(`/groups/${groupId}/accepted-tokens`);
+  return (response as unknown as GroupAcceptedToken[]) || [];
+};
+
+export const addGroupAcceptedToken = async (
+  groupId: string,
+  payload: { tokenId: string; chainId: string; isDefault?: boolean }
+): Promise<void> => {
+  // The backend's $executeRaw response shape for this endpoint isn't reliable
+  // JSON, so callers refetch the list via query invalidation instead of
+  // trusting a return value here.
+  await apiClient.post(`/groups/${groupId}/accepted-tokens`, payload);
+};
+
+export const removeGroupAcceptedToken = async (groupId: string, acceptedTokenId: string): Promise<void> => {
+  await apiClient.delete(`/groups/${groupId}/accepted-tokens/${acceptedTokenId}`);
 };

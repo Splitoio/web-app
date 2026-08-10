@@ -14,7 +14,6 @@ export const UserSchema = z.object({
   currencyDisplay: z.string().default("both"),
   analyticsEnabled: z.boolean(),
   onboardedPersonal: z.boolean(),
-  onboardedOrgNoOrg: z.boolean(),
   onboardedOrgInOrg: z.boolean(),
   reminderPreference: z.string().nullable(),
   stellarAccount: z.string().nullable(),

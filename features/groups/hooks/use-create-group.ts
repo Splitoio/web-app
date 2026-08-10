@@ -10,9 +10,11 @@ import {
   getGroupById,
   joinGroup,
   updateGroup,
-  updateMemberRole,
   removeMemberFromGroup as removeMemberFromGroupApi,
   markAsPaid,
+  getGroupAcceptedTokens,
+  addGroupAcceptedToken,
+  removeGroupAcceptedToken,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
@@ -27,19 +29,17 @@ export const useCreateGroup = () => {
   });
 };
 
-export const useGetAllGroups = (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
-  const type = params?.type ?? "PERSONAL";
+export const useGetAllGroups = () => {
   return useQuery({
-    queryKey: [QueryKeys.GROUPS, type],
-    queryFn: () => getAllGroups({ type }),
+    queryKey: [QueryKeys.GROUPS, "list"],
+    queryFn: getAllGroups,
   });
 };
 
-export const useGetAllGroupsWithBalances = (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
-  const type = params?.type ?? "PERSONAL";
+export const useGetAllGroupsWithBalances = () => {
   return useQuery({
-    queryKey: [QueryKeys.BALANCES, type],
-    queryFn: () => getAllGroupsWithBalances({ type }),
+    queryKey: [QueryKeys.BALANCES, "list"],
+    queryFn: getAllGroupsWithBalances,
   });
 };
 
@@ -74,14 +74,10 @@ export const useAddOrEditExpense = () => {
   });
 };
 
-export const useGetGroupById = (
-  groupId: string,
-  options?: { type?: "PERSONAL" | "BUSINESS" }
-) => {
-  const type = options?.type;
+export const useGetGroupById = (groupId: string) => {
   return useQuery({
-    queryKey: [QueryKeys.GROUPS, groupId, type],
-    queryFn: () => getGroupById(groupId, { type }),
+    queryKey: [QueryKeys.GROUPS, groupId],
+    queryFn: () => getGroupById(groupId),
     enabled: !!groupId,
   });
 };
@@ -161,25 +157,8 @@ export const useUpdateGroup = () => {
   });
 };
 
-export const useUpdateMemberRole = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      groupId,
-      userId,
-      role,
-    }: {
-      groupId: string;
-      userId: string;
-      role: "ADMIN" | "MEMBER";
-    }) => updateMemberRole(groupId, userId, role),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS, variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.BUSINESS_ORGANIZATIONS] });
-    },
-  });
-};
+// `useUpdateMemberRole` is gone with the endpoint — split groups have no roles.
+// See features/business/hooks/use-organizations.ts for organization roles.
 
 export const useRemoveMemberFromGroup = () => {
   const queryClient = useQueryClient();
@@ -213,6 +192,37 @@ export const useMarkAsPaid = () => {
       
       // Invalidate analytics
       queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] });
+    },
+  });
+};
+
+const groupAcceptedTokensKey = (groupId: string) => [QueryKeys.GROUPS, groupId, "accepted-tokens"];
+
+export const useGetGroupAcceptedTokens = (groupId: string) => {
+  return useQuery({
+    queryKey: groupAcceptedTokensKey(groupId),
+    queryFn: () => getGroupAcceptedTokens(groupId),
+    enabled: !!groupId,
+  });
+};
+
+export const useAddGroupAcceptedToken = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, payload }: { groupId: string; payload: { tokenId: string; chainId: string; isDefault?: boolean } }) =>
+      addGroupAcceptedToken(groupId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: groupAcceptedTokensKey(variables.groupId) });
+    },
+  });
+};
+
+export const useRemoveGroupAcceptedToken = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, id }: { groupId: string; id: string }) => removeGroupAcceptedToken(groupId, id),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: groupAcceptedTokensKey(variables.groupId) });
     },
   });
 };

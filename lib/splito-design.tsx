@@ -2,10 +2,35 @@
 
 import React from "react";
 
-// ─── Design tokens (match provided design) ────────────────────────────────────
+// ─── Design tokens ────────────────────────────────────────────────────────────
+// Single source of truth for the palette in .design/INDEX.md §1. Screens import
+// from here; they never re-type a hex. Mirrored (not duplicated) into CSS custom
+// properties in app/globals.css and into tailwind.config.ts under `splito.*`.
+// Dark-only — there is no light theme.
+
+/** Cyan — brand accent: primary buttons, links, focus rings, personal workspace. */
 export const A = "#22D3EE";
+/** Green — positive: cleared / paid / approved, positive net position. */
 export const G = "#34D399";
+/** Red — negative: overdue / declined / rejected, "you owe". */
+export const R = "#F87171";
+/** Purple — tertiary: Split type, Solana, groups. */
+export const P = "#A78BFA";
+/** Orange — pending/warning: partly paid, awaiting approval, unread dot. */
+export const O = "#FB923C";
+/** Indigo — tertiary 2: Ethereum. */
+export const B = "#818CF8";
+
+export const ACCENTS = { A, G, R, P, O, B } as const;
+export type AccentKey = keyof typeof ACCENTS;
+
+/** Page background — `html`, `body` and the shell wrapper. */
+export const BG = "#0b0b0b";
+
+/** Text ramp, brightest last. */
 export const T = {
+  faint: "#555",
+  faded: "#666",
   dim: "#777",
   sub: "#888",
   muted: "#999",
@@ -15,9 +40,75 @@ export const T = {
   body: "#d4d4d4",
   main: "#e8e8e8",
   bright: "#f5f5f5",
+  white: "#fff",
 };
 
-export const FRIEND_COLORS = [A, "#A78BFA", G, "#FB923C", "#F472B6", "#FBBF24", "#818CF8"];
+/** Standard card/surface fill — rows, tiles, panels. */
+export const SURFACE = "linear-gradient(145deg,#111 0%,#0d0d0d 100%)";
+/** Hero/feature panel fill — balance hero, treasury hero, group header. */
+export const HERO_SURFACE = "linear-gradient(135deg,#141414 0%,#0f0f0f 100%)";
+/** Workspace-switcher / popover panel fill (flat, not a gradient). */
+export const PANEL = "#17171A";
+/** The most common card border. */
+export const BORDER = "1px solid rgba(255,255,255,0.08)";
+/** Subtle inset field/panel fill (inputs, chips). */
+export const INSET = "rgba(255,255,255,0.05)";
+
+export const RADIUS = {
+  card: 20,
+  stat: 18,
+  hero: 24,
+  modal: 28,
+  control: 12,
+  tile: 15,
+  pill: 99,
+} as const;
+
+export const SHADOW = {
+  hero: "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)",
+  modal: "0 40px 100px rgba(0,0,0,0.8)",
+  dropdown: "0 12px 32px rgba(0,0,0,0.6)",
+} as const;
+
+/** DM Mono — every number, amount, address and token symbol. */
+export const MONO = "var(--font-dm-mono), 'DM Mono', monospace";
+
+/** Fade-up mount animation (`@keyframes fU`). Spread into a style object. */
+export const FADE_UP = "fU 0.28s ease";
+
+/** Named entries from the type scale in INDEX.md §1. */
+export const TYPE = {
+  hero: { fontSize: 40, fontWeight: 800, fontFamily: MONO, letterSpacing: "-0.035em" },
+  figure: { fontSize: 28, fontWeight: 800, fontFamily: MONO, letterSpacing: "-0.03em" },
+  pageTitle: { fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff" },
+  statValue: { fontSize: 19, fontWeight: 800, fontFamily: MONO, letterSpacing: "-0.02em" },
+  rowTitle: { fontSize: 13.5, fontWeight: 700 },
+  rowAmount: { fontSize: 14, fontWeight: 800, fontFamily: MONO },
+  button: { fontSize: 13, fontWeight: 700 },
+  meta: { fontSize: 11.5, fontWeight: 600, color: T.sub },
+  navGroup: {
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase" as const,
+    color: T.faded,
+  },
+} satisfies Record<string, React.CSSProperties>;
+
+/**
+ * Status → accent, per the mapping observed in the design's row data.
+ * Anything unrecognised is treated as a draft (dim grey).
+ */
+export function statusColor(status: string | null | undefined): string {
+  const s = (status ?? "").toLowerCase();
+  if (/cleared|paid|approved|settled|complete|success/.test(s)) return G;
+  if (/overdue|declined|rejected|failed|cancel/.test(s)) return R;
+  if (/partly|partial|awaiting|pending|review/.test(s)) return O;
+  if (/sent|open|active|requested/.test(s)) return A;
+  return T.dim;
+}
+
+export const FRIEND_COLORS = [A, P, G, O, "#F472B6", "#FBBF24", B];
 
 export function getUserColor(name: string | null) {
   if (!name) return A;
@@ -26,6 +117,22 @@ export function getUserColor(name: string | null) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
   return FRIEND_COLORS[Math.abs(hash) % FRIEND_COLORS.length];
+}
+
+/**
+ * The 2-letter chip initials the design calls for everywhere a person or
+ * workspace gets an avatar (design line 209: 30px chip, 2 letters).
+ *
+ * "QA Tester" -> "QT", "Jackie" -> "JA", no name -> the email's first two.
+ * Kept here rather than per-screen so the same person is never "Q" in the
+ * sidebar and "QT" in the members list.
+ */
+export function initialsFrom(name: string | null | undefined, email?: string | null): string {
+  const src = (name || email || "").trim();
+  if (!src) return "?";
+  const parts = src.split(/\s+/).filter(Boolean);
+  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return src.slice(0, 2).toUpperCase();
 }
 
 export const fmt = (n: number): string =>
@@ -226,6 +333,8 @@ export const Btn = ({
   style = {},
   className = "",
   disabled = false,
+  title,
+  "aria-label": ariaLabel,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
@@ -233,6 +342,8 @@ export const Btn = ({
   style?: React.CSSProperties;
   className?: string;
   disabled?: boolean;
+  title?: string;
+  "aria-label"?: string;
 }) => {
   const styles: Record<string, React.CSSProperties> = {
     primary: { background: A, color: "#0a0a0a", border: "none" },
@@ -252,6 +363,8 @@ export const Btn = ({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
       className={`splito-btn ${className}`}
       style={{
         display: "flex",
@@ -320,15 +433,7 @@ export const Card = ({
   <div
     id={id}
     className={className}
-    style={{
-      background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      borderRadius: 20,
-      overflow: "hidden",
-      boxShadow:
-        "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
-      ...style,
-    }}
+    style={{ ...card(), overflow: "hidden", ...style }}
   >
     {children}
   </div>
@@ -522,3 +627,240 @@ export function GroupAvatar({
     </div>
   );
 }
+
+// ─── Design helpers ────────────────────────────────────────────────────────────
+// Style factories (lowercase) return a plain CSSProperties object, so a screen
+// can spread and override: `style={{ ...card(), padding: 22 }}`. The matching
+// components (capitalised) are the same thing pre-wrapped when there is nothing
+// to override. Screens should reach for one of these before writing a hex.
+
+/** Standard surface card — radius 20, 1px hairline border, 145° gradient fill. */
+export function card(overrides: React.CSSProperties = {}): React.CSSProperties {
+  return {
+    background: SURFACE,
+    border: BORDER,
+    borderRadius: RADIUS.card,
+    ...overrides,
+  };
+}
+
+/** Hero/feature panel — bigger radius, 135° gradient, drop shadow + top highlight. */
+export function heroCard(overrides: React.CSSProperties = {}): React.CSSProperties {
+  return {
+    background: HERO_SURFACE,
+    border: BORDER,
+    borderRadius: RADIUS.hero,
+    boxShadow: SHADOW.hero,
+    ...overrides,
+  };
+}
+
+/**
+ * Section eyebrow — 11px/700 uppercase with 0.1em tracking. The single
+ * most-used style in the design; pass a role colour to tint it.
+ */
+export function eyebrow(color: string = T.soft): React.CSSProperties {
+  return {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    color,
+    margin: 0,
+  };
+}
+
+/** Nav-group header — 10px/800, 0.12em tracking, dimmer than an eyebrow. */
+export function navGroupLabel(): React.CSSProperties {
+  return { ...TYPE.navGroup, margin: 0 };
+}
+
+/** Tinted pill: `<accent>` at 10% fill, 20% border, full-strength text. */
+export function pill(color: string): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "3px 10px",
+    borderRadius: RADIUS.pill,
+    fontSize: 11,
+    fontWeight: 700,
+    background: `${color}1a`,
+    border: `1px solid ${color}33`,
+    color,
+  };
+}
+
+/** Circular initials chip — people, workspaces and tokens all use this. */
+export function avatarChip(
+  color: string,
+  size = 32,
+  radius: number | string = "50%"
+): React.CSSProperties {
+  return {
+    width: size,
+    height: size,
+    borderRadius: radius,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    fontSize: size >= 34 ? 12 : size >= 26 ? 10.5 : 9,
+    fontWeight: 800,
+    background: `${color}1a`,
+    border: `1px solid ${color}38`,
+    color,
+  };
+}
+
+export const HeroCard = ({
+  children,
+  style = {},
+  className = "",
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+}) => (
+  <div className={className} style={{ ...heroCard(), ...style }}>
+    {children}
+  </div>
+);
+
+export const Eyebrow = ({
+  children,
+  color = T.soft,
+  style = {},
+  className = "",
+}: {
+  children: React.ReactNode;
+  color?: string;
+  style?: React.CSSProperties;
+  className?: string;
+}) => (
+  <p className={className} style={{ ...eyebrow(color), ...style }}>
+    {children}
+  </p>
+);
+
+/**
+ * Status pill — coloured dot plus same-coloured label. `color` defaults to the
+ * accent `statusColor()` derives from the label, so callers usually pass only
+ * the status text.
+ */
+export const StatusPill = ({
+  status,
+  color,
+  tinted = false,
+}: {
+  status: string;
+  color?: string;
+  /** Wrap in the tinted bg+border treatment (type tags, approval tags). */
+  tinted?: boolean;
+}) => {
+  const c = color ?? statusColor(status);
+  const label = (
+    <>
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: c,
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ fontSize: 11.5, fontWeight: 700, color: c }}>{status}</span>
+    </>
+  );
+  return tinted ? (
+    <span style={pill(c)}>{label}</span>
+  ) : (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{label}</span>
+  );
+};
+
+export const AvatarChip = ({
+  init,
+  color = A,
+  size = 32,
+  radius = "50%",
+  className = "",
+  style = {},
+}: {
+  init: string;
+  color?: string;
+  size?: number;
+  radius?: number | string;
+  className?: string;
+  style?: React.CSSProperties;
+}) => (
+  <span className={className} style={{ ...avatarChip(color, size, radius), ...style }}>
+    {init}
+  </span>
+);
+
+/** 38×22 pill track with an 18px knob — "lock the rate", "require a contract". */
+export const Toggle = ({
+  on,
+  onChange,
+  color = A,
+  disabled = false,
+  label,
+}: {
+  on: boolean;
+  onChange: (next: boolean) => void;
+  color?: string;
+  disabled?: boolean;
+  label?: string;
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={on}
+    aria-label={label}
+    disabled={disabled}
+    onClick={() => onChange(!on)}
+    style={{
+      position: "relative",
+      width: 38,
+      height: 22,
+      flexShrink: 0,
+      padding: 0,
+      borderRadius: RADIUS.pill,
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.5 : 1,
+      background: on ? color : "rgba(255,255,255,0.09)",
+      border: `1px solid ${on ? color : "rgba(255,255,255,0.12)"}`,
+      transition: "all .2s",
+    }}
+  >
+    <span
+      style={{
+        position: "absolute",
+        top: 1,
+        left: on ? 18 : 1,
+        width: 18,
+        height: 18,
+        borderRadius: "50%",
+        background: on ? "#0a0a0a" : "#888",
+        transition: "left .2s",
+      }}
+    />
+  </button>
+);
+
+/** Any number, amount, address or token symbol. */
+export const Mono = ({
+  children,
+  style = {},
+  className = "",
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+}) => (
+  <span className={className} style={{ fontFamily: MONO, ...style }}>
+    {children}
+  </span>
+);

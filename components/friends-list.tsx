@@ -1,21 +1,26 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { staggerContainer, slideUp } from "@/utils/animations";
-import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
-import { ApiError } from "@/types/api-error";
+import { motion } from "framer-motion";
 import { UserPlus } from "lucide-react";
-import { Card, Avatar, Icons, T, G, getUserColor } from "@/lib/splito-design";
+import { staggerContainer, slideUp } from "@/utils/animations";
+import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
+import { ApiError } from "@/types/api-error";
+import { avatarChip, getUserColor, Card, G, R, T, Btn, BORDER } from "@/lib/splito-design";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { formatCurrency } from "@/utils/formatters";
-
+import { formatRelativeTime } from "@/lib/utils";
+import {
+  PersonBreakdownModal,
+  type PersonBalance,
+  type PersonHistoryItem,
+} from "@/components/person-breakdown-modal";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -25,7 +30,34 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase() || "?";
 }
 
+type Friend = {
+  id: string;
+  name: string;
+  email?: string | null;
+  /**
+   * Addressed but never signed up — the backend reads this off "has no Account
+   * row" (backend/src/services/split.service.ts, PERSON_SELECT). Their row
+   * shows "Invited" and no balance: a number you cannot settle with someone
+   * who has no account is worse than no number.
+   */
+  invited?: boolean;
+  balances?: Array<{ currency: string; amount: number }>;
+  expenses?: Array<{
+    id: string;
+    name: string;
+    category: string;
+    amount: number;
+    currency: string;
+    createdAt: Date | string;
+  }>;
+};
 
+/**
+ * People / Contacts screen (design 1397-1417): helper text + Add-by-email /
+ * Invite-a-friend actions → 3-col grid of contact tiles, each opening the
+ * shared PersonBreakdownModal. Same friends data + settle-up flow as before,
+ * just presented as tiles instead of rows.
+ */
 export function FriendsList({
   search = "",
   onAddFriendClick,
@@ -33,9 +65,11 @@ export function FriendsList({
   const { data: friends, isLoading, error } = useGetFriends();
   const router = useRouter();
   const { user } = useAuthStore();
-  const { data: groups = [] } = useGetAllGroups({ type: "PERSONAL" });
+  const { data: groups = [] } = useGetAllGroups();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [openFriendId, setOpenFriendId] = useState<string | null>(null);
+  const defaultCurrency = user?.currency || "USD";
 
   useEffect(() => {
     if (error) {
@@ -77,6 +111,7 @@ export function FriendsList({
 
   const selectedGroup = selectedFriendId ? getGroupForFriend(selectedFriendId) : null;
   const selectedFriend = selectedFriendId ? friends?.find((f) => f.id === selectedFriendId) : null;
+  const openFriend = openFriendId ? friends?.find((f) => f.id === openFriendId) ?? null : null;
 
   const searchLower = search.trim().toLowerCase();
   const filtered =
@@ -90,14 +125,7 @@ export function FriendsList({
   if (isLoading) {
     return (
       <Card style={{ padding: "28px" }}>
-        <p
-          style={{
-            color: T.body,
-            fontSize: 14,
-            textAlign: "center",
-            margin: 0,
-          }}
-        >
+        <p style={{ color: T.body, fontSize: 14, textAlign: "center", margin: 0 }}>
           Loading friends...
         </p>
       </Card>
@@ -117,70 +145,69 @@ export function FriendsList({
         }}
       >
         <p style={{ color: T.bright, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-          No friends added yet
+          No one here yet
         </p>
         <p style={{ color: T.muted, fontSize: 14, marginBottom: 24, maxWidth: 360 }}>
-          Add friends to start tracking expenses and settle debts together
+          Add people to request money from them and settle up together.
         </p>
-        <button
-          onClick={() => onAddFriendClick?.()}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            borderRadius: 99,
-            background: "#fff",
-            color: "#0a0a0a",
-            height: 44,
-            paddingLeft: 20,
-            paddingRight: 20,
-            fontSize: 14,
-            fontWeight: 700,
-            border: "none",
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
+        <Btn variant="primary" onClick={() => onAddFriendClick?.()}>
           <UserPlus size={18} strokeWidth={1.5} />
-          Add Friend
-        </button>
+          Add Someone
+        </Btn>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <div>
       {filtered.length === 0 ? (
         <div
           style={{
-            padding: "28px 24px",
-            color: T.muted,
-            fontSize: 14,
+            padding: "50px 20px",
             textAlign: "center",
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 20,
           }}
         >
-          No friends match &quot;{search}&quot;
+          <p style={{ fontSize: 15, fontWeight: 600, color: T.muted }}>
+            No one matches &quot;{search}&quot;
+          </p>
         </div>
       ) : (
         <motion.div
           variants={staggerContainer}
           initial="initial"
           animate="animate"
-          style={{ overflow: "hidden" }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5"
         >
-          {filtered.map((friend, idx) => (
-            <FriendRow
+          {filtered.map((friend) => (
+            <ContactTile
               key={friend.id}
               friend={friend}
-              index={idx}
-              isLast={idx === filtered.length - 1}
-              onSettleClick={() => handleSettleFriendClick(friend.id)}
-              defaultCurrency={user?.currency || "USD"}
+              defaultCurrency={defaultCurrency}
+              onOpen={() => setOpenFriendId(friend.id)}
             />
           ))}
         </motion.div>
       )}
+
+      {openFriend && (
+        <PersonModal
+          friend={openFriend}
+          defaultCurrency={defaultCurrency}
+          onClose={() => setOpenFriendId(null)}
+          onRequest={() => {
+            setOpenFriendId(null);
+            router.push("/create");
+          }}
+          onSettle={() => {
+            setOpenFriendId(null);
+            handleSettleFriendClick(openFriend.id);
+          }}
+        />
+      )}
+
       {selectedGroup && (
         <SettleDebtsModal
           isOpen={isSettleModalOpen}
@@ -196,165 +223,145 @@ export function FriendsList({
             (gu: any) => gu.user ?? { id: "", name: null }
           )}
           expenses={(selectedFriend?.expenses ?? []) as never[]}
-          defaultCurrency={user?.currency || "USD"}
+          defaultCurrency={defaultCurrency}
           defaultExpandedMemberId={selectedFriendId}
         />
       )}
-    </Card>
+    </div>
   );
 }
 
-function FriendRow({
+function ContactTile({
   friend,
-  index,
-  isLast,
-  onSettleClick,
   defaultCurrency,
+  onOpen,
 }: {
-  friend: {
-    id: string;
-    name: string;
-    email?: string | null;
-    balances?: Array<{ currency: string; amount: number }>;
-  };
-  index: number;
-  isLast: boolean;
-  onSettleClick: () => void;
+  friend: Friend;
   defaultCurrency: string;
+  onOpen: () => void;
 }) {
   const balances = friend.balances ?? [];
   const { total: balance, isLoading } = useConvertedBalanceTotal(balances, defaultCurrency);
   const color = getUserColor(friend.name);
   const init = getInitials(friend.name);
 
-  // Backend convention: positive = you owe friend, negative = friend owes you
-  // Flip for display: negative net = "owes you" (green), positive net = "you owe" (red)
-  const displayAmount = formatCurrency(Math.abs(balance), defaultCurrency);
+  // "Invited" outranks every balance state: until they have an account there is
+  // nothing to settle, so "Settled up" would be a claim about a relationship
+  // that hasn't started.
+  // Otherwise, backend convention: positive = you owe friend, negative = friend owes you
+  const statColor = friend.invited
+    ? T.sub
+    : isLoading
+      ? T.dim
+      : balance === 0
+        ? T.dim
+        : balance < 0
+          ? G
+          : R;
+  const statText = friend.invited
+    ? "Invited"
+    : isLoading
+      ? "…"
+      : balance === 0
+        ? "Settled up"
+        : balance < 0
+          ? `Owes you ${formatCurrency(Math.abs(balance), defaultCurrency)}`
+          : `You owe ${formatCurrency(Math.abs(balance), defaultCurrency)}`;
 
   return (
     <motion.div variants={slideUp}>
-      {/* Desktop layout */}
-      <div
-        className="rw hidden sm:flex"
+      <button
+        type="button"
+        onClick={onOpen}
+        className="tile flex items-center text-left w-full transition-all"
         style={{
-          alignItems: "center",
-          gap: 14,
-          padding: "15px 24px",
-          borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.06)",
-          transition: "background 0.15s",
+          gap: 13,
+          padding: "16px 18px",
+          borderRadius: 20,
+          background: "linear-gradient(145deg,#111 0%,#0d0d0d 100%)",
+          border: BORDER,
           cursor: "pointer",
+          fontFamily: "inherit",
         }}
       >
-        <Avatar init={init} color={color} size={42} />
-        <div className="min-w-0 flex-1" style={{ overflow: "hidden" }}>
-          <p className="truncate" style={{ fontSize: 14, fontWeight: 700, color: T.bright }}>
+        <span style={{ ...avatarChip(color, 40), fontSize: 12, flexShrink: 0 }}>{init}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate" style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>
             {friend.name}
           </p>
-          <p
-            className="truncate block"
-            style={{ fontSize: 12, color: T.muted, marginTop: 2, fontWeight: 500 }}
-            title={friend.email ?? undefined}
-          >
-            {friend.email ?? ""}
+          <p className="truncate" style={{ margin: "3px 0 0", fontSize: 11.5, fontWeight: 600, color: statColor }}>
+            {statText}
           </p>
         </div>
-        {balance > 0 && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onSettleClick(); }}
-            className="sbtn shrink-0"
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)",
-              borderRadius: 12, padding: "8px 10px", color: T.body, fontSize: 12,
-              fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-            }}
-          >
-            {Icons.wallet({})} Settle
-          </button>
-        )}
-        {balance < 0 && (
-          <button
-            type="button"
-            className="abtn shrink-0"
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)",
-              borderRadius: 12, padding: "8px 10px", color: T.body, fontSize: 12,
-              fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-            }}
-          >
-            {Icons.bell({})} Remind
-          </button>
-        )}
-        <div className="shrink-0 text-right" style={{ minWidth: 64 }}>
-          {isLoading ? (
-            <p style={{ color: T.dim, fontSize: 12, fontWeight: 600 }}>...</p>
-          ) : balance === 0 ? (
-            <p style={{ color: T.dim, fontSize: 12, fontWeight: 600 }}>Settled</p>
-          ) : balance < 0 ? (
-            <>
-              <p style={{ color: G, fontSize: 14, fontWeight: 800, fontFamily: "'DM Mono',monospace" }}>
-                +{displayAmount}
-              </p>
-              <p style={{ color: "rgba(52,211,153,0.6)", fontSize: 11, marginTop: 2, fontWeight: 600 }}>owes you</p>
-            </>
-          ) : (
-            <>
-              <p style={{ color: "#F87171", fontSize: 14, fontWeight: 800, fontFamily: "'DM Mono',monospace" }}>
-                -{displayAmount}
-              </p>
-              <p style={{ color: "rgba(248,113,113,0.6)", fontSize: 11, marginTop: 2, fontWeight: 600 }}>you owe</p>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile layout */}
-      <div
-        className="rw flex sm:hidden"
-        style={{
-          alignItems: "center",
-          gap: 14,
-          padding: "15px 20px",
-          borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.06)",
-          transition: "background 0.15s",
-        }}
-      >
-        <Avatar init={init} color={color} size={44} />
-        <div className="min-w-0 flex-1" style={{ overflow: "hidden" }}>
-          <p className="truncate" style={{ fontSize: 14, fontWeight: 700, color: T.bright }}>
-            {friend.name}
-          </p>
-          <p
-            className="truncate block"
-            style={{ fontSize: 12, marginTop: 2, fontWeight: 600, color: balance === 0 ? T.dim : balance < 0 ? G : "#F87171" }}
-          >
-            {balance === 0 ? "Settled up" : balance < 0 ? `Owes you ${displayAmount}` : `You owe ${displayAmount}`}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          {balance < 0 && (
-            <button
-              type="button"
-              className="abtn shrink-0"
-              style={{ borderRadius: 10, padding: "7px 14px", border: "1px solid rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.06)", color: G, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
-            >
-              Remind
-            </button>
-          )}
-          {balance > 0 && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onSettleClick(); }}
-              className="sbtn shrink-0"
-              style={{ borderRadius: 10, padding: "7px 14px", border: "1px solid rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.06)", color: "#22D3EE", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
-            >
-              Settle
-            </button>
-          )}
-        </div>
-      </div>
+      </button>
     </motion.div>
+  );
+}
+
+function PersonModal({
+  friend,
+  defaultCurrency,
+  onClose,
+  onRequest,
+  onSettle,
+}: {
+  friend: Friend;
+  defaultCurrency: string;
+  onClose: () => void;
+  onRequest: () => void;
+  onSettle: () => void;
+}) {
+  const color = getUserColor(friend.name);
+  const init = getInitials(friend.name);
+  const rawBalances = friend.balances ?? [];
+  const { total: net, isLoading } = useConvertedBalanceTotal(rawBalances, defaultCurrency);
+
+  const balances: PersonBalance[] = rawBalances
+    .filter((b) => b.amount !== 0)
+    .map((b) => ({
+      init: b.currency.slice(0, 2).toUpperCase(),
+      cur: b.currency,
+      amount: `${b.amount > 0 ? "-" : "+"}${formatCurrency(Math.abs(b.amount), b.currency)}`,
+      sub: b.amount > 0 ? "you owe" : "owes you",
+      color: b.amount > 0 ? R : G,
+    }));
+
+  const items: PersonHistoryItem[] = [...(friend.expenses ?? [])]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 8)
+    .map((e) => ({
+      id: e.id,
+      title: e.name,
+      meta: formatRelativeTime(new Date(e.createdAt)),
+      amount: formatCurrency(e.amount, e.currency),
+    }));
+
+  return (
+    <PersonBreakdownModal
+      open
+      onClose={onClose}
+      person={{
+        name: friend.name,
+        sub: friend.email ?? undefined,
+        init,
+        color,
+        // Same rule as the tile: an invited person has no balance to state.
+        netLabel: friend.invited
+          ? "Invited"
+          : isLoading
+            ? "Balance"
+            : net === 0
+              ? "All settled"
+              : net < 0
+                ? "Owes you"
+                : "You owe",
+        net: friend.invited ? "—" : isLoading ? "…" : formatCurrency(Math.abs(net), defaultCurrency),
+        netColor: friend.invited ? T.dim : isLoading ? T.dim : net === 0 ? T.main : net < 0 ? G : R,
+      }}
+      balances={balances}
+      items={items}
+      onRequest={onRequest}
+      onSettle={onSettle}
+    />
   );
 }

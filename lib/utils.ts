@@ -27,3 +27,23 @@ export function formatRelativeTime(date: Date): string {
   const year = Math.floor(day / 365);
   return year === 1 ? "1 year ago" : `${year} years ago`;
 }
+
+/**
+ * Compact age like "2h", "3d", "1mo" — narrow trailing table/list columns
+ * that have no room for formatRelativeTime's "3 days ago" prose.
+ */
+export function formatCompactAge(date: Date): string {
+  const d = date instanceof Date ? date : new Date(date);
+  const sec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+  const min = Math.floor(sec / 60);
+  if (min < 1) return "now";
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}d`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month}mo`;
+  const year = Math.floor(day / 365);
+  return `${year}y`;
+}

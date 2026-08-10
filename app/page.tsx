@@ -1,764 +1,629 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useWallet } from "@/hooks/useWallet";
-import { SettleDebtsModal } from "@/components/settle-debts-modal";
-import { FriendsBreakdownModal } from "@/components/friends-breakdown-modal";
-import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
-import { useAnalytics } from "@/features/analytics/hooks/use-analytics";
-import { useReminders } from "@/features/reminders/hooks/use-reminders";
-import { TransactionRequestList } from "@/components/transaction-request-list";
-import Image from "next/image";
-import { apiClient } from "@/api-helpers/client"; // <-- Use your apiClient here
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
 import {
   Loader2,
-  Users2,
-  Bell,
-  Send,
-  User,
-  CreditCard,
-  DollarSign,
-  Settings,
+  Minus,
+  Plus,
+  Copy,
+  Check,
+  Share2,
+  ArrowRight,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { QueryKeys } from "@/lib/constants";
+import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
-import Link from "next/link";
-import { ProfileDropdown } from "@/components/profile-dropdown";
-import { useRouter } from "next/navigation";
-import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
-import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { formatRelativeTime } from "@/lib/utils";
-import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
-import { DualAmount } from "@/components/dual-amount";
 import {
-  A,
-  Card,
-  SectionLabel,
-  Avatar,
-  GroupAvatar,
-  fmt,
-  G,
-  T,
-  Icons,
-  getUserColor,
-} from "@/lib/splito-design";
+  createRequest,
+  listRequests,
+  type CreateRequestPayerLink,
+  type DestinationAsset,
+  type DestinationChain,
+  type RequestListItem,
+} from "@/api-helpers/requests";
+import { A, Card, R, SectionLabel, T, Icons, BORDER } from "@/lib/splito-design";
+import { StatusChip, progressLabel } from "@/components/requests/request-bits";
+import { FormErrorNotice } from "@/components/requests/form-error";
+import { toFormError, type FormError } from "@/lib/request-errors";
+import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
+import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
+import { BusinessDashboard } from "@/components/dashboard/business-dashboard";
+import { BusinessDashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 
-/** Derive overall youOwe/youGet from groups' groupBalances (same source as group pages) */
-function useOverallBalancesFromGroups(
-  groups: {
-    groupBalances?: { userId: string; currency: string; amount: number }[];
-  }[],
-  userId: string | null
-) {
-  return useMemo(() => {
-    if (!userId || !groups?.length)
-      return {
-        youOwe: [] as { currency: string; amount: number }[],
-        youGet: [] as { currency: string; amount: number }[],
-      };
-    const byCurrency: Record<string, number> = {};
-    for (const group of groups) {
-      const myBalances = (group.groupBalances ?? []).filter(
-        (b) => b.userId === userId
-      );
-      for (const b of myBalances) {
-        byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
-      }
+// ─── Chain destinations — settlement is Stellar-only (owner decision: XLM
+// and USDC on Stellar; Solana removed as a settlement destination). Exact
+// lowercase literal per the API contract
+// (.specs/2026-08-06-request-money-api-contract.md §0.1).
+const CHAINS: { chain: DestinationChain; asset: DestinationAsset; label: string }[] = [
+  { chain: "stellar", asset: "usdc-stellar", label: "Stellar" },
+];
+
+function isValidAddress(chain: DestinationChain, address: string): boolean {
+  const trimmed = address.trim();
+  if (!trimmed) return false;
+  if (chain === "stellar") return /^G[A-Z2-7]{55}$/.test(trimmed);
+  // Solana: base58, roughly 32-44 chars.
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed);
+}
+
+/**
+ * The signed-in requester's most recent requests. Real data from
+ * GET /api/requests — the previous groups-derived version showed nothing
+ * because this product never creates groups. Capped at 4; the full list
+ * lives at /requests.
+ */
+const RECENT_COUNT = 4;
+
+function useRecentRequests(userId: string | null, reloadKey: number) {
+  const [items, setItems] = useState<RequestListItem[]>([]);
+
+  useEffect(() => {
+    if (!userId) {
+      setItems([]);
+      return;
     }
-    const youOwe: { currency: string; amount: number }[] = [];
-    const youGet: { currency: string; amount: number }[] = [];
-    Object.entries(byCurrency).forEach(([currency, amount]) => {
-      if (amount > 0) youOwe.push({ currency, amount });
-      else if (amount < 0) youGet.push({ currency, amount: Math.abs(amount) });
-    });
-    return { youOwe, youGet };
-  }, [groups, userId]);
+    let cancelled = false;
+    listRequests({ limit: RECENT_COUNT })
+      .then((res) => {
+        if (!cancelled) setItems(res.requests);
+      })
+      .catch(() => {
+        // A failed history fetch must never break the create form — the
+        // section simply stays hidden.
+        if (!cancelled) setItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, reloadKey]);
+
+  return items;
 }
 
-/** Shows converted total(s) for owe/owed in default currency */
-function DashboardConvertedBalance({
-  oweItems,
-  owedItems,
-  defaultCurrency,
+/**
+ * One inline "blank" in the fill-in-the-sentence create form.
+ *
+ * Height is FIXED (h-10 / sm:h-[46px]) and the content is centred inside it
+ * with `leading-none`. It used to be `py-1.5` on top of the paragraph's
+ * inherited 1.9 line-height, so each pill grew to 67px inside a 53px line box
+ * and consecutive lines' pills touched edge to edge. Padding now hangs off the
+ * fixed height, so every pill on the screen is exactly the same height and sits
+ * on the same baseline regardless of what it contains.
+ *
+ * `px` is a prop rather than a className override because the previous caller
+ * passed `p-0.5`, which collided with the base `px-3 py-1.5` and silently made
+ * the chain pill a different height from the others.
+ */
+function SentenceField({
+  children,
+  px = "px-3",
+  gap = "gap-1.5",
 }: {
-  oweItems: { amount: number; currency: string }[];
-  owedItems: { amount: number; currency: string }[];
-  defaultCurrency: string;
+  children: React.ReactNode;
+  px?: string;
+  gap?: string;
 }) {
-  const { total: totalOwe, isLoading: loadingOwe } = useConvertedBalanceTotal(
-    oweItems,
-    defaultCurrency
-  );
-  const { total: totalOwed, isLoading: loadingOwed } = useConvertedBalanceTotal(
-    owedItems.map((i) => ({ amount: i.amount, currency: i.currency })),
-    defaultCurrency
-  );
-  const loading = loadingOwe || loadingOwed;
-  const hasOwe = oweItems.length > 0;
-  const hasOwed = owedItems.length > 0;
-  if (!hasOwe && !hasOwed) return <>Settled</>;
-  if (loading) return <span className="text-white/60">…</span>;
-  if (hasOwe && hasOwed) {
-    return (
-      <div>
-        <div>
-          You owe{" "}
-          <span className="text-[#FF4444]">
-            {formatCurrency(totalOwe, defaultCurrency)}
-          </span>
-        </div>
-        <div>
-          Owes you{" "}
-          <span className="text-[#53e45d]">
-            {formatCurrency(totalOwed, defaultCurrency)}
-          </span>
-        </div>
-      </div>
-    );
-  }
-  if (hasOwe) {
-    return (
-      <>
-        You owe{" "}
-        <span className="text-[#FF4444]">
-          {formatCurrency(totalOwe, defaultCurrency)}
-        </span>
-      </>
-    );
-  }
-  return (
-    <>
-      Owes you{" "}
-      <span className="text-[#53e45d]">
-        {formatCurrency(totalOwed, defaultCurrency)}
-      </span>
-    </>
-  );
-}
-
-/** Group row: shows converted total for this group's balance for the given user */
-function DashboardGroupBalance({
-  group,
-  userId,
-  defaultCurrency,
-}: {
-  group: {
-    id: string;
-    name: string;
-    groupBalances?: { userId: string; currency: string; amount: number }[];
-  };
-  userId: string | null;
-  defaultCurrency: string;
-}) {
-  if (!userId || !group.groupBalances?.length) return <>No balance</>;
-  const userBalances = group.groupBalances.filter((b) => b.userId === userId);
-  const byCurrency = userBalances.reduce(
-    (acc, b) => {
-      acc[b.currency] = (acc[b.currency] ?? 0) + b.amount;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-  const oweItems = Object.entries(byCurrency)
-    .filter(([, amount]) => amount > 0)
-    .map(([currency, amount]) => ({ amount, currency }));
-  const owedItems = Object.entries(byCurrency)
-    .filter(([, amount]) => amount < 0)
-    .map(([currency, amount]) => ({ amount: Math.abs(amount), currency }));
-  return (
-    <DashboardConvertedBalance
-      oweItems={oweItems}
-      owedItems={owedItems}
-      defaultCurrency={defaultCurrency}
-    />
-  );
-}
-
-/** Single-line balance for group row: "+$X" (green) or "-$X" (red) or "Settled" */
-function GroupBalanceShort({
-  group,
-  userId,
-  defaultCurrency,
-}: {
-  group: { groupBalances?: { userId: string; currency: string; amount: number }[] };
-  userId: string | null;
-  defaultCurrency: string;
-}) {
-  const oweItems =
-    !userId || !group.groupBalances?.length
-      ? []
-      : group.groupBalances
-          .filter((b) => b.userId === userId && b.amount > 0)
-          .map((b) => ({ amount: b.amount, currency: b.currency }));
-  const owedItems =
-    !userId || !group.groupBalances?.length
-      ? []
-      : group.groupBalances
-          .filter((b) => b.userId === userId && b.amount < 0)
-          .map((b) => ({ amount: Math.abs(b.amount), currency: b.currency }));
-  const { total: oweTotal, isLoading: loadOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
-  const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
-  if (loadOwe || loadOwed) return <span className="text-white/60">…</span>;
-  const net = (owedTotal ?? 0) - (oweTotal ?? 0);
-  if (net === 0) return <span style={{ color: G, fontSize: 13, fontWeight: 800, fontFamily: "monospace" }}>+{formatCurrency(0, defaultCurrency)}</span>;
-  if (net > 0)
-    return (
-      <span
-        className="font-mono font-extrabold text-[13px]"
-        style={{ color: G }}
-      >
-        +{formatCurrency(net, defaultCurrency)}
-      </span>
-    );
   return (
     <span
-      className="font-mono font-extrabold text-[13px]"
-      style={{ color: "#F87171" }}
+      className={`inline-flex h-10 sm:h-[46px] items-center rounded-xl align-middle leading-none ${px} ${gap}`}
+      style={{
+        // The old rgba(34,211,238,0.08) fill was invisible against the #0e0e0e
+        // card — only the border read, so the pills looked like empty boxes.
+        background: "rgba(34,211,238,0.17)",
+        border: "1px solid rgba(34,211,238,0.42)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+      }}
     >
-      -{formatCurrency(Math.abs(net), defaultCurrency)}
+      {children}
     </span>
   );
 }
 
-/** Mobile group card balance cell: shows net + label ("owed to you" / "you owe" / "settled") */
-function GroupBalanceMobileCell({
-  group,
-  userId,
-  defaultCurrency,
+function CreateRequestForm({
+  onCreated,
 }: {
-  group: { groupBalances?: { userId: string; currency: string; amount: number }[] };
-  userId: string | null;
-  defaultCurrency: string;
+  onCreated: (payers: CreateRequestPayerLink[]) => void;
 }) {
-  const oweItems =
-    !userId || !group.groupBalances?.length
-      ? []
-      : group.groupBalances
-          .filter((b) => b.userId === userId && b.amount > 0)
-          .map((b) => ({ amount: b.amount, currency: b.currency }));
-  const owedItems =
-    !userId || !group.groupBalances?.length
-      ? []
-      : group.groupBalances
-          .filter((b) => b.userId === userId && b.amount < 0)
-          .map((b) => ({ amount: Math.abs(b.amount), currency: b.currency }));
-  const { total: oweTotal, isLoading: loadOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
-  const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
-  if (loadOwe || loadOwed)
-    return <span style={{ color: "#888", fontSize: 14 }}>…</span>;
-  const net = (owedTotal ?? 0) - (oweTotal ?? 0);
-  const color = net > 0 ? G : net < 0 ? "#F87171" : T.dim;
-  const prefix = net > 0 ? "+" : net < 0 ? "-" : "±";
-  const label = net > 0 ? "owed to you" : net < 0 ? "you owe" : "settled";
-  return (
-    <div style={{ textAlign: "right" }}>
-      <p style={{ fontSize: 17, fontWeight: 800, fontFamily: "var(--font-dm-mono,monospace)", color }}>
-        {prefix}{formatCurrency(Math.abs(net), defaultCurrency)}
-      </p>
-      <p style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{label}</p>
-    </div>
-  );
-}
+  const { isConnected, address, walletType } = useWallet();
+  const [amount, setAmount] = useState("500");
+  const [payerCount, setPayerCount] = useState(1);
+  const [chainIdx, setChainIdx] = useState(0);
+  const [destinationAddress, setDestinationAddress] = useState("");
+  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  // Server-side rejection (e.g. no USDC trustline). Rendered inline under the
+  // address field and pinned until dismissed — never a toast. See
+  // components/requests/form-error.tsx.
+  const [submitError, setSubmitError] = useState<FormError | null>(null);
 
-/** Single friend card for Friends Balance: avatar, name, "Owes you $X" (green) or "You owe $X" (red) */
-function FriendBalanceCard({
-  friendName,
-  friendInit,
-  color,
-  oweItems,
-  owedItems,
-  defaultCurrency,
-}: {
-  friendName: string;
-  friendInit: string;
-  color: string;
-  oweItems: { amount: number; currency: string }[];
-  owedItems: { amount: number; currency: string }[];
-  defaultCurrency: string;
-}) {
-  const { total: totalOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
-  const { total: totalOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
-  const net = (totalOwed ?? 0) - (totalOwe ?? 0);
-  const balanceLine =
-    net === 0
-      ? { text: "Settled", color: T.muted }
-      : net > 0
-        ? { text: `Owes you ${formatCurrency(net, defaultCurrency)}`, color: G }
-        : { text: `You owe ${formatCurrency(Math.abs(net), defaultCurrency)}`, color: "#F87171" };
+  const destination = CHAINS[chainIdx];
+  const parsedAmount = Number(amount);
+  const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const addressValid = isValidAddress(destination.chain, destinationAddress);
+  /** The server rejected the address itself — mark the field, not just the notice. */
+  const addressRejected = submitError?.field === "destinationAddress";
+  const canSubmit = amountValid && payerCount >= 1 && addressValid && !submitting;
+
+  const canPrefillWallet =
+    destination.chain === "stellar" && walletType === "stellar" && isConnected && !!address;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await createRequest({
+        amount: parsedAmount,
+        denominationCurrency: "USD",
+        destinationAsset: destination.asset,
+        destinationChain: destination.chain,
+        destinationAddress: destinationAddress.trim(),
+        payerCount,
+        name: name.trim() || undefined,
+      });
+      onCreated(res.links);
+    } catch (err) {
+      setSubmitError(toFormError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <Card
-      style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14 }}
-    >
-      <Avatar init={friendInit} color={color} size={42} />
-      <div className="flex-1 min-w-0">
-        <p
-          className="text-[14px] font-bold truncate"
-          style={{ color: T.bright }}
-        >
-          {friendName}
+    <Card className="p-6 sm:p-9">
+      {/* leading is set so the line box always clears the fixed 40/46px pill
+          height with breathing room — 22*2.05 = 45.1 on mobile, 28*1.95 = 54.6
+          on desktop. Drop it below the pill height and consecutive rows touch. */}
+      <p
+        className="text-[22px] sm:text-[28px] leading-[2.05] sm:leading-[1.95] font-semibold"
+        style={{ color: T.body }}
+      >
+        <span className="whitespace-nowrap">
+          Ask for{" "}
+          <SentenceField gap="gap-1">
+            <span style={{ color: T.muted }}>$</span>
+            <input
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              className="bg-transparent outline-none font-mono font-extrabold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a"
+              // Sized to the value, not a fixed 5.5ch — "500" left ~42px of dead
+              // space inside the pill. +0.5ch keeps the caret from clipping.
+              style={{ color: "#fff", width: `${Math.max(amount.length, 1) + 0.5}ch` }}
+              aria-label="Amount in US dollars"
+            />
+          </SentenceField>
+        </span>
+        <br />
+        <span className="whitespace-nowrap">
+          from{" "}
+          <SentenceField px="px-1.5" gap="gap-0.5">
+            <button
+              type="button"
+              onClick={() => setPayerCount((n) => Math.max(1, n - 1))}
+              className="flex h-7 w-6 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label="Fewer people"
+            >
+              <Minus size={17} strokeWidth={2.5} />
+            </button>
+            <span className="font-mono font-extrabold min-w-[1.2ch] text-center" style={{ color: "#fff" }}>
+              {payerCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPayerCount((n) => Math.min(50, n + 1))}
+              className="flex h-7 w-6 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label="More people"
+            >
+              <Plus size={17} strokeWidth={2.5} />
+            </button>
+          </SentenceField>{" "}
+          {payerCount === 1 ? "person" : "people"}
+        </span>
+        <br />
+        <span className="whitespace-nowrap">
+          receive{" "}
+          <SentenceField>
+            <span className="font-mono font-extrabold" style={{ color: "#fff" }}>
+              USDC
+            </span>
+          </SentenceField>
+        </span>{" "}
+        {/* "on" and the chain pill are one nowrap unit: at 390px the pill used
+            to wrap alone and orphan the word "on" at the end of the line. */}
+        <span className="whitespace-nowrap">
+          on{" "}
+          <SentenceField px="px-1">
+            {CHAINS.map((c, i) => (
+              <button
+                key={c.chain}
+                type="button"
+                onClick={() => {
+                  setChainIdx(i);
+                  // The rejection was about the old chain's address.
+                  setSubmitError(null);
+                }}
+                className="flex h-8 sm:h-9 items-center rounded-lg px-3 font-mono font-extrabold text-[16px] sm:text-[19px] leading-none transition-colors"
+                style={{
+                  background: i === chainIdx ? A : "transparent",
+                  color: i === chainIdx ? "#0a0a0a" : T.muted,
+                }}
+              >
+                {c.label}
+              </button>
+            ))}
+          </SentenceField>
+        </span>
+      </p>
+
+      <div className="mt-6 pt-6" style={{ borderTop: BORDER }}>
+        <label className="block text-[11px] font-bold tracking-[0.08em] uppercase mb-2" style={{ color: T.muted }}>
+          {destination.label} address to receive at
+        </label>
+        <input
+          value={destinationAddress}
+          // Editing the address is the user acting on the error, so retire it —
+          // the message described the value they just changed.
+          onChange={(e) => {
+            setDestinationAddress(e.target.value);
+            if (addressRejected) setSubmitError(null);
+          }}
+          placeholder={destination.chain === "stellar" ? "G..." : "Solana wallet address"}
+          className="w-full rounded-xl px-4 py-3 text-[14px] font-mono outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: `1px solid ${
+              (destinationAddress && !addressValid) || addressRejected ? R : "rgba(255,255,255,0.1)"
+            }`,
+            color: T.bright,
+          }}
+        />
+        {submitError && (
+          <FormErrorNotice error={submitError} onDismiss={() => setSubmitError(null)} />
+        )}
+        {canPrefillWallet && address !== destinationAddress && (
+          <button
+            type="button"
+            onClick={() => setDestinationAddress(address ?? "")}
+            className="text-[12px] font-semibold mt-2"
+            style={{ color: A }}
+          >
+            Use connected wallet ({address?.slice(0, 6)}…{address?.slice(-4)})
+          </button>
+        )}
+        <p className="text-[11.5px] mt-2" style={{ color: T.dim }}>
+          This can&rsquo;t be changed once the link is created — a new address means a new request.
         </p>
-        <p
-          className="text-[12px] font-bold mt-1"
-          style={{ color: balanceLine.color }}
-        >
-          {balanceLine.text}
-        </p>
+
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="What's this for? (optional)"
+          className="w-full rounded-xl px-4 py-3 text-[14px] mt-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-splito-a"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            color: T.bright,
+          }}
+        />
       </div>
+
+      {/* Disabled affordance, not a dimmer. `disabled:opacity-50` on a #22D3EE
+          fill just read as a dull button and gave no reason — the real blocker
+          is almost always the missing destination address. Disabled renders as
+          an outline with a live hint underneath; the accent hex is unchanged
+          and submission still requires a valid address. */}
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={!canSubmit}
+        className="w-full mt-6 flex items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-extrabold transition-all enabled:hover:opacity-90 disabled:cursor-not-allowed"
+        style={
+          canSubmit || submitting
+            ? { background: A, color: "#0a0a0a", border: "1px solid transparent" }
+            : {
+                background: "transparent",
+                color: "rgba(34,211,238,0.65)",
+                border: "1px dashed rgba(34,211,238,0.45)",
+              }
+        }
+      >
+        {submitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            Get link <ArrowRight size={16} />
+          </>
+        )}
+      </button>
+      {!canSubmit && !submitting && (
+        <p className="text-[12px] font-semibold mt-2.5 text-center" style={{ color: T.dim }}>
+          {!amountValid
+            ? "Enter an amount to get your link"
+            : !destinationAddress.trim()
+              ? `Enter a ${destination.label} address above to get your link`
+              : `That doesn’t look like a ${destination.label} address`}
+        </p>
+      )}
     </Card>
   );
 }
 
-/** Per-friend balances from groups' groupBalances (matches group expense page) */
-function useFriendBalancesFromGroups(
-  groups: {
-    groupBalances?: {
-      userId: string;
-      firendId: string;
-      currency: string;
-      amount: number;
-    }[];
-  }[],
-  friends: { id: string }[],
-  userId: string | null
-) {
-  return useMemo(() => {
-    if (!userId || !groups?.length)
-      return {} as Record<string, { currency: string; amount: number }[]>;
-    const byFriend: Record<string, Record<string, number>> = {};
-    for (const group of groups) {
-      const balances = (group.groupBalances ?? []) as {
-        userId: string;
-        firendId: string;
-        currency: string;
-        amount: number;
-      }[];
-      for (const b of balances) {
-        if (b.userId !== userId) continue;
-        const friendId = b.firendId;
-        if (!byFriend[friendId]) byFriend[friendId] = {};
-        byFriend[friendId][b.currency] =
-          (byFriend[friendId][b.currency] ?? 0) + b.amount;
-      }
+/** Copy + share affordance for a single link. Reused for both the N=1 case
+ * (rendered large, standalone) and each row in the N>1 case (rendered small). */
+function CopyShareRow({
+  link,
+  size = "lg",
+}: {
+  link: string;
+  size?: "lg" | "sm";
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy — select and copy the link manually.");
     }
-    const result: Record<string, { currency: string; amount: number }[]> = {};
-    for (const friend of friends) {
-      const curr = byFriend[friend.id];
-      if (!curr) {
-        result[friend.id] = [];
-        continue;
-      }
-      const list: { currency: string; amount: number }[] = [];
-      Object.entries(curr).forEach(([currency, amount]) => {
-        if (amount !== 0) list.push({ currency, amount });
-      });
-      result[friend.id] = list;
-    }
-    return result;
-  }, [groups, friends, userId]);
-}
-
-export default function Page() {
-  const router = useRouter();
-  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
-  const [isFriendsBreakdownModalOpen, setIsFriendsBreakdownModalOpen] =
-    useState(false);
-  const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
-  const [settleFriendGroupId, setSettleFriendGroupId] = useState<string | null>(
-    null
-  );
-  const [isSettling, setIsSettling] = useState(false);
-  const { isConnected, address } = useWallet();
-  const { data: groups = [], isLoading: isGroupsLoading } = useGetAllGroups();
-  const { data: friends = [], isLoading: isFriendsLoading } = useGetFriends();
-  const {
-    data: analyticsData,
-    isLoading: _isAnalyticsLoading,
-    error: _analyticsError,
-  } = useAnalytics();
-  const {
-    reminders,
-    isLoading: isRemindersLoading,
-    acceptReminder,
-    rejectReminder,
-    isAccepting,
-    isRejecting,
-    sendReminder,
-    isSending,
-  } = useReminders();
-  const { user } = useAuthStore();
-  const defaultCurrency = user?.currency || "USD";
-  const { youOwe, youGet } = useOverallBalancesFromGroups(
-    groups,
-    user?.id ?? null
-  );
-  const friendBalancesFromGroups = useFriendBalancesFromGroups(
-    groups,
-    friends,
-    user?.id ?? null
-  );
-  const { total: overallOweTotal, isLoading: overallOweLoading } =
-    useConvertedBalanceTotal(youOwe, defaultCurrency);
-  const { total: overallGetTotal, isLoading: overallGetLoading } =
-    useConvertedBalanceTotal(youGet, defaultCurrency);
-  // Monthly stats derived from group balances (currency-aware)
-  const _owedThisMonth = Number(analyticsData?.owed) || 0;
-  const _lentThisMonth = Number(analyticsData?.lent) || 0;
-  const _settledThisMonth = Number(analyticsData?.settled) || 0;
-  const queryClient = useQueryClient();
-
-
-  const handleSettleAllClick = () => {
-    setSettleFriendId(null);
-    setIsSettling(true);
-    setIsSettleModalOpen(true);
-
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.FRIENDS] });
-      setIsSettling(false);
-    }, 500);
   };
 
-  const handleSettleFriendClick = (friendId: string) => {
-    // Open the friends breakdown modal first
-    setIsFriendsBreakdownModalOpen(true);
-  };
-
-  const netOwed = (overallGetLoading || overallOweLoading) ? 0 : overallGetTotal - overallOweTotal;
-
-  /** Recent activity from all groups (expenses + settlements) for Dashboard card */
-  const recentActivityFromGroups = useMemo(() => {
-    if (!user || !groups?.length) return [];
-    const items: {
-      id: string;
-      lead: string;
-      label: string | null;
-      amount: number;
-      currency: string;
-      kind: "expense" | "settlement";
-      subtext: string;
-      date: Date;
-      dotColor: string;
-    }[] = [];
-    for (const group of groups) {
-      const expenses = (group as { expenses?: { id: string; name: string; amount: number; currency: string; paidBy: string; createdAt: Date; splitType: string }[] }).expenses ?? [];
-      const groupUsers = (group as { groupUsers?: { user: { id: string; name?: string | null } }[] }).groupUsers ?? [];
-      const paidByName = (userId: string) =>
-        userId === user.id ? "You" : (groupUsers.find((gu) => gu.user.id === userId)?.user?.name ?? "Someone");
-      for (const exp of expenses) {
-        const date = exp.createdAt instanceof Date ? exp.createdAt : new Date(exp.createdAt);
-        const src = exp.currency || defaultCurrency;
-        const timeAgo = formatRelativeTime(date);
-        const subtext = `${timeAgo} · ${group.name}`;
-        if (exp.splitType === "SETTLEMENT") {
-          items.push({
-            id: exp.id,
-            lead: `${paidByName(exp.paidBy)} settled`,
-            label: null,
-            amount: Math.abs(exp.amount),
-            currency: src,
-            kind: "settlement",
-            subtext,
-            date,
-            dotColor: "#A78BFA",
-          });
-        } else {
-          items.push({
-            id: exp.id,
-            lead: `${paidByName(exp.paidBy)} added`,
-            label: exp.name,
-            amount: Math.abs(exp.amount),
-            currency: src,
-            kind: "expense",
-            subtext,
-            date,
-            dotColor: A,
-          });
-        }
+  const handleShare = async () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ url: link, title: "Payment request" });
+        return;
+      } catch {
+        // user cancelled or share unsupported — fall through to copy
       }
     }
-    items.sort((a, b) => b.date.getTime() - a.date.getTime());
-    return items.slice(0, 5);
-  }, [groups, user?.id, defaultCurrency]);
+    handleCopy();
+  };
 
-  const groupAvatarItems = (g: { groupUsers?: { user: { name: string | null; id: string } }[] }) =>
-    (g.groupUsers ?? [])
-      .slice(0, 4)
-      .map((gu) => ({
-        init: gu.user.name?.charAt(0)?.toUpperCase() || "?",
-        color: getUserColor(gu.user.name),
-      }));
+  if (size === "sm") {
+    return (
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-extrabold transition-all hover:opacity-90"
+          style={{ background: A, color: "#0a0a0a" }}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label="Share link"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-extrabold border transition-all hover:bg-white/5"
+          style={{ borderColor: "rgba(255,255,255,0.14)", color: T.bright }}
+        >
+          <Share2 size={14} />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
-      {/* Sticky header – desktop only */}
-      <div
-        className="hidden sm:block border-b border-white/[0.07] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
+    <div className="grid grid-cols-2 gap-2.5">
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="flex items-center justify-center gap-2 rounded-xl py-3.5 text-[14px] font-extrabold transition-all hover:opacity-90"
+        style={{ background: A, color: "#0a0a0a" }}
       >
-        <div className="flex px-7 items-center h-[70px]">
-          <h1 className="text-[20px] font-extrabold tracking-[-0.02em] text-white">
+        {copied ? <Check size={16} /> : <Copy size={16} />}
+        {copied ? "Copied" : "Copy link"}
+      </button>
+      <button
+        type="button"
+        onClick={handleShare}
+        className="flex items-center justify-center gap-2 rounded-xl py-3.5 text-[14px] font-extrabold border transition-all hover:bg-white/5"
+        style={{ borderColor: "rgba(255,255,255,0.14)", color: T.bright }}
+      >
+        <Share2 size={16} />
+        Share
+      </button>
+    </div>
+  );
+}
+
+function LinkCreated({
+  payers,
+  onCreateAnother,
+}: {
+  payers: CreateRequestPayerLink[];
+  onCreateAnother: () => void;
+}) {
+  const isSingle = payers.length <= 1;
+
+  const handleCopyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(payers.map((p, i) => `Person ${i + 1} (${formatCurrency(Number(p.shareAmount), "USD")}): ${p.link}`).join("\n"));
+      toast.success("All links copied");
+    } catch {
+      toast.error("Couldn't copy — copy each link individually.");
+    }
+  };
+
+  return (
+    <Card className="p-6 sm:p-9 text-center">
+      <div
+        className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+        style={{ background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.3)" }}
+      >
+        <Check size={26} style={{ color: A }} />
+      </div>
+      <p className="text-[18px] font-extrabold mb-1" style={{ color: T.bright }}>
+        {isSingle ? "Your link is ready" : `${payers.length} links are ready`}
+      </p>
+      <p className="text-[13px] mb-6" style={{ color: T.muted }}>
+        {isSingle
+          ? "Send it to get paid. That link is the whole thing."
+          : "Send each person their own link."}
+      </p>
+
+      {isSingle ? (
+        <>
+          <div
+            className="rounded-xl px-4 py-3 mb-3 text-[13px] font-mono break-all text-left"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: T.body }}
+          >
+            {payers[0]?.link}
+          </div>
+          <CopyShareRow link={payers[0]?.link ?? ""} />
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col gap-2 mb-4 text-left">
+            {payers.map((p, i) => (
+              <div
+                key={p.payerId}
+                className="flex items-center justify-between gap-3 rounded-xl px-3.5 py-3"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold" style={{ color: T.bright }}>
+                    Person {i + 1} — {formatCurrency(Number(p.shareAmount), "USD")}
+                  </p>
+                  <p className="text-[11px] font-mono truncate mt-0.5" style={{ color: T.dim }}>
+                    {p.link}
+                  </p>
+                </div>
+                <CopyShareRow link={p.link} size="sm" />
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyAll}
+            className="text-[13px] font-semibold"
+            style={{ color: A }}
+          >
+            Copy all links
+          </button>
+        </>
+      )}
+
+      <button
+        type="button"
+        onClick={onCreateAnother}
+        className="text-[13px] font-semibold mt-5 block mx-auto"
+        style={{ color: T.muted }}
+      >
+        Create another request
+      </button>
+    </Card>
+  );
+}
+
+/**
+ * The signed-in dashboard — hero/settle-up/groups/activity for the personal
+ * workspace, or the treasury/approval or revenue arrangement for a business
+ * one (contexts/workspace.tsx decides which, never the URL). Design 145-241
+ * and 244-369 have no in-page title row — the shell's <Topbar/> (title +
+ * "+ Create") is it. But Topbar only mounts at >=1025px (client-layout.tsx),
+ * so below that this is the only heading; `min-[1025px]:hidden` keeps it from
+ * doubling up with Topbar once that breakpoint hits. Matches the same
+ * treatment in app/requests/[id]/page.tsx. No CTA here — the shell's
+ * "+ Create" already covers the primary action at >=1025px, and no page in
+ * this app duplicates it below that either (see app/requests/page.tsx).
+ */
+function DashboardScreen({ kind }: { kind: "personal" | "business" | null }) {
+  return (
+    <div className="flex-1 flex flex-col min-w-0">
+      <div className="block min-[1025px]:hidden border-b border-white/[0.07] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10">
+        <div className="flex px-4 sm:px-7 items-center h-[60px] sm:h-[70px]">
+          <h1 className="text-[16px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white truncate">
             Dashboard
           </h1>
         </div>
       </div>
 
       <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
-        {/* ── Mobile status bar + header (matches splito mobile spec) ── */}
-        <div className="sm:hidden mb-3">
-          {/* Status bar */}
-         
-          {/* Page header */}
-          <div className="pb-2 px-0">
-            <p
-              className="text-[13px] font-medium"
-              style={{ color: T.muted }}
-            >
-              Good morning,
-            </p>
-            <h1 className="text-[26px] font-black tracking-[-0.04em] text-white mt-1">
-              <span className="text-[#22D3EE]">splito</span>
-            </h1>
-          </div>
+        {/* kind === null: the cookie names a workspace the list hasn't returned
+            yet. Guessing "personal" here mounts PersonalDashboard, which fires
+            /workspaces/personal/summary for an account whose active workspace
+            is a business one. Only "personal" resolves without the list, so an
+            unresolved id is always a business one — show its skeleton. */}
+        {kind === null ? (
+          <BusinessDashboardSkeleton />
+        ) : kind === "business" ? (
+          <BusinessDashboard />
+        ) : (
+          <PersonalDashboard />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Page() {
+  const { user, isAuthenticated } = useAuthStore();
+  const workspace = useActiveWorkspace();
+  const isResolvingWorkspace = useIsResolvingWorkspace();
+  const [createdLinks, setCreatedLinks] = useState<CreateRequestPayerLink[] | null>(null);
+  // Bumped after a successful create so the Recent list picks the new one up.
+  const [reloadKey, setReloadKey] = useState(0);
+  const recentRequests = useRecentRequests(user?.id ?? null, reloadKey);
+
+  // Signed in -> the dashboard, never the anonymous create-request landing
+  // below. Branches on the session already held client-side (useAuthStore),
+  // never a blocking fetch — see components/AuthProvider.tsx, which never
+  // gates "/" behind the session request either.
+  if (isAuthenticated) {
+    return <DashboardScreen kind={isResolvingWorkspace ? null : workspace.kind} />;
+  }
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0">
+      <div className="hidden sm:block border-b border-white/[0.07] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10">
+        <div className="flex px-7 items-center h-[70px]">
+          <h1 className="text-[20px] font-extrabold tracking-[-0.02em] text-white">
+            Request money
+          </h1>
+        </div>
+      </div>
+
+      <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
+        <div className="sm:hidden mb-5">
+          <h1 className="text-[26px] font-black tracking-[-0.04em] text-white">
+            <span className="text-splito-a">splito</span>
+          </h1>
         </div>
 
-        {/* Balance hero – mobile uses net + 2-stat layout; desktop uses 3-stat layout */}
-        <div
-          id="dashboard-overall-balance"
-          className="rounded-2xl sm:rounded-3xl border border-white/[0.09] p-4 sm:p-7 mb-5 sm:mb-7 relative overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #141414 0%, #0f0f0f 100%)",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)",
-          }}
-        >
-          <div
-            className="absolute -top-10 -right-10 w-[200px] h-[200px] rounded-full pointer-events-none"
-            style={{ background: netOwed >= 0 ? `${G}09` : "#F8717109" }}
-          />
+        <div className="max-w-xl mx-auto">
+          {createdLinks ? (
+            <LinkCreated payers={createdLinks} onCreateAnother={() => setCreatedLinks(null)} />
+          ) : (
+            <CreateRequestForm
+              onCreated={(links) => {
+                setCreatedLinks(links);
+                setReloadKey((k) => k + 1);
+              }}
+            />
+          )}
 
-          {/* ── Mobile layout ─────────────────────────────────── */}
-          <div className="sm:hidden">
-            <p
-              className="text-[11px] font-bold tracking-[0.1em] uppercase mb-2"
-              style={{ color: T.muted }}
-            >
-              Net Balance
-            </p>
-            {isGroupsLoading ? (
-              <div className="flex items-center gap-2 mb-1">
-                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-                <span className="text-white/60 text-sm">Loading…</span>
-              </div>
-            ) : (
-              <>
-                <p
-                  className="text-[36px] font-black tracking-[-0.04em] mb-1"
-                  style={{
-                    color: netOwed >= 0 ? G : "#F87171",
-                  }}
+          {/* Recent — rendered only when there is something real to show.
+              An empty section here is worse than no section. */}
+          {user && recentRequests.length > 0 && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between">
+                <SectionLabel>Recent</SectionLabel>
+                <Link
+                  href="/requests"
+                  className="text-[12px] font-semibold"
+                  style={{ color: A, marginBottom: 14 }}
                 >
-                  {netOwed >= 0 ? "+" : "-"}
-                  {overallGetLoading || overallOweLoading
-                    ? "…"
-                    : formatCurrency(Math.abs(netOwed), defaultCurrency)}
-                </p>
-                <p className="text-[13px] font-medium mb-5" style={{ color: T.sub }}>
-                  {netOwed >= 0 ? "overall you're owed" : "overall you owe"}
-                </p>
-              </>
-            )}
-            <div className="h-px mb-5" style={{ background: "rgba(255,255,255,0.07)" }} />
-            <div className="grid grid-cols-2 gap-0">
-              {[
-                ["You're owed", overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency), G],
-                ["You owe", overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency), "#F87171"],
-              ].map(([label, value, color], i) => (
-                <div
-                  key={String(label)}
-                  className={i === 1 ? "pl-4 border-l border-white/[0.08]" : "pr-4"}
-                >
-                  <p className="text-[10px] font-bold tracking-[0.06em] uppercase mb-1.5" style={{ color: T.dim }}>
-                    {label}
-                  </p>
-                  <p className="text-[20px] font-extrabold font-dm-mono" style={{ color: color as string }}>
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Desktop layout (unchanged) ──────────────────────── */}
-          <div className="hidden sm:block">
-            <p
-              className="text-[12px] font-bold tracking-[0.08em] uppercase mb-2.5"
-              style={{ color: T.muted }}
-            >
-              Overall balance
-            </p>
-            <p className="text-[26px] font-extrabold tracking-[-0.02em] text-white mb-1">
-              {isGroupsLoading || overallOweLoading || overallGetLoading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-                  Loading…
-                </span>
-              ) : netOwed > 0 ? (
-                <>
-                  Overall, you are owed{" "}
-                  <span style={{ color: G }}>
-                    +{formatCurrency(netOwed, defaultCurrency)}
-                  </span>
-                </>
-              ) : netOwed < 0 ? (
-                <>
-                  Overall, you owe{" "}
-                  <span style={{ color: "#F87171" }}>
-                    {formatCurrency(Math.abs(netOwed), defaultCurrency)}
-                  </span>
-                </>
-              ) : (
-                <span style={{ color: G }}>All settled ✓</span>
-              )}
-            </p>
-            <div className="h-px my-[22px]" style={{ background: "rgba(255,255,255,0.07)" }} />
-            <div className="grid grid-cols-3 gap-0">
-              {[
-                ["You owe", overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency)],
-                ["You're owed", overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency)],
-                ["Settled", formatCurrency(0, defaultCurrency)],
-              ].map(([label, value], i, arr) => (
-                <div
-                  key={String(label)}
-                  className={`min-w-0 ${i < arr.length - 1 ? "pr-[28px] border-r border-white/[0.07]" : ""} ${i > 0 ? "pl-[28px]" : ""} text-left`}
-                >
-                  <p className="text-[11px] mb-2.5 font-semibold tracking-[0.04em] truncate" style={{ color: T.muted }}>
-                    {label}
-                  </p>
-                  <p className="text-[22px] font-extrabold tracking-[-0.02em] font-dm-mono truncate" style={{ color: "#e8e8e8" }}>
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── MOBILE layout: groups → friends → activity ─────────── */}
-        <div className="sm:hidden">
-          {/* Your Groups */}
-          <div style={{ paddingBottom: 8 }}>
-            <SectionLabel>Your Groups</SectionLabel>
-            {isGroupsLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+                  See all
+                </Link>
               </div>
-            ) : (groups ?? []).length === 0 ? (
-              <p style={{ color: T.muted, fontSize: 13, padding: "8px 0" }}>No groups yet</p>
-            ) : (
-              (groups ?? []).map((g) => {
-                const memberCount = (g as { groupUsers?: unknown[] }).groupUsers?.length ?? 0;
-                const ago = formatRelativeTime(new Date((g as { updatedAt: Date }).updatedAt));
-                return (
-                  <Link href={`/groups/${g.id}`} key={g.id}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 14,
-                        background: "rgba(255,255,255,0.04)",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        borderRadius: 20,
-                        padding: "15px 16px",
-                        cursor: "pointer",
-                        marginBottom: 10,
-                      }}
-                    >
-                      <GroupAvatar items={groupAvatarItems(g)} size={48} radius={15} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p
-                          style={{
-                            fontSize: 15,
-                            fontWeight: 800,
-                            color: T.bright,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {g.name}
-                        </p>
-                        <p style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>
-                          {memberCount} {memberCount === 1 ? "person" : "people"} · {ago}
-                        </p>
-                      </div>
-                      <GroupBalanceMobileCell
-                        group={g}
-                        userId={user?.id ?? null}
-                        defaultCurrency={defaultCurrency}
-                      />
-                    </div>
-                  </Link>
-                );
-              })
-            )}
-          </div>
-
-          {/* Friends – horizontal scroll */}
-          <div style={{ padding: "8px 0" }}>
-            <SectionLabel>Friends</SectionLabel>
-            {isFriendsLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-              </div>
-            ) : (friends ?? []).length === 0 ? (
-              <p style={{ color: T.muted, fontSize: 13, padding: "8px 0" }}>No friends yet</p>
-            ) : (
-              <div className="hide-scrollbar" style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-                {(friends ?? []).map((friend) => {
-                  const friendInit =
-                    friend.name
-                      ?.split(" ")
-                      .map((n: string) => n[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase() || "?";
-                  const color = getUserColor(friend.name);
-                  const firstName = friend.name?.split(" ")[0] ?? "Friend";
-                  return (
-                    <div
-                      key={friend.id}
-                      style={{
-                        flexShrink: 0,
-                        background: "rgba(255,255,255,0.04)",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        borderRadius: 20,
-                        padding: "16px 14px",
-                        minWidth: 110,
-                        textAlign: "center",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
-                        <Avatar init={friendInit} color={color} size={40} />
-                      </div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: T.bright }}>{firstName}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Recent Activity */}
-          <div style={{ padding: "16px 0 0" }}>
-            <SectionLabel>Recent Activity</SectionLabel>
-            {isGroupsLoading || isRemindersLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-              </div>
-            ) : recentActivityFromGroups.length > 0 ? (
               <div
                 style={{
                   background: "rgba(255,255,255,0.03)",
@@ -767,234 +632,46 @@ export default function Page() {
                   overflow: "hidden",
                 }}
               >
-                {recentActivityFromGroups.map((a, i) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      padding: "14px 16px",
-                      borderBottom:
-                        i < recentActivityFromGroups.length - 1
-                          ? "1px solid rgba(255,255,255,0.06)"
-                          : "none",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div
+                {recentRequests.map((r, i) => {
+                  const progress = progressLabel(r.paidCount, r.payerCount);
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/requests/${r.id}`}
+                      className="flex items-center gap-3 transition-colors hover:bg-white/[0.03]"
                       style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: a.dotColor,
-                        flexShrink: 0,
-                        marginTop: 5,
+                        padding: "14px 16px",
+                        borderBottom:
+                          i < recentRequests.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
                       }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, color: T.body, lineHeight: 1.5 }}>
-                        {a.lead}
-                        {a.label && <> <span style={{ color: T.bright, fontWeight: 600 }}>{a.label}</span></>}
-                        {" "}
-                        <DualAmount
-                          amount={a.amount}
-                          currency={a.currency}
-                          style={{ fontWeight: 700, color: T.bright }}
-                          secondaryStyle={{ fontWeight: 500, color: T.muted }}
-                        />
-                      </p>
-                      <p style={{ fontSize: 11, color: T.sub, marginTop: 3, fontWeight: 600 }}>
-                        {a.subtext}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  borderRadius: 20,
-                  padding: "40px 20px",
-                  textAlign: "center",
-                }}
-              >
-                <p style={{ fontSize: 36, marginBottom: 10 }}>📋</p>
-                <p style={{ fontSize: 14, fontWeight: 700, color: T.body }}>No recent activity</p>
-                <p style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
-                  Expenses from your groups will appear here
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── DESKTOP layout: groups+activity grid, then friends balance ─ */}
-        <div className="hidden sm:block">
-          <div
-            className="grid gap-5 mb-7"
-            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
-          >
-            <Card className="p-[22px]">
-              <div className="flex justify-between items-center mb-4">
-                <SectionLabel>Your Groups</SectionLabel>
-                <span
-                  className="text-[11px] font-bold rounded-full px-2.5 py-1 border border-white/[0.09]"
-                  style={{ color: T.muted, background: "rgba(255,255,255,0.06)" }}
-                >
-                  {groups?.length ?? 0} groups
-                </span>
-              </div>
-              {isGroupsLoading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-                </div>
-              ) : (
-                (groups ?? []).slice(0, 3).map((g, i) => (
-                  <Link href={`/groups/${g.id}`} key={g.id}>
-                    <div
-                      className="splito-row-hover flex items-center gap-3 py-[11px] border-b border-white/[0.06] cursor-pointer last:border-b-0"
-                      style={i < Math.min(groups.length, 3) - 1 ? { borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
                     >
-                      <GroupAvatar items={groupAvatarItems(g)} size={38} radius={11} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[15px] font-bold text-[#f5f5f5] truncate">{g.name}</p>
-                        <p className="text-[13px] font-semibold" style={{ color: T.muted }}>
-                          {(Array.isArray((g as { expenses?: unknown[] }).expenses)
-                            ? (g as { expenses: unknown[] }).expenses.length
-                            : 0)}{" "}
-                          expenses
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className="font-mono font-extrabold"
+                            style={{ fontSize: 14, color: T.bright }}
+                          >
+                            {formatCurrency(r.amount, r.denominationCurrency || "USD")}
+                          </span>
+                          <StatusChip status={r.status} />
+                        </div>
+                        <p
+                          className="truncate"
+                          style={{ fontSize: 11.5, color: T.sub, marginTop: 3, fontWeight: 600 }}
+                        >
+                          {r.name ? `${r.name} · ` : ""}
+                          {progress ?? formatRelativeTime(new Date(r.createdAt))}
                         </p>
                       </div>
-                      <GroupBalanceShort
-                        group={g}
-                        userId={user?.id ?? null}
-                        defaultCurrency={defaultCurrency}
-                      />
-                    </div>
-                  </Link>
-                ))
-              )}
-              {groups?.length === 0 && !isGroupsLoading && (
-                <Link href="/groups" className="inline-flex items-center gap-1 mt-1 px-4 py-2 rounded-xl border border-[#22D3EE]/40 text-[#22D3EE] text-sm font-medium hover:bg-[#22D3EE]/10 transition-colors">
-                  + Create your first group
-                </Link>
-              )}
-            </Card>
-
-            <Card className="p-[22px] min-h-[200px] flex flex-col">
-              <SectionLabel>Recent Activity</SectionLabel>
-              {isGroupsLoading || isRemindersLoading ? (
-                <div className="flex justify-center py-8 flex-1 items-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-                </div>
-              ) : recentActivityFromGroups.length > 0 ? (
-                <div className="flex flex-col">
-                  {recentActivityFromGroups.map((a) => (
-                    <div key={a.id} className="flex gap-3 py-[9px] border-b border-white/[0.06] last:border-b-0">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0 mt-[5px]" style={{ background: a.dotColor }} />
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-[500] text-[#d4d4d4] leading-snug">
-                          {a.lead}
-                          {a.label && <> <span style={{ color: T.bright, fontWeight: 600 }}>{a.label}</span></>}
-                          {" "}
-                          <DualAmount
-                            amount={a.amount}
-                            currency={a.currency}
-                            style={{ fontWeight: 700, color: T.bright }}
-                            secondaryStyle={{ fontWeight: 500, color: T.muted }}
-                          />
-                        </p>
-                        <p className="text-[11px] mt-0.5 font-[600]" style={{ color: T.sub }}>{a.subtext}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (reminders ?? []).length > 0 ? (
-                <div className="flex flex-col">
-                  {(reminders ?? []).slice(0, 5).map((r) => (
-                    <div key={r.id} className="flex gap-3 py-2.5 border-b border-white/[0.06] last:border-b-0">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: A }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium leading-snug" style={{ color: T.body }}>{r.content || "Transaction request"}</p>
-                        <p className="text-[11px] mt-0.5 font-semibold" style={{ color: T.sub }}>{r.createdAt ? formatRelativeTime(new Date(r.createdAt)) : ""}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
-                  <p className="text-[40px] mb-2" aria-hidden>📋</p>
-                  <p className="text-[13px] font-medium" style={{ color: T.body }}>No recent activity</p>
-                  <p className="text-[12px] mt-1" style={{ color: T.muted }}>Expenses and settlements from your groups will appear here</p>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Friends Balance – desktop grid */}
-          <div>
-            <SectionLabel>Friends Balance</SectionLabel>
-            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-              {isFriendsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-white/50" />
-                </div>
-              ) : (
-                (friends ?? [])
-                  .filter((friend) => {
-                    const balances = friendBalancesFromGroups[friend.id] ?? [];
-                    return balances.some((b: { amount: number }) => b.amount !== 0);
-                  })
-                  .map((friend) => {
-                    const balances = friendBalancesFromGroups[friend.id] ?? [];
-                    const oweItems = balances.filter((b: { amount: number }) => b.amount > 0).map((b: { amount: number; currency: string }) => ({ amount: b.amount, currency: b.currency }));
-                    const owedItems = balances.filter((b: { amount: number }) => b.amount < 0).map((b: { amount: number; currency: string }) => ({ amount: Math.abs(b.amount), currency: b.currency }));
-                    const friendInit = friend.name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
-                    const color = getUserColor(friend.name);
-                    return (
-                      <FriendBalanceCard
-                        key={friend.id}
-                        friendName={friend.name ?? "Friend"}
-                        friendInit={friendInit}
-                        color={color}
-                        oweItems={oweItems}
-                        owedItems={owedItems}
-                        defaultCurrency={defaultCurrency}
-                      />
-                    );
-                  })
-              )}
-              {(!friends || friends.length === 0) && !isFriendsLoading && (
-                <p className="text-sm text-white/60 col-span-full py-4">No friends with balances</p>
-              )}
+                      <span style={{ color: T.dim }}>{Icons.chevR({ size: 15 })}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
-
-      <SettleDebtsModal
-        isOpen={isSettleModalOpen}
-        onClose={() => setIsSettleModalOpen(false)}
-        showIndividualView={settleFriendId !== null}
-        selectedFriendId={settleFriendId}
-        groupId={
-          settleFriendId
-            ? settleFriendGroupId || ""
-            : (groups && groups[0]?.id) || ""
-        }
-      />
-
-      <FriendsBreakdownModal
-        isOpen={isFriendsBreakdownModalOpen}
-        onClose={() => setIsFriendsBreakdownModalOpen(false)}
-        onSettleAll={() => {
-          setIsFriendsBreakdownModalOpen(false);
-          handleSettleAllClick();
-        }}
-      />
-
     </div>
   );
 }

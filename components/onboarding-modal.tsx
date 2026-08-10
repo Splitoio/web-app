@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
-import { Loader2 } from "lucide-react";
-import { T, A } from "@/lib/splito-design";
+import { Loader2, Hand } from "lucide-react";
+import { T, A, INSET } from "@/lib/splito-design";
 
 const PLATFORM_DEFAULT_CURRENCY = "USD";
 
@@ -23,7 +23,7 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: "rgba(255,255,255,0.05)",
+  background: INSET,
   border: "1.5px solid rgba(255,255,255,0.09)",
   borderRadius: 14,
   padding: "12px 16px",
@@ -86,7 +86,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
           className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
           style={{ background: `${A}18`, border: `1px solid ${A}30` }}
         >
-          <span style={{ fontSize: 22 }}>👋</span>
+          <Hand size={22} strokeWidth={1.75} color={A} />
         </div>
 
         <h2
@@ -142,7 +142,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             style={{
               width: "100%",
               padding: "13px",
-              background: canSubmit ? A : "rgba(255,255,255,0.05)",
+              background: canSubmit ? A : INSET,
               color: canSubmit ? "#0a0a0a" : "#555",
               border: "none",
               borderRadius: 14,

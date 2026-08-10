@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
 
               <button
                 type="submit"
-                className="w-full h-[52px] flex items-center justify-center rounded-xl bg-[#22D3EE] text-[#0a0a0a] font-semibold text-base transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-[52px] flex items-center justify-center rounded-xl bg-splito-a text-[#0a0a0a] font-semibold text-base transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading || !token}
               >
                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Update password"}

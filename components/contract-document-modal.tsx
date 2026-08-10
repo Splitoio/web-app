@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X, Download, ArrowLeft, Loader2 } from "lucide-react";
 import type { Contract } from "@/features/business/api/client";
-import { A, T } from "@/lib/splito-design";
+import { A, T, BORDER, INSET } from "@/lib/splito-design";
 
 const CURSIVE_FONT = "Dancing Script";
 
@@ -128,7 +128,7 @@ p,li{margin-bottom:8px}
       {/* Top bar */}
       <div
         className="shrink-0 flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "#0b0b0b" }}
+        style={{ borderBottom: BORDER, background: "#0b0b0b" }}
       >
         <button type="button" onClick={onClose} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: T.body }}>
           <ArrowLeft className="h-4 w-4" /> Back
@@ -147,7 +147,7 @@ p,li{margin-bottom:8px}
           className="max-w-[720px] mx-auto rounded-2xl overflow-hidden"
           style={{
             background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)",
-            border: "1px solid rgba(255,255,255,0.08)",
+            border: BORDER,
             boxShadow: "0 8px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
           }}
         >
@@ -282,7 +282,7 @@ p,li{margin-bottom:8px}
             </p>
 
             {/* Signatures */}
-            <div style={{ display: "flex", gap: 32, marginTop: 32, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", gap: 32, marginTop: 32, paddingTop: 24, borderTop: BORDER }}>
               <div style={{ flex: 1 }}>
                 <p style={{ fontFamily: `"${CURSIVE_FONT}", cursive`, fontSize: 26, minHeight: 36, marginBottom: 4, color: T.bright }}>
                   {creatorName}
@@ -308,7 +308,7 @@ p,li{margin-bottom:8px}
           {!isSigned && (
             <div
               className="sticky bottom-0 px-8 py-5 sm:px-12 rounded-b-2xl"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)" }}
+              style={{ borderTop: BORDER, background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)" }}
             >
               <input
                 type="text"
@@ -319,7 +319,7 @@ p,li{margin-bottom:8px}
                 style={{
                   fontFamily: `"${CURSIVE_FONT}", cursive`,
                   fontSize: 18,
-                  background: "rgba(255,255,255,0.05)",
+                  background: INSET,
                   border: "1px solid rgba(255,255,255,0.12)",
                   color: T.bright,
                 }}

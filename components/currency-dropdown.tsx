@@ -2,11 +2,11 @@
 
 import { useState, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, X, Map } from "lucide-react";
+import { Loader2, X, Map, Banknote, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
 import type { Currency } from "@/features/currencies/api/client";
-import { A, T } from "@/lib/splito-design";
+import { A, G, P, T, INSET } from "@/lib/splito-design";
 import { Icons } from "@/lib/splito-design";
 
 // Flag emoji for fiat currencies: explicit map for codes that don't match country (e.g. EUR, CHF)
@@ -70,21 +70,21 @@ const getCurrencyFlag = (c: Currency): string => {
   if (byId) return byId;
   // ISO 4217: many currency codes use first 2 letters as country code (e.g. VND -> VN)
   const id = (c.id || c.symbol || "").toUpperCase();
-  if (id.length >= 2) return countryCodeToFlag(id.slice(0, 2)) || "💱";
-  return "💱";
+  if (id.length >= 2) return countryCodeToFlag(id.slice(0, 2)) || "◆";
+  return "◆";
 };
 
 // Chain ID → display name and icon for section headers (Fiat, Aptos, Solana, Stellar, Base, etc.)
 const CHAIN_DISPLAY: Record<string, { name: string; icon: string; color: string }> = {
-  stellar: { name: "Stellar", icon: "✦", color: "#34D399" },
-  Stellar: { name: "Stellar", icon: "✦", color: "#34D399" },
-  solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
-  Solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
-  base: { name: "Base", icon: "🔵", color: "#3B82F6" },
-  Base: { name: "Base", icon: "🔵", color: "#3B82F6" },
-  aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
-  Aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
-  "8453": { name: "Base", icon: "🔵", color: "#3B82F6" },
+  stellar: { name: "Stellar", icon: "✦", color: G },
+  Stellar: { name: "Stellar", icon: "✦", color: G },
+  solana: { name: "Solana", icon: "◎", color: P },
+  Solana: { name: "Solana", icon: "◎", color: P },
+  base: { name: "Base", icon: "●", color: "#3B82F6" },
+  Base: { name: "Base", icon: "●", color: "#3B82F6" },
+  aptos: { name: "Aptos", icon: "⬡", color: A },
+  Aptos: { name: "Aptos", icon: "⬡", color: A },
+  "8453": { name: "Base", icon: "●", color: "#3B82F6" },
 };
 
 const CHAIN_ORDER = ["Stellar", "Solana", "Base", "Aptos"];
@@ -434,7 +434,7 @@ export default function CurrencyDropdown({
                 transition: "all 0.2s",
               }}
             >
-              <span style={{ fontSize: 14 }}>💵</span>
+              <Banknote size={14} strokeWidth={1.75} />
               Fiat
             </button>
             <button
@@ -458,7 +458,7 @@ export default function CurrencyDropdown({
                 transition: "all 0.2s",
               }}
             >
-              <span style={{ fontSize: 14 }}>🔗</span>
+              <Link2 size={14} strokeWidth={1.75} />
               Crypto
             </button>
           </div>
@@ -596,9 +596,18 @@ export default function CurrencyDropdown({
 
   return (
     <div className="relative" ref={triggerRef} style={compact ? { flexShrink: 0 } : undefined}>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         onClick={() => toggleDropdown("currency")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleDropdown("currency");
+          }
+        }}
         style={compact ? {
           display: "flex",
           alignItems: "center",
@@ -617,7 +626,7 @@ export default function CurrencyDropdown({
           justifyContent: "space-between",
           width: "100%",
           height: size === "lg" ? 46 : 40,
-          background: size === "lg" ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.04)",
+          background: size === "lg" ? INSET : "rgba(255,255,255,0.04)",
           border: `1px solid ${isOpen ? "rgba(255,255,255,0.3)" : (size === "lg" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.1)")}`,
           borderRadius: size === "lg" ? 12 : 8,
           padding: size === "lg" ? "0 16px" : "0 12px",
@@ -631,7 +640,7 @@ export default function CurrencyDropdown({
             <span style={{ fontSize: 15 }} aria-hidden>
               {selected && selected.type === "FIAT" && getCurrencyFlag(selected)
                 ? getCurrencyFlag(selected)
-                : "💱"}
+                : "◆"}
             </span>
             <span style={{ color: T.bright, fontSize: 14, fontWeight: 700 }}>
               {isLoadingCurrencies
@@ -786,7 +795,7 @@ export default function CurrencyDropdown({
             ▾
           </span>
         )}
-      </button>
+      </div>
 
       {typeof document !== "undefined" &&
         activeDropdown === "currency" &&

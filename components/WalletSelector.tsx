@@ -14,6 +14,7 @@ import {
   isInstallRequired,
   truncateAddress,
   useWallet,
+  AptosWalletAdapterProvider,
 } from "@aptos-labs/wallet-adapter-react";
 import {
   ArrowLeft,
@@ -49,7 +50,15 @@ import { useToast } from "./ui/use-toast";
 // Or, if you are using shadcn/ui, it might be:
 // import { useToast } from "@/components/ui/use-toast";
 
-export function WalletSelector(walletSortingOptions: WalletSortingOptions) {
+/**
+ * Not `export` — `useWallet()` below only works inside an
+ * `AptosWalletAdapterProvider`. That provider used to be mounted globally
+ * (components/providers.tsx), firing 4 mainnet RPC calls on every page load
+ * regardless of whether Aptos was ever needed. Scoping the provider to just
+ * this component (see the exported `WalletSelector` wrapper below) means the
+ * client only spins up when a `WalletSelector` actually mounts.
+ */
+function WalletSelectorInner(walletSortingOptions: WalletSortingOptions) {
   const { account, connected, disconnect, wallet } = useWallet();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -114,6 +123,15 @@ export function WalletSelector(walletSortingOptions: WalletSortingOptions) {
       </DialogTrigger>
       <ConnectWalletDialog close={closeDialog} {...walletSortingOptions} />
     </Dialog>
+  );
+}
+
+/** Public entry point — mounts the Aptos wallet-adapter client only while a `WalletSelector` exists. */
+export function WalletSelector(walletSortingOptions: WalletSortingOptions) {
+  return (
+    <AptosWalletAdapterProvider>
+      <WalletSelectorInner {...walletSortingOptions} />
+    </AptosWalletAdapterProvider>
   );
 }
 
