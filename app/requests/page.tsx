@@ -10,6 +10,8 @@ import { DataTable, type DataTableColumn } from "@/components/shell/data-table";
 import { listRequests, type RequestListItem, type RequestStatus } from "@/api-helpers/requests";
 import { useActiveWorkspace } from "@/contexts/workspace";
 import { assetLabel, listRowMeta, listRowType } from "@/components/requests/request-bits";
+import { useAuthStore } from "@/stores/authStore";
+import { LockedScreen } from "@/components/shell/locked-feature";
 
 /**
  * The list-screen table (design 462-496). Filter pills map onto the four
@@ -68,7 +70,7 @@ function downloadCsv(csv: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function RequestsPage() {
+function RequestsScreen() {
   const workspace = useActiveWorkspace();
   const isBusiness = workspace.kind === "business";
   const [items, setItems] = useState<RequestListItem[] | null>(null);
@@ -279,4 +281,25 @@ export default function RequestsPage() {
       )}
     </div>
   );
+}
+
+/**
+ * The shell now renders its chrome (sidebar/topbar/nav) for signed-out
+ * visitors too, so `/requests` is reachable without a session. Gate here,
+ * one level above RequestsScreen's `listRequests` fetch — hooks can't be
+ * called conditionally, so the only way to stop that query from firing for
+ * an anonymous visitor is to never mount the component that owns it.
+ */
+export default function RequestsPage() {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) {
+    return (
+      <LockedScreen
+        title="Requests"
+        reason="Sign in to see your requests"
+        blurb="Every request you've sent lives here — who has paid, who hasn't, and what's still outstanding."
+      />
+    );
+  }
+  return <RequestsScreen />;
 }

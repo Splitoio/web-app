@@ -47,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LockedScreen } from "@/components/shell/locked-feature";
 
 type Role = OrgRole;
 type Freq = "MONTHLY" | "WEEKLY" | "ONE_TIME";
@@ -120,7 +121,7 @@ type MemberRow = {
   contract?: Contract;
 };
 
-export default function MembersPage() {
+function MembersScreen() {
   const workspace = useActiveWorkspace();
   const { user } = useAuthStore();
   const isResolving = useIsResolvingWorkspace();
@@ -1007,3 +1008,25 @@ const sendBtnStyle: React.CSSProperties = {
   color: "#0a0a0a",
   border: "none",
 };
+
+/**
+ * The shell now renders its chrome for signed-out visitors too, so
+ * `/members` is reachable without a session. Gate here, above
+ * MembersScreen's `useGetOrganizationMembers`/`useGetContractsByOrganization`/
+ * `useGetOrganizationInvites` hooks — hooks can't be called conditionally, so
+ * the only way to keep those queries from firing for an anonymous visitor is
+ * to never mount the component that owns them.
+ */
+export default function MembersPage() {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) {
+    return (
+      <LockedScreen
+        title="Members"
+        reason="Sign in to see members"
+        blurb="Who is in this workspace, their role, and the terms they are on."
+      />
+    );
+  }
+  return <MembersScreen />;
+}

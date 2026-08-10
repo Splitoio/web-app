@@ -3,6 +3,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { QueryClient } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { isAuthRoute, isPublicRoute } from "@/lib/middleware-session";
+import { hasSessionPresence, setSessionPresent } from "@/lib/session-presence";
 
 const API_TIMEOUT = 30000;
 // Track if we're already redirecting to prevent loops
@@ -15,6 +16,9 @@ const redirectToLogin = () => {
 
     // Clear any auth tokens
     Cookies.remove("sessionToken");
+    // The session is gone, so every in-flight 401 that lands after this one is
+    // now case 1 (anonymous) rather than case 2 (expiry) — see the interceptor.
+    setSessionPresent(false);
 
     // Only redirect if we're not already on the login page
     if (!window.location.pathname.includes("/login")) {
@@ -80,14 +84,30 @@ apiClient.interceptors.response.use(
     };
     console.log("error", normalizedError);
     // Handle 401 (Unauthorized) responses - this is the only place we redirect.
-    // Never redirect off a public page (e.g. "/", "/pay/*") — an anonymous
-    // visitor getting a 401 from a background query (any component can fire
-    // one, e.g. Sidebar's groups query) there is expected, not an auth
-    // failure. See lib/middleware-session.ts for the canonical route list.
+    //
+    // Two things produce a 401 and they mean opposite things:
+    //
+    //   1. An ANONYMOUS VISITOR browsing the logged-out console. Every locked
+    //      feature is real UI backed by a real endpoint, so 401s are the
+    //      expected answer, on ANY route — not just the public ones. Redirecting
+    //      them to /login is precisely the behaviour the logged-out console
+    //      exists to remove.
+    //   2. An EXPIRED / REVOKED SESSION. The visitor had a session, the server
+    //      just rejected it, and they must be sent to /login.
+    //
+    // The HTTP layer cannot tell them apart — the discriminator is whether a
+    // session cookie was present when the server rendered this page
+    // (app/layout.tsx → AuthProvider → lib/session-presence.ts). No cookie ever
+    // means case 1, full stop. A cookie means case 2.
+    //
+    // The public-route check is kept ON TOP of that, because it answers a
+    // different question: /pay/*, /invite/* and "/" must never bounce ANYONE,
+    // signed in or not — a signed-in user paying someone else's link whose
+    // session lapses mid-flight should stay on the payer page.
     if (normalizedError.code === 401 && typeof window !== "undefined") {
       const currentPath = window.location.pathname;
       const isPublicPage = isAuthRoute(currentPath) || isPublicRoute(currentPath);
-      if (!isPublicPage) {
+      if (hasSessionPresence() && !isPublicPage) {
         redirectToLogin();
       }
     }

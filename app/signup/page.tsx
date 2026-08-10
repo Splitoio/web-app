@@ -75,7 +75,17 @@ export default function SignupPage() {
         if (formData.email) params.set("email", formData.email);
         if (callbackUrl) params.set("callbackUrl", callbackUrl);
         const query = params.toString();
-        router.push(query ? `/login?${query}` : "/login");
+        // A FULL load, not router.push, for the same reason the login page does
+        // it (see app/login/page.tsx): the session-cookie presence that decides
+        // whether the app fetches the user is read in the ROOT layout
+        // (app/layout.tsx → `hasSession`), and Next does not re-render the root
+        // layout on a client-side navigation. With autoSignIn, proxy.ts bounces
+        // /login straight to "/" — so a pushed navigation lands the brand-new
+        // account on "/" with `hasSession` still false, and it renders the
+        // signed-OUT console ("Guest session", locked features) to someone who
+        // just created an account, until they happen to reload.
+        window.location.href = query ? `/login?${query}` : "/login";
+        return; // Navigating away — don't reset the loading state.
       }
     } catch (error) {
       const apiError = error as ApiError;

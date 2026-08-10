@@ -9,6 +9,8 @@ import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useInviteFriend } from "@/features/friends/hooks/use-invite-friend";
 import { isValidEmail } from "@/utils/validation";
 import { Loader2, X } from "lucide-react";
+import { useAuthStore } from "@/stores/authStore";
+import { LockedScreen } from "@/components/shell/locked-feature";
 
 function EmailActionModal({
   title,
@@ -169,7 +171,7 @@ function PeopleActions({
   );
 }
 
-export default function PeoplePage() {
+function PeopleScreen() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -265,4 +267,26 @@ export default function PeoplePage() {
       )}
     </div>
   );
+}
+
+/**
+ * The shell now renders its chrome for signed-out visitors too, so
+ * `/people` is reachable without a session. Gate here, above PeopleScreen's
+ * `useAddFriend`/`useInviteFriend` hooks and the `<FriendsList/>` it mounts
+ * (which fetches its own list) — hooks can't be called conditionally, so the
+ * only way to keep those queries from firing for an anonymous visitor is to
+ * never mount the component that owns them.
+ */
+export default function PeoplePage() {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) {
+    return (
+      <LockedScreen
+        title="People"
+        reason="Sign in to see your people"
+        blurb="Everyone you have requested money from or paid."
+      />
+    );
+  }
+  return <PeopleScreen />;
 }

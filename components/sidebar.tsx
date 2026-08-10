@@ -22,8 +22,9 @@ import {
   navGroupLabel,
 } from "@/lib/splito-design";
 import { isNavItemActive, navGroupsFor, navItemId } from "@/lib/shell-nav";
-import { isWorkspaceAdmin } from "@/lib/workspace";
+import { isWorkspaceAdmin, type Workspace } from "@/lib/workspace";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
+import { LockedFeature } from "@/components/shell/locked-feature";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -33,6 +34,59 @@ import {
 } from "@/contexts/workspace";
 
 const SIDEBAR_WIDTH = 258;
+
+/**
+ * The switcher's resting row. Split out of <Sidebar/> so the signed-out console
+ * can render the SAME control inside a lock wrapper — a separate disabled copy
+ * would be one more thing to keep in sync with this one.
+ */
+function WorkspaceSwitcherButton({
+  workspace,
+  color,
+  onClick,
+}: {
+  workspace: Workspace;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      id="sidebar-workspace-switcher"
+      type="button"
+      onClick={onClick}
+      className="tile w-full flex items-center gap-2.5 text-left transition-all"
+      style={{
+        padding: "10px 11px",
+        borderRadius: RADIUS.tile,
+        background: INSET,
+        border: "1px solid rgba(255,255,255,0.09)",
+        marginBottom: 4,
+      }}
+    >
+      <span style={avatarChip(color, 32, 10)}>{workspace.initials}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block truncate" style={{ fontSize: 13, fontWeight: 700, color: T.main }}>
+          {workspace.name}
+        </span>
+        <span
+          className="block"
+          style={{
+            fontSize: 10.5,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color,
+          }}
+        >
+          {workspace.kind === "business" ? "Business" : "Personal"}
+        </span>
+      </span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 9l5-5 5 5M7 15l5 5 5-5" />
+      </svg>
+    </button>
+  );
+}
 
 /**
  * The one sidebar. There is no personal/business fork in the chrome itself —
@@ -104,43 +158,26 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Workspace switcher */}
+        {/* Workspace switcher — locked signed out. There is exactly one
+            workspace to show an anonymous visitor (the "Personal" stand-in from
+            contexts/workspace.tsx; the list query is gated off), so the real
+            control renders disabled with its reason rather than opening onto a
+            menu with one fake row and a "New workspace" button that 401s. */}
+        {!isAuthenticated ? (
+          <LockedFeature reason="Sign in to switch workspaces" className="mb-2">
+            <WorkspaceSwitcherButton
+              workspace={activeWorkspace}
+              color={wsColor}
+              onClick={() => {}}
+            />
+          </LockedFeature>
+        ) : (
         <div ref={switcherRef}>
-          <button
-            id="sidebar-workspace-switcher"
-            type="button"
+          <WorkspaceSwitcherButton
+            workspace={activeWorkspace}
+            color={wsColor}
             onClick={() => setSwitcherOpen((v) => !v)}
-            className="tile w-full flex items-center gap-2.5 text-left transition-all"
-            style={{
-              padding: "10px 11px",
-              borderRadius: RADIUS.tile,
-              background: INSET,
-              border: "1px solid rgba(255,255,255,0.09)",
-              marginBottom: 4,
-            }}
-          >
-            <span style={avatarChip(wsColor, 32, 10)}>{activeWorkspace.initials}</span>
-            <span className="flex-1 min-w-0">
-              <span className="block truncate" style={{ fontSize: 13, fontWeight: 700, color: T.main }}>
-                {activeWorkspace.name}
-              </span>
-              <span
-                className="block"
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: wsColor,
-                }}
-              >
-                {activeWorkspace.kind === "business" ? "Business" : "Personal"}
-              </span>
-            </span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 9l5-5 5 5M7 15l5 5 5-5" />
-            </svg>
-          </button>
+          />
 
           {switcherOpen && (
             <div
@@ -239,6 +276,7 @@ export function Sidebar() {
             </div>
           )}
         </div>
+        )}
 
         {/* Search — ⌘K opens it once the palette lands. Until then this is
             rendered as a visibly gated affordance rather than a live-looking

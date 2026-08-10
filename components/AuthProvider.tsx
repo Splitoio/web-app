@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { isAuthRoute, isPublicRoute } from "@/lib/middleware-session";
+import { setSessionPresent } from "@/lib/session-presence";
 
 export function AuthProvider({
   children,
@@ -23,6 +24,14 @@ export function AuthProvider({
    */
   hasSession?: boolean;
 }) {
+  // Published DURING RENDER, not in an effect: this provider renders before any
+  // of its children mount, and their queries can 401 on the very first tick.
+  // An effect fires after that, which would leave the interceptor deciding the
+  // anonymous-vs-expired question (api-helpers/client.ts) with a stale `false`
+  // and silently swallow a genuine expiry redirect. The write is idempotent and
+  // targets a module-scoped flag, so repeating it on every render is free.
+  setSessionPresent(hasSession);
+
   const setUser = useAuthStore((state) => state.setUser);
   const setCurrencyDisplayMode = useCurrencyDisplayStore((s) => s.setMode);
   const pathname = usePathname() ?? "";
@@ -50,6 +59,9 @@ export function AuthProvider({
   useEffect(() => {
     if (user) {
       setUser(user);
+      // A session proven by an actual 200, for the case the server render
+      // missed it (a client-side sign-in that never re-rendered on the server).
+      setSessionPresent(true);
       const cd = user.currencyDisplay;
       if (cd === "both" || cd === "real" || cd === "converted") {
         setCurrencyDisplayMode(cd as CurrencyDisplayMode);
