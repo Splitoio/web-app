@@ -62,11 +62,17 @@ export const useRemoveUserAcceptedToken = () => {
 
 const SETTLEMENT_PREF_KEY = ["settlement-preference"];
 
-export const useGetSettlementPreference = () => {
+/**
+ * `enabled` exists because the create screen is reachable signed out (it is the
+ * logged-out console's landing page — see components/create/create-request-experience.tsx),
+ * and an anonymous visitor has no settlement preferences to fetch.
+ */
+export const useGetSettlementPreference = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: SETTLEMENT_PREF_KEY,
     queryFn: getSettlementPreference,
     staleTime: 0,
+    enabled: options?.enabled ?? true,
   });
 };
 

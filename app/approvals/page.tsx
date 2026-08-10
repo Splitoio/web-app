@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { A, G, MONO, T, Card, Btn, Tag, AvatarChip, getUserColor, Eyebrow, card } from "@/lib/splito-design";
+import { GatedScreen } from "@/components/shell/locked-feature";
 import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
 import { BusinessOnly, WorkspaceResolving } from "@/components/shell/business-only";
 import { isWorkspaceAdmin } from "@/lib/workspace";
@@ -34,7 +35,7 @@ function formatDueDate(date: Date): string {
  * is already absent from the personal sidebar (navGroupsFor in shell-nav.ts),
  * this is the direct-navigation fallback.
  */
-export default function ApprovalsPage() {
+function ApprovalsScreen() {
   const workspace = useActiveWorkspace();
   const isResolving = useIsResolvingWorkspace();
   const isBusiness = workspace.kind === "business";
@@ -206,5 +207,24 @@ export default function ApprovalsPage() {
           </Card>
         ))}
     </div>
+  );
+}
+
+/**
+ * The shell now renders its chrome for signed-out visitors too, so
+ * `/approvals` is reachable without a session. Gate here, above
+ * ApprovalsScreen's `getInvoicesByOrganization` fetch: hooks can't be called
+ * conditionally, so the only way to keep that query from firing for an
+ * anonymous visitor is to never mount the component that owns it.
+ */
+export default function ApprovalsPage() {
+  return (
+    <GatedScreen
+      title="Needs approval"
+      reason="Sign in to see approvals"
+      blurb="Payments waiting on a decision before they can go out."
+    >
+      <ApprovalsScreen />
+    </GatedScreen>
   );
 }

@@ -7,10 +7,19 @@ import { OnboardingModal } from "./onboarding-modal";
 import { OnboardingTutorial, type OnboardingMode } from "./onboarding-tutorial";
 import { isAuthRoute } from "@/lib/middleware-session";
 import { useActiveWorkspace, useWorkspaces } from "@/contexts/workspace";
+import { useAuthStore } from "@/stores/authStore";
 
 export function OnboardingGate() {
   const pathname = usePathname();
-  const { data: userData, isLoading } = useGetUser();
+  // Gated on the session. This used to be an UNGATED useGetUser(), which was
+  // harmless while the shell only ever mounted for signed-in users — but the
+  // shell is now what a signed-out visitor lands in (app/client-layout.tsx),
+  // and an ungated call here 401s GET /api/users/me on every anonymous page
+  // load. There is also nothing to onboard without an account, so the answer
+  // could never change what this component renders. Same pattern as
+  // contexts/workspace.tsx.
+  const { isAuthenticated } = useAuthStore();
+  const { data: userData, isLoading } = useGetUser({ enabled: isAuthenticated });
   const { mutate: updateUser } = useUpdateUser();
   const [showTutorial, setShowTutorial] = useState(false);
 

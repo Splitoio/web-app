@@ -16,6 +16,7 @@ import {
 import { markParticipantAsPaid } from "@/features/expenses/api/client";
 import { sendReminder } from "@/features/reminders/api/client";
 import { usePageTitle } from "@/contexts/page-title";
+import { GatedScreen } from "@/components/shell/locked-feature";
 import {
   StatusChip,
   STATUS_STYLE,
@@ -330,7 +331,7 @@ function PayerRow({
   );
 }
 
-export default function RequestDetailPage() {
+function RequestDetailScreen() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
@@ -651,5 +652,25 @@ function NudgeRow({
         {sending ? "Sending…" : sent ? "Sent" : "Nudge"}
       </Btn>
     </div>
+  );
+}
+
+/**
+ * The shell now renders its chrome for signed-out visitors too, so
+ * `/requests/[id]` — including any real request id typed or bookmarked — is
+ * reachable without a session. Gate here, above RequestDetailScreen's
+ * `getRequestDetail` fetch: hooks can't be called conditionally, so the only
+ * way to keep that request-detail lookup from firing for an anonymous
+ * visitor is to never mount the component that owns it.
+ */
+export default function RequestDetailPage() {
+  return (
+    <GatedScreen
+      title="Request details"
+      reason="Sign in to see this request"
+      blurb="Tracking a request — its payers, its status and its history — belongs to the account that created it."
+    >
+      <RequestDetailScreen />
+    </GatedScreen>
   );
 }

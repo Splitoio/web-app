@@ -8,6 +8,9 @@ import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { isAuthRoute, isPublicRoute } from "@/lib/middleware-session";
+import { setSessionPresent } from "@/lib/session-presence";
+import { isUnauthorizedError } from "@/api-helpers/client";
+import { SessionStatusProvider, type SessionStatus } from "@/contexts/session";
 
 export function AuthProvider({
   children,
@@ -23,33 +26,50 @@ export function AuthProvider({
    */
   hasSession?: boolean;
 }) {
+  // Published DURING RENDER, not in an effect: this provider renders before any
+  // of its children mount, and their queries can 401 on the very first tick.
+  // An effect fires after that, which would leave the interceptor deciding the
+  // anonymous-vs-expired question (api-helpers/client.ts) with a stale `false`
+  // and silently swallow a genuine expiry redirect. The write is idempotent and
+  // targets a module-scoped flag, so repeating it on every render is free.
+  setSessionPresent(hasSession);
+
   const setUser = useAuthStore((state) => state.setUser);
   const setCurrencyDisplayMode = useCurrencyDisplayStore((s) => s.setMode);
   const pathname = usePathname() ?? "";
   // /login, /signup, /forgot-password, /reset-password — never fire a
   // session-requiring query here at all.
   const isAuthPage = isAuthRoute(pathname);
-  // "/" is the anonymous create-request landing (see
-  // lib/middleware-session.ts). It — and the other no-account public routes
-  // like /pay/* — must render immediately for an anonymous visitor: never
-  // blocked behind a user fetch, never redirected, whether that fetch is
-  // slow, down, or 401s. "/" still WANTS the fetch (to show "Recent" for a
-  // returning user), just never gated on it; /pay/* etc. skip the fetch
-  // entirely, same as auth pages.
+  // "/" is public — an anonymous visitor must never be blocked behind a user
+  // fetch there, whether it is slow, down, or 401s. But "/" is ALSO the
+  // dashboard for everyone who IS signed in, so when a session cookie exists
+  // it has to wait for the answer like any protected route: rendering through
+  // the in-flight fetch showed a signed-in user the full signed-OUT console
+  // ("Guest session", a locked workspace switcher, "No account needed") on
+  // every single load of the most-visited route in the app, which then flipped
+  // under them a moment later. Hence `neverGate` below turns on the ABSENCE of
+  // a session, not on the route being public.
+  //
+  // (This used to say "/" wants the fetch to show a "Recent" list. That list
+  // and its useRecentRequests hook are gone — "/" now renders either the
+  // dashboard or the create screen.)
   const isRoot = pathname === "/";
   const isPublicPage = isPublicRoute(pathname); // includes "/"
   // No session cookie => nobody to fetch. "/" used to fire GET /api/users/me
   // for every anonymous visitor and 401, which is noise on a page that is
-  // no-account by design. A returning user still has the cookie, so "/" still
-  // gets its user (and its "Recent" list) exactly as before.
+  // no-account by design. /pay/* and /invite/* opt out entirely: they are
+  // chrome-free and render nothing that depends on who is looking.
   const skipFetch = isAuthPage || (isPublicPage && !isRoot) || !hasSession;
-  const neverGate = isAuthPage || isPublicPage;
-  const { data: user, isPending } = useGetUser({ enabled: !skipFetch });
+  const neverGate = isAuthPage || (isPublicPage && !hasSession);
+  const { data: user, isPending, isError, error } = useGetUser({ enabled: !skipFetch });
   const posthog = usePostHog();
 
   useEffect(() => {
     if (user) {
       setUser(user);
+      // A session proven by an actual 200, for the case the server render
+      // missed it (a client-side sign-in that never re-rendered on the server).
+      setSessionPresent(true);
       const cd = user.currencyDisplay;
       if (cd === "both" || cd === "real" || cd === "converted") {
         setCurrencyDisplayMode(cd as CurrencyDisplayMode);
@@ -60,6 +80,43 @@ export function AuthProvider({
       });
     }
   }, [user, setUser, setCurrencyDisplayMode, posthog]);
+
+  // A 401 is not a failure, it is an ANSWER: the cookie is expired, revoked, or
+  // forged, and there is no session behind it. That has to land on "anonymous",
+  // not "error" — "/" is public, so neither proxy.ts (which only validates
+  // isAuthRoute/isProtectedRoute) nor the 401 interceptor (which never bounces
+  // a public page) will move them, and calling it an error left an expired
+  // session pinned to a screen insisting "you're still signed in" with a Try
+  // again that reloaded into the same dead end forever. Landing on "anonymous"
+  // gives them the guest console, where creating a request still works — the
+  // entire point of "/".
+  const sessionRejected = isError && isUnauthorizedError(error);
+
+  // The one place that decides how much the UI is allowed to assume — see
+  // contexts/session.tsx. `!user` has FOUR different meanings and the screens
+  // below must not collapse them into "signed out".
+  const status: SessionStatus = !hasSession
+    ? // No cookie: there is nothing to wait for and nothing that can fail.
+      "anonymous"
+    : user
+      ? "authenticated"
+      : sessionRejected
+        ? // Cookie present but the server rejected it — same as having none.
+          "anonymous"
+        : isError
+          ? // A cookie exists and the fetch failed for some OTHER reason (500,
+            // network, backend restarting). Not a signed-out visitor — a
+            // signed-in one whose backend hiccuped. Telling them to sign in
+            // would be a lie, and a sticky one (staleTime 5min, no refetch on
+            // focus), so screens show an error with a way out instead.
+            "error"
+          : skipFetch
+            ? // Cookie present, but this route opted out of the fetch (/pay/*,
+              // /invite/*). Nothing there renders a locked or gated surface, so
+              // trust the cookie rather than reporting a "loading" that would
+              // never resolve — a disabled query stays `isPending` forever.
+              "authenticated"
+            : "loading";
 
   // `skipFetch` must be part of this test: react-query reports a DISABLED query
   // as `isPending` forever, so gating on `isPending` alone would hang a
@@ -72,5 +129,5 @@ export function AuthProvider({
     );
   }
 
-  return <>{children}</>;
+  return <SessionStatusProvider status={status}>{children}</SessionStatusProvider>;
 }

@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { Sidebar } from "@/components/sidebar";
@@ -12,7 +10,6 @@ import { Providers } from "@/components/providers";
 import { OnboardingGate } from "@/components/onboarding-gate";
 import { MobileNav } from "@/components/mobile-nav";
 import { isAuthRoute } from "@/lib/middleware-session";
-import { useAuthStore } from "@/stores/authStore";
 
 export function ClientLayout({
   children,
@@ -45,33 +42,28 @@ export function ClientLayout({
     pathname?.startsWith("/pay") ||
     pathname?.startsWith("/invite");
 
-  // "/" is the anonymous-first create-request screen (see
-  // .specs/2026-08-06-request-money-design.md "Accounts": no account is ever
-  // required to request or pay). A stranger with no session must not see the
-  // signed-in app shell — sidebar, topbar, bottom nav — since that's furniture
-  // for an account they don't have. Once a session exists, "/" renders the full
-  // shell exactly as every other route does.
-  const { isAuthenticated } = useAuthStore();
-  const isAnonymousLanding = pathname === "/" && !isAuthenticated;
-
+  // A signed-out visitor on "/" USED TO get a chrome-free card here — logo,
+  // "Log in", and a stripped-down request form. That branch is gone. The
+  // logged-out visitor now lands in the same shell as everyone else and sees
+  // the real console: the sidebar (with its "Guest session" panel), the topbar,
+  // the mobile nav, all of it. What they cannot use is rendered disabled with a
+  // reason rather than hidden — see components/shell/locked-feature.tsx and
+  // app/page.tsx.
+  //
+  // Two things make that safe, and both must hold or an anonymous visitor gets
+  // bounced to /login the instant the shell mounts:
+  //   1. Every session-requiring query in the shell is gated on
+  //      `isAuthenticated` (OnboardingGate below, contexts/workspace.tsx).
+  //   2. The 401 interceptor only redirects when a session cookie was actually
+  //      present — api-helpers/client.ts, lib/session-presence.ts.
+  //
+  // /pay/* and /invite/* stay chrome-free (isAuthPage above): those are the
+  // no-account payer/invite flows, not the console.
   return (
     <MobileMenuProvider>
       <Providers initialWorkspaceId={initialWorkspaceId} hasSession={hasSession}>
         {isAuthPage ? (
           children
-        ) : isAnonymousLanding ? (
-          <div className="min-h-screen bg-[#0b0b0b] flex flex-col">
-            <div className="flex items-center justify-between px-4 sm:px-7 h-[64px] shrink-0">
-              <Image src="/logo.svg" alt="Splito" width={100} height={26} className="h-6 w-auto" />
-              <Link
-                href="/login"
-                className="text-[13px] font-semibold text-white/60 hover:text-white transition-colors"
-              >
-                Log in
-              </Link>
-            </div>
-            <main className="flex-1 flex flex-col min-w-0">{children}</main>
-          </div>
         ) : (
           <div className="min-h-screen bg-[#0b0b0b] splito-page-wrap">
             <OnboardingGate />

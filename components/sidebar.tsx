@@ -22,8 +22,10 @@ import {
   navGroupLabel,
 } from "@/lib/splito-design";
 import { isNavItemActive, navGroupsFor, navItemId } from "@/lib/shell-nav";
-import { isWorkspaceAdmin } from "@/lib/workspace";
+import { isWorkspaceAdmin, type Workspace } from "@/lib/workspace";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
+import { LockedFeature } from "@/components/shell/locked-feature";
+import { useIsLocked, useSessionStatus } from "@/contexts/session";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -35,6 +37,69 @@ import {
 const SIDEBAR_WIDTH = 258;
 
 /**
+ * The switcher's resting row. Split out of <Sidebar/> so the signed-out console
+ * can render the SAME control inside a lock wrapper — a separate disabled copy
+ * would be one more thing to keep in sync with this one.
+ */
+function WorkspaceSwitcherButton({
+  workspace,
+  color,
+  onClick,
+  disabled = false,
+  title,
+}: {
+  workspace: Workspace;
+  color: string;
+  onClick: () => void;
+  /** No workspace list to open — see the three-way branch in <Sidebar/>. */
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      id="sidebar-workspace-switcher"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
+      title={title}
+      className="tile w-full flex items-center gap-2.5 text-left transition-all"
+      style={{
+        padding: "10px 11px",
+        borderRadius: RADIUS.tile,
+        background: INSET,
+        border: "1px solid rgba(255,255,255,0.09)",
+        marginBottom: 4,
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : undefined,
+      }}
+    >
+      <span style={avatarChip(color, 32, 10)}>{workspace.initials}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block truncate" style={{ fontSize: 13, fontWeight: 700, color: T.main }}>
+          {workspace.name}
+        </span>
+        <span
+          className="block"
+          style={{
+            fontSize: 10.5,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color,
+          }}
+        >
+          {workspace.kind === "business" ? "Business" : "Personal"}
+        </span>
+      </span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 9l5-5 5 5M7 15l5 5 5-5" />
+      </svg>
+    </button>
+  );
+}
+
+/**
  * The one sidebar. There is no personal/business fork in the chrome itself —
  * only the nav groups differ, and which set renders is decided by the active
  * workspace, never by the URL.
@@ -42,7 +107,13 @@ const SIDEBAR_WIDTH = 258;
 export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useMobileMenu();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
+  // The lock is for a genuinely signed-out visitor only. A signed-in user whose
+  // GET /api/users/me failed also leaves the store empty, and showing
+  // them "Guest session" + a padlocked switcher would be a lie the 5-minute
+  // staleTime makes stick. See contexts/session.tsx.
+  const isLocked = useIsLocked();
+  const status = useSessionStatus();
   const { workspaces, businessCount, businessCap, canCreateBusiness } = useWorkspaces();
   const activeWorkspace = useActiveWorkspace();
   const setActiveWorkspace = useSetActiveWorkspace();
@@ -104,43 +175,51 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Workspace switcher */}
-        <div ref={switcherRef}>
-          <button
-            id="sidebar-workspace-switcher"
-            type="button"
-            onClick={() => setSwitcherOpen((v) => !v)}
-            className="tile w-full flex items-center gap-2.5 text-left transition-all"
-            style={{
-              padding: "10px 11px",
-              borderRadius: RADIUS.tile,
-              background: INSET,
-              border: "1px solid rgba(255,255,255,0.09)",
-              marginBottom: 4,
-            }}
+        {/* Workspace switcher — three ways, because there are three reasons the
+            list can be empty and they are not the same thing.
+
+            ANONYMOUS: exactly one workspace exists to show (the "Personal"
+            stand-in from contexts/workspace.tsx; the list query is gated off),
+            so the real control renders locked with its reason rather than
+            opening onto a menu with one fake row and a "New workspace" button
+            that 401s.
+
+            LOADING / ERROR: the list is equally unavailable, but "sign in" is
+            the wrong explanation — this visitor has a session. Same disabled
+            treatment, honest tooltip, no lock copy. Letting it stay live here
+            was the bug: it opened onto an empty menu plus that same 401-ing
+            button, which is precisely what the anonymous case avoids. */}
+        {isLocked ? (
+          <LockedFeature
+            label="Workspace switcher"
+            reason="Sign in to switch workspaces"
+            className="mb-2"
           >
-            <span style={avatarChip(wsColor, 32, 10)}>{activeWorkspace.initials}</span>
-            <span className="flex-1 min-w-0">
-              <span className="block truncate" style={{ fontSize: 13, fontWeight: 700, color: T.main }}>
-                {activeWorkspace.name}
-              </span>
-              <span
-                className="block"
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: wsColor,
-                }}
-              >
-                {activeWorkspace.kind === "business" ? "Business" : "Personal"}
-              </span>
-            </span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 9l5-5 5 5M7 15l5 5 5-5" />
-            </svg>
-          </button>
+            <WorkspaceSwitcherButton
+              workspace={activeWorkspace}
+              color={wsColor}
+              onClick={() => {}}
+            />
+          </LockedFeature>
+        ) : status !== "authenticated" ? (
+          <WorkspaceSwitcherButton
+            workspace={activeWorkspace}
+            color={wsColor}
+            onClick={() => {}}
+            disabled
+            title={
+              status === "error"
+                ? "Your workspaces couldn't be loaded"
+                : "Loading your workspaces…"
+            }
+          />
+        ) : (
+        <div ref={switcherRef}>
+          <WorkspaceSwitcherButton
+            workspace={activeWorkspace}
+            color={wsColor}
+            onClick={() => setSwitcherOpen((v) => !v)}
+          />
 
           {switcherOpen && (
             <div
@@ -239,6 +318,7 @@ export function Sidebar() {
             </div>
           )}
         </div>
+        )}
 
         {/* Search — ⌘K opens it once the palette lands. Until then this is
             rendered as a visibly gated affordance rather than a live-looking
@@ -337,7 +417,7 @@ export function Sidebar() {
         </nav>
 
         {/* Account panel — guest upsell, or the signed-in user row. */}
-        {isAuthenticated && user ? (
+        {user ? (
           <Link
             href="/settings"
             onClick={close}
@@ -360,7 +440,7 @@ export function Sidebar() {
             </span>
             {Icons.chevD({ size: 13 })}
           </Link>
-        ) : (
+        ) : isLocked ? (
           <div
             style={{
               padding: "13px 14px",
@@ -388,6 +468,23 @@ export function Sidebar() {
             >
               Create free account
             </Link>
+          </div>
+        ) : (
+          // Loading or error: there IS an account, we just can't describe it
+          // yet. Rendering nothing left a hole at the bottom of the sidebar for
+          // as long as the error lasted, so hold the slot with something that
+          // says which of the two it is.
+          <div
+            style={{
+              padding: "13px 14px",
+              borderRadius: 16,
+              background: "rgba(255,255,255,0.03)",
+              border: BORDER,
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: T.dim }}>
+              {status === "error" ? "Account unavailable" : "Loading your account…"}
+            </p>
           </div>
         )}
       </div>

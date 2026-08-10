@@ -5,8 +5,9 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { CreateGroupForm } from "@/components/create-group-form";
 import { Icons, T, A, BORDER } from "@/lib/splito-design";
+import { GatedScreen } from "@/components/shell/locked-feature";
 
-export default function GroupsPage() {
+function GroupsScreen() {
   const searchParams = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,5 +100,24 @@ export default function GroupsPage() {
         onClose={() => setIsCreateModalOpen(false)}
       />
     </div>
+  );
+}
+
+/**
+ * The shell now renders its chrome for signed-out visitors too, so
+ * `/groups` is reachable without a session. Gate here, above GroupsScreen's
+ * `<GroupsList/>` (which fetches the group list itself) — hooks can't be
+ * called conditionally, so the only way to keep that query from firing for
+ * an anonymous visitor is to never mount the component that owns it.
+ */
+export default function GroupsPage() {
+  return (
+    <GatedScreen
+      title="Groups"
+      reason="Sign in to see your groups"
+      blurb="Running tabs with the people you see often."
+    >
+      <GroupsScreen />
+    </GatedScreen>
   );
 }

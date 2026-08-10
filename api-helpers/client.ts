@@ -3,6 +3,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { QueryClient } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { isAuthRoute, isPublicRoute } from "@/lib/middleware-session";
+import { hasSessionPresence, setSessionPresent } from "@/lib/session-presence";
 
 const API_TIMEOUT = 30000;
 // Track if we're already redirecting to prevent loops
@@ -15,6 +16,9 @@ const redirectToLogin = () => {
 
     // Clear any auth tokens
     Cookies.remove("sessionToken");
+    // The session is gone, so every in-flight 401 that lands after this one is
+    // now case 1 (anonymous) rather than case 2 (expiry) — see the interceptor.
+    setSessionPresent(false);
 
     // Only redirect if we're not already on the login page
     if (!window.location.pathname.includes("/login")) {
@@ -80,14 +84,30 @@ apiClient.interceptors.response.use(
     };
     console.log("error", normalizedError);
     // Handle 401 (Unauthorized) responses - this is the only place we redirect.
-    // Never redirect off a public page (e.g. "/", "/pay/*") — an anonymous
-    // visitor getting a 401 from a background query (any component can fire
-    // one, e.g. Sidebar's groups query) there is expected, not an auth
-    // failure. See lib/middleware-session.ts for the canonical route list.
+    //
+    // Two things produce a 401 and they mean opposite things:
+    //
+    //   1. An ANONYMOUS VISITOR browsing the logged-out console. Every locked
+    //      feature is real UI backed by a real endpoint, so 401s are the
+    //      expected answer, on ANY route — not just the public ones. Redirecting
+    //      them to /login is precisely the behaviour the logged-out console
+    //      exists to remove.
+    //   2. An EXPIRED / REVOKED SESSION. The visitor had a session, the server
+    //      just rejected it, and they must be sent to /login.
+    //
+    // The HTTP layer cannot tell them apart — the discriminator is whether a
+    // session cookie was present when the server rendered this page
+    // (app/layout.tsx → AuthProvider → lib/session-presence.ts). No cookie ever
+    // means case 1, full stop. A cookie means case 2.
+    //
+    // The public-route check is kept ON TOP of that, because it answers a
+    // different question: /pay/*, /invite/* and "/" must never bounce ANYONE,
+    // signed in or not — a signed-in user paying someone else's link whose
+    // session lapses mid-flight should stay on the payer page.
     if (normalizedError.code === 401 && typeof window !== "undefined") {
       const currentPath = window.location.pathname;
       const isPublicPage = isAuthRoute(currentPath) || isPublicRoute(currentPath);
-      if (!isPublicPage) {
+      if (hasSessionPresence() && !isPublicPage) {
         redirectToLogin();
       }
     }
@@ -96,22 +116,36 @@ apiClient.interceptors.response.use(
   }
 );
 
+/**
+ * Did this rejection mean "no valid session", as opposed to "the server broke"?
+ *
+ * The response interceptor above rejects with `normalizedError`, a plain
+ * {code, message, data, name} object — NOT an AxiosError — so `.response.status`
+ * is undefined on anything that reached it. The AxiosError read stays as a
+ * fallback for callers that reject before normalization.
+ *
+ * Two very different consumers need this exact test and must never disagree:
+ * the retry policy below (never retry a 401 — it will not spontaneously start
+ * working) and components/AuthProvider.tsx, which turns a 401 on the user fetch
+ * into "anonymous" rather than "error". Getting that wrong on "/" strands an
+ * expired session on a permanent "you're still signed in" screen, because "/"
+ * is public and neither proxy.ts nor the 401 interceptor will bounce them.
+ */
+export function isUnauthorizedError(error: unknown): boolean {
+  const status = (error as ApiError)?.code ?? (error as AxiosError)?.response?.status;
+  return status === 401;
+}
+
 // Query client configuration
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
-      // The response interceptor above rejects with `normalizedError`, a plain
-      // {code, message, data, name} object — NOT an AxiosError. Reading
-      // `.response?.status` here therefore always yielded undefined, the 401
-      // short-circuit never fired, and every 401 was retried twice: one
-      // signed-out page load sent GET /api/users/me three times. Branch on the
-      // normalized `code`, and keep the AxiosError read as a fallback for any
-      // caller that rejects before the interceptor normalizes.
+      // A 401 will not spontaneously start working, and retrying it meant one
+      // signed-out page load sent GET /api/users/me three times. See
+      // isUnauthorizedError above for why `.response?.status` alone is wrong.
       retry: (failureCount, error) => {
-        const status =
-          (error as ApiError)?.code ?? (error as AxiosError)?.response?.status;
-        if (status === 401) return false;
+        if (isUnauthorizedError(error)) return false;
         return failureCount < 2;
       },
       refetchOnWindowFocus: false,
