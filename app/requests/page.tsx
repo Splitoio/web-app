@@ -292,9 +292,9 @@ function RequestsScreen() {
 export default function RequestsPage() {
   return (
     <GatedScreen
-    title="Requests"
-    reason="Sign in to see your requests"
-    blurb="Every request you've sent lives here — who has paid, who hasn't, and what's still outstanding."
+      title="Requests"
+      reason="Sign in to see your requests"
+      blurb="Every request you've sent lives here — who has paid, who hasn't, and what's still outstanding."
     >
       <RequestsScreen />
     </GatedScreen>

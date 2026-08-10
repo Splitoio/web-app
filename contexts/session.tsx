@@ -21,7 +21,12 @@ import { createContext, useContext, type ReactNode } from "react";
  */
 export type SessionStatus = "anonymous" | "loading" | "authenticated" | "error";
 
-const SessionContext = createContext<SessionStatus>("anonymous");
+// Defaults to "loading", never "anonymous". A consumer rendered outside the
+// provider by some future refactor would otherwise silently show the locked
+// "Sign in to …" state — the exact lie this module exists to prevent, and it
+// would fail quietly. "loading" degrades to a spinner instead: visibly wrong
+// rather than confidently wrong.
+const SessionContext = createContext<SessionStatus>("loading");
 
 export function SessionStatusProvider({
   status,

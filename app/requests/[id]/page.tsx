@@ -666,9 +666,9 @@ function NudgeRow({
 export default function RequestDetailPage() {
   return (
     <GatedScreen
-    title="Request details"
-    reason="Sign in to see this request"
-    blurb="Tracking a request — its payers, its status and its history — belongs to the account that created it."
+      title="Request details"
+      reason="Sign in to see this request"
+      blurb="Tracking a request — its payers, its status and its history — belongs to the account that created it."
     >
       <RequestDetailScreen />
     </GatedScreen>

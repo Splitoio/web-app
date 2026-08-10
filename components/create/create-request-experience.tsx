@@ -130,6 +130,8 @@ function TypeTile({
   sub,
   color,
   onClick,
+  disabled = false,
+  title,
 }: {
   active: boolean;
   init: string;
@@ -137,17 +139,24 @@ function TypeTile({
   sub: string;
   color: string;
   onClick: () => void;
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="text-left transition-all hover:border-white/[0.18]"
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
+      title={title}
+      className="text-left transition-all enabled:hover:border-white/[0.18]"
       style={{
         padding: "14px 13px",
         borderRadius: 15,
         background: active ? `${color}0f` : "rgba(255,255,255,0.03)",
         border: `1px solid ${active ? `${color}55` : "rgba(255,255,255,0.08)"}`,
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : undefined,
       }}
     >
       <span
@@ -354,8 +363,14 @@ function CreateForm({
             visitor and the backend rejects a `groupId` from one outright. Shown
             as the real tile, disabled, with the reason. Asking several people
             without an account is still possible: that's the payer-count stepper
-            below, which sends anonymous slots instead of named members. */}
-        {!isLocked ? (
+            below, which sends anonymous slots instead of named members.
+
+            The live tile keys off `isAuthenticated`, NOT `!isLocked`, so it
+            agrees with the getAllGroups query gate above. Keyed off the lock it
+            stayed clickable in the error state while the query stayed disabled,
+            so the panel opened and confidently reported "No groups yet — create
+            a group first" to someone who may well have several. */}
+        {isAuthenticated ? (
           <TypeTile
             active={kind === "split"}
             init="SP"
@@ -363,6 +378,19 @@ function CreateForm({
             sub="Ask several people, split evenly"
             color={P}
             onClick={() => setKind("split")}
+          />
+        ) : !isLocked ? (
+          // Session known to exist but not yet (or not successfully) resolved:
+          // no lock copy, because "sign in" is not the problem.
+          <TypeTile
+            active={false}
+            init="SP"
+            label="Request from a group"
+            sub="Ask several people, split evenly"
+            color={P}
+            onClick={() => {}}
+            disabled
+            title="Your groups couldn't be loaded"
           />
         ) : (
           <LockedFeature label="Request from a group" reason="Sign in to request from a group">

@@ -25,7 +25,7 @@ import { isNavItemActive, navGroupsFor, navItemId } from "@/lib/shell-nav";
 import { isWorkspaceAdmin, type Workspace } from "@/lib/workspace";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 import { LockedFeature } from "@/components/shell/locked-feature";
-import { useIsLocked } from "@/contexts/session";
+import { useIsLocked, useSessionStatus } from "@/contexts/session";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -45,16 +45,24 @@ function WorkspaceSwitcherButton({
   workspace,
   color,
   onClick,
+  disabled = false,
+  title,
 }: {
   workspace: Workspace;
   color: string;
   onClick: () => void;
+  /** No workspace list to open — see the three-way branch in <Sidebar/>. */
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       id="sidebar-workspace-switcher"
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
+      title={title}
       className="tile w-full flex items-center gap-2.5 text-left transition-all"
       style={{
         padding: "10px 11px",
@@ -62,6 +70,8 @@ function WorkspaceSwitcherButton({
         background: INSET,
         border: "1px solid rgba(255,255,255,0.09)",
         marginBottom: 4,
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : undefined,
       }}
     >
       <span style={avatarChip(color, 32, 10)}>{workspace.initials}</span>
@@ -103,6 +113,7 @@ export function Sidebar() {
   // them "Guest session" + a padlocked switcher would be a lie the 5-minute
   // staleTime makes stick. See contexts/session.tsx.
   const isLocked = useIsLocked();
+  const status = useSessionStatus();
   const { workspaces, businessCount, businessCap, canCreateBusiness } = useWorkspaces();
   const activeWorkspace = useActiveWorkspace();
   const setActiveWorkspace = useSetActiveWorkspace();
@@ -164,11 +175,20 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Workspace switcher — locked signed out. There is exactly one
-            workspace to show an anonymous visitor (the "Personal" stand-in from
-            contexts/workspace.tsx; the list query is gated off), so the real
-            control renders disabled with its reason rather than opening onto a
-            menu with one fake row and a "New workspace" button that 401s. */}
+        {/* Workspace switcher — three ways, because there are three reasons the
+            list can be empty and they are not the same thing.
+
+            ANONYMOUS: exactly one workspace exists to show (the "Personal"
+            stand-in from contexts/workspace.tsx; the list query is gated off),
+            so the real control renders locked with its reason rather than
+            opening onto a menu with one fake row and a "New workspace" button
+            that 401s.
+
+            LOADING / ERROR: the list is equally unavailable, but "sign in" is
+            the wrong explanation — this visitor has a session. Same disabled
+            treatment, honest tooltip, no lock copy. Letting it stay live here
+            was the bug: it opened onto an empty menu plus that same 401-ing
+            button, which is precisely what the anonymous case avoids. */}
         {isLocked ? (
           <LockedFeature
             label="Workspace switcher"
@@ -181,6 +201,18 @@ export function Sidebar() {
               onClick={() => {}}
             />
           </LockedFeature>
+        ) : status !== "authenticated" ? (
+          <WorkspaceSwitcherButton
+            workspace={activeWorkspace}
+            color={wsColor}
+            onClick={() => {}}
+            disabled
+            title={
+              status === "error"
+                ? "Your workspaces couldn't be loaded"
+                : "Loading your workspaces…"
+            }
+          />
         ) : (
         <div ref={switcherRef}>
           <WorkspaceSwitcherButton
@@ -437,7 +469,24 @@ export function Sidebar() {
               Create free account
             </Link>
           </div>
-        ) : null}
+        ) : (
+          // Loading or error: there IS an account, we just can't describe it
+          // yet. Rendering nothing left a hole at the bottom of the sidebar for
+          // as long as the error lasted, so hold the slot with something that
+          // says which of the two it is.
+          <div
+            style={{
+              padding: "13px 14px",
+              borderRadius: 16,
+              background: "rgba(255,255,255,0.03)",
+              border: BORDER,
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: T.dim }}>
+              {status === "error" ? "Account unavailable" : "Loading your account…"}
+            </p>
+          </div>
+        )}
       </div>
 
       <CreateWorkspaceModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />

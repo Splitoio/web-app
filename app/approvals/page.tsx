@@ -220,9 +220,9 @@ function ApprovalsScreen() {
 export default function ApprovalsPage() {
   return (
     <GatedScreen
-    title="Needs approval"
-    reason="Sign in to see approvals"
-    blurb="Payments waiting on a decision before they can go out."
+      title="Needs approval"
+      reason="Sign in to see approvals"
+      blurb="Payments waiting on a decision before they can go out."
     >
       <ApprovalsScreen />
     </GatedScreen>

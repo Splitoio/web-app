@@ -176,9 +176,9 @@ function TreasuryScreen() {
 export default function TreasuryPage() {
   return (
     <GatedScreen
-    title="Treasury"
-    reason="Sign in to see your treasury"
-    blurb="What has come in, where it came from, and what it settled into."
+      title="Treasury"
+      reason="Sign in to see your treasury"
+      blurb="What has come in, where it came from, and what it settled into."
     >
       <TreasuryScreen />
     </GatedScreen>

@@ -1020,9 +1020,9 @@ const sendBtnStyle: React.CSSProperties = {
 export default function MembersPage() {
   return (
     <GatedScreen
-    title="Members"
-    reason="Sign in to see members"
-    blurb="Who is in this workspace, their role, and the terms they are on."
+      title="Members"
+      reason="Sign in to see members"
+      blurb="Who is in this workspace, their role, and the terms they are on."
     >
       <MembersScreen />
     </GatedScreen>

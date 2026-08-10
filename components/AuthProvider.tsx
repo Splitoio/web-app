@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { isAuthRoute, isPublicRoute } from "@/lib/middleware-session";
 import { setSessionPresent } from "@/lib/session-presence";
+import { isUnauthorizedError } from "@/api-helpers/client";
 import { SessionStatusProvider, type SessionStatus } from "@/contexts/session";
 
 export function AuthProvider({
@@ -60,7 +61,7 @@ export function AuthProvider({
   // chrome-free and render nothing that depends on who is looking.
   const skipFetch = isAuthPage || (isPublicPage && !isRoot) || !hasSession;
   const neverGate = isAuthPage || (isPublicPage && !hasSession);
-  const { data: user, isPending, isError } = useGetUser({ enabled: !skipFetch });
+  const { data: user, isPending, isError, error } = useGetUser({ enabled: !skipFetch });
   const posthog = usePostHog();
 
   useEffect(() => {
@@ -80,27 +81,42 @@ export function AuthProvider({
     }
   }, [user, setUser, setCurrencyDisplayMode, posthog]);
 
+  // A 401 is not a failure, it is an ANSWER: the cookie is expired, revoked, or
+  // forged, and there is no session behind it. That has to land on "anonymous",
+  // not "error" — "/" is public, so neither proxy.ts (which only validates
+  // isAuthRoute/isProtectedRoute) nor the 401 interceptor (which never bounces
+  // a public page) will move them, and calling it an error left an expired
+  // session pinned to a screen insisting "you're still signed in" with a Try
+  // again that reloaded into the same dead end forever. Landing on "anonymous"
+  // gives them the guest console, where creating a request still works — the
+  // entire point of "/".
+  const sessionRejected = isError && isUnauthorizedError(error);
+
   // The one place that decides how much the UI is allowed to assume — see
-  // contexts/session.tsx. `!user` has three different meanings and the screens
+  // contexts/session.tsx. `!user` has FOUR different meanings and the screens
   // below must not collapse them into "signed out".
   const status: SessionStatus = !hasSession
     ? // No cookie: there is nothing to wait for and nothing that can fail.
       "anonymous"
     : user
       ? "authenticated"
-      : isError
-        ? // A cookie exists and the fetch FAILED. Not a signed-out visitor —
-          // a signed-in one whose backend hiccuped. Telling them to sign in
-          // would be a lie, and a sticky one (staleTime 5min, no refetch on
-          // focus), so screens show an error with a way out instead.
-          "error"
-        : skipFetch
-          ? // Cookie present, but this route opted out of the fetch (/pay/*,
-            // /invite/*). Nothing there renders a locked or gated surface, so
-            // trust the cookie rather than reporting a "loading" that would
-            // never resolve — a disabled query stays `isPending` forever.
-            "authenticated"
-          : "loading";
+      : sessionRejected
+        ? // Cookie present but the server rejected it — same as having none.
+          "anonymous"
+        : isError
+          ? // A cookie exists and the fetch failed for some OTHER reason (500,
+            // network, backend restarting). Not a signed-out visitor — a
+            // signed-in one whose backend hiccuped. Telling them to sign in
+            // would be a lie, and a sticky one (staleTime 5min, no refetch on
+            // focus), so screens show an error with a way out instead.
+            "error"
+          : skipFetch
+            ? // Cookie present, but this route opted out of the fetch (/pay/*,
+              // /invite/*). Nothing there renders a locked or gated surface, so
+              // trust the cookie rather than reporting a "loading" that would
+              // never resolve — a disabled query stays `isPending` forever.
+              "authenticated"
+            : "loading";
 
   // `skipFetch` must be part of this test: react-query reports a DISABLED query
   // as `isPending` forever, so gating on `isPending` alone would hang a

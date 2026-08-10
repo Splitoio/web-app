@@ -113,9 +113,9 @@ function GroupsScreen() {
 export default function GroupsPage() {
   return (
     <GatedScreen
-    title="Groups"
-    reason="Sign in to see your groups"
-    blurb="Running tabs with the people you see often."
+      title="Groups"
+      reason="Sign in to see your groups"
+      blurb="Running tabs with the people you see often."
     >
       <GroupsScreen />
     </GatedScreen>

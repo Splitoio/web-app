@@ -279,9 +279,9 @@ function PeopleScreen() {
 export default function PeoplePage() {
   return (
     <GatedScreen
-    title="People"
-    reason="Sign in to see your people"
-    blurb="Everyone you have requested money from or paid."
+      title="People"
+      reason="Sign in to see your people"
+      blurb="Everyone you have requested money from or paid."
     >
       <PeopleScreen />
     </GatedScreen>
