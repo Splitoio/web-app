@@ -82,7 +82,16 @@ apiClient.interceptors.response.use(
       data: error.response?.data,
       name: error.response?.data?.name || "ApiError",
     };
-    console.log("error", normalizedError);
+    // Diagnostic only, and deliberately console.log rather than console.error:
+    // per the comment below, a 401 here is the EXPECTED answer for an anonymous
+    // visitor browsing the logged-out console, and Next dev echoes console.error
+    // to the server terminal with a code frame — which would render normal
+    // behaviour as a crash on every page load.
+    //
+    // This is NOT a user-facing surface. Every caller that can fail visibly must
+    // handle the rejection itself (a mutation `onError`, a try/catch); a line in
+    // the console is not "handled".
+    console.log("[api] request failed", normalizedError);
     // Handle 401 (Unauthorized) responses - this is the only place we redirect.
     //
     // Two things produce a 401 and they mean opposite things:

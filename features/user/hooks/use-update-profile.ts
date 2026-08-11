@@ -85,6 +85,18 @@ export const useGetUserSettlementPreference = (userId: string | null) => {
   });
 };
 
+/**
+ * `onError` is load-bearing, not decoration. The settings modal closes itself in
+ * its own `onSuccess` callback, so a failed save left the modal open with the
+ * button snapping back from "Saving…" to "Save preference" and NOTHING else —
+ * the rejection was normalized to an ApiError by the axios interceptor and then
+ * only console.log'd. The user saw a no-op.
+ *
+ * `error.message` is already the server's message (api-helpers/client.ts derives
+ * it from body.details ?? body.error ?? body.message), so this surfaces
+ * "Invalid wallet address for Stellar" rather than a generic string. Do NOT
+ * close the modal here — the input is still on screen for the user to correct.
+ */
 export const useSaveSettlementPreference = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -93,6 +105,11 @@ export const useSaveSettlementPreference = () => {
       queryClient.invalidateQueries({ queryKey: SETTLEMENT_PREF_KEY });
       queryClient.invalidateQueries({ queryKey: ACCEPTED_TOKENS_KEY });
       queryClient.invalidateQueries({ queryKey: [WALLET_QUERY_KEYS.WALLETS] });
+    },
+    onError: (error) => {
+      toast.error("Error saving settlement preference", {
+        description: error.message || "Unknown error",
+      });
     },
   });
 };
@@ -115,6 +132,14 @@ export const useUpdateSettlementWallet = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SETTLEMENT_PREF_KEY });
       queryClient.invalidateQueries({ queryKey: [WALLET_QUERY_KEYS.WALLETS] });
+    },
+    // Same modal, same silent-failure shape as useSaveSettlementPreference above
+    // — the "edit wallet" mode of SettlementPrefModal hits this path and hit the
+    // same server-side address validation.
+    onError: (error) => {
+      toast.error("Error updating wallet address", {
+        description: error.message || "Unknown error",
+      });
     },
   });
 };
