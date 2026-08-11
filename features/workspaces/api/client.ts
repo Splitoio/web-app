@@ -97,6 +97,8 @@ export const WorkspaceSummarySchema = z.object({
   treasury: z.object({
     streamsTotal: z.number(),
     streamCount: z.number().int().nonnegative(),
+    expensesTotal: z.number(),
+    expenseCount: z.number().int().nonnegative(),
     currency: z.string(),
   }),
   recentActivity: z.array(

@@ -38,7 +38,7 @@ const SHORT_LABEL: Record<string, string> = {
   "/groups": "Groups",
   "/people": "People",
   "/members": "Members",
-  "/treasury": "Treasury",
+  "/treasury": "Treasury Log",
   "/settings": "Settings",
 };
 

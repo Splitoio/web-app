@@ -5,11 +5,12 @@ import { Loader2 } from "lucide-react";
 import { useActiveWorkspace, useIsResolvingWorkspace } from "@/contexts/workspace";
 import { BusinessOnly, WorkspaceResolving } from "@/components/shell/business-only";
 import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
+import { useGetExpensesByOrganization } from "@/features/business/hooks/use-org-expenses";
 import { useWorkspaceTreasury } from "@/features/workspaces/hooks/use-workspace-summary";
 import { formatCurrency } from "@/utils/formatters";
 import { LogIncomeModal } from "@/components/log-income-modal";
 import { Row } from "@/components/shell/row";
-import { Card, HeroCard, Eyebrow, Btn, Icons, T, TYPE, getUserColor, G as G_ACCENT } from "@/lib/splito-design";
+import { Card, HeroCard, Eyebrow, Btn, Icons, T, TYPE, getUserColor, G as G_ACCENT, R } from "@/lib/splito-design";
 import { GatedScreen } from "@/components/shell/locked-feature";
 
 /** "Received 1 Aug" — the trailing date on a stream row (design line 1229). */
@@ -17,13 +18,21 @@ function formatReceivedDate(date: Date): string {
   return `Received ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
 }
 
+/** "Spent 1 Aug" — the trailing date on an expense row. */
+function formatSpentDate(date: Date): string {
+  return `Spent ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+}
+
 /**
- * Treasury (design 1208–1234, `isTreasury`): the hero "Received" total plus the
- * income-stream list, business workspaces only. Data comes from the same
- * income-stream endpoints the legacy `/organization/[id]` layout used
- * (features/business/hooks/use-streams.ts, `/api/organizations/:id/streams`) — the
- * hero total instead reads `workspaces/:id/summary`'s `treasury` field so it
- * always agrees with the dashboard rather than being summed here separately.
+ * Treasury Log (design 1208–1234, `isTreasury`): the hero net total plus the
+ * income-stream and expense lists, business workspaces only. Both halves are
+ * organization-scoped and symmetric: `/api/organizations/:id/streams` and
+ * `/api/organizations/:id/expenses`. The expense list is deliberately
+ * READ-ONLY — logging an outgoing is not a Treasury Log action.
+ *
+ * The hero reads both totals off `workspaces/:id/summary`'s `treasury` field
+ * rather than summing the rendered lists, so it always agrees with the
+ * dashboard and stays correct if either list ever paginates.
  */
 function TreasuryScreen() {
   const workspace = useActiveWorkspace();
@@ -41,19 +50,30 @@ function TreasuryScreen() {
     isLoading: treasuryLoading,
     isError: treasuryError,
   } = useWorkspaceTreasury(workspace.id, { enabled: isBusiness });
+  const {
+    data: expenses,
+    isLoading: expensesLoading,
+    isError: expensesError,
+  } = useGetExpensesByOrganization(workspace.id, { enabled: isBusiness });
 
   if (isResolving) return <WorkspaceResolving />;
 
   if (!isBusiness) {
     return (
       <BusinessOnly
-        screen="Treasury"
+        screen="Treasury Log"
         blurb="Income streams are logged against a business, not a personal account."
       />
     );
   }
 
   const streamCount = treasury?.streamCount ?? streams?.length ?? 0;
+  // Both halves come from the summary, so a failed expense LIST fetch no
+  // longer makes the expense total unknown — the old client-side sum had to
+  // fall back to income-only because an errored list silently read as a
+  // confident 0. `?? 0` here is only the treasury-not-loaded case, which the
+  // `treasuryError` branch below renders as "—" rather than a number.
+  const netTotal = (treasury?.streamsTotal ?? 0) - (treasury?.expensesTotal ?? 0);
 
   return (
     <div className="fade-up p-4 lg:p-0" style={{ maxWidth: 1000 }}>
@@ -74,14 +94,14 @@ function TreasuryScreen() {
           }}
         />
         <div style={{ position: "relative", maxWidth: 420 }}>
-          <Eyebrow>Received</Eyebrow>
+          <Eyebrow>Net</Eyebrow>
           {treasuryLoading ? (
             <div style={{ margin: "10px 0 5px" }}>
               <Loader2 className="h-6 w-6 animate-spin" style={{ color: T.muted }} />
             </div>
           ) : (
             <p style={{ margin: "8px 0 5px", color: T.white, lineHeight: 1, ...TYPE.hero }}>
-              {treasuryError ? "—" : formatCurrency(treasury?.streamsTotal ?? 0, treasury?.currency ?? "USD")}
+              {treasuryError ? "—" : formatCurrency(netTotal, treasury?.currency ?? "USD")}
             </p>
           )}
           <p style={{ margin: 0, fontSize: 12.5, color: T.sub }}>
@@ -160,6 +180,63 @@ function TreasuryScreen() {
         onClose={() => setIsLogIncomeOpen(false)}
         organizationId={workspace.id}
       />
+
+      <div className="flex items-center gap-2.5" style={{ marginTop: 26, marginBottom: 12 }}>
+        <Eyebrow color={T.soft}>Expenses</Eyebrow>
+      </div>
+
+      <Card style={{ padding: 0 }}>
+        {expensesLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} />
+          </div>
+        ) : expensesError ? (
+          <div style={{ padding: "56px 22px", textAlign: "center" }}>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: T.bright, margin: 0 }}>
+              Couldn&apos;t load your expenses
+            </p>
+          </div>
+        ) : !expenses || expenses.length === 0 ? (
+          <div style={{ padding: "56px 22px", textAlign: "center" }}>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: T.bright, margin: 0 }}>
+              Nothing logged yet
+            </p>
+            <p style={{ fontSize: 12, color: T.sub, margin: "6px 0 0" }}>
+              Expenses logged against this business will show up here.
+            </p>
+          </div>
+        ) : (
+          expenses.map((expense, i) => (
+            <Row
+              key={expense.id}
+              noDivider={i === expenses.length - 1}
+              leading={
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    background: getUserColor(expense.name),
+                  }}
+                />
+              }
+              title={expense.name}
+              meta={expense.description || undefined}
+              trailing={
+                <div className="flex items-center" style={{ gap: 14 }}>
+                  <span style={{ ...TYPE.rowAmount, color: R }}>
+                    −{formatCurrency(expense.amount, expense.currency)}
+                  </span>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: T.dim, width: 96, textAlign: "right" }}>
+                    {formatSpentDate(new Date(expense.spentDate))}
+                  </span>
+                </div>
+              }
+            />
+          ))
+        )}
+      </Card>
     </div>
   );
 }
@@ -176,7 +253,7 @@ function TreasuryScreen() {
 export default function TreasuryPage() {
   return (
     <GatedScreen
-      title="Treasury"
+      title="Treasury Log"
       reason="Sign in to see your treasury"
       blurb="What has come in, where it came from, and what it settled into."
     >

@@ -144,6 +144,24 @@ export const IncomeStreamSchema = z.object({
 });
 export type IncomeStream = z.infer<typeof IncomeStreamSchema>;
 
+/**
+ * A treasury outgoing, the mirror of `IncomeStream`. NOT the group-scoped
+ * `Expense` in features/expenses — that one belongs to bill-splitting and
+ * carries participants and shares.
+ */
+export const OrganizationExpenseSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  currency: z.string(),
+  amount: z.number(),
+  description: z.string().nullable(),
+  spentDate: z.coerce.date(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type OrganizationExpense = z.infer<typeof OrganizationExpenseSchema>;
+
 export type Invoice = z.infer<typeof InvoiceSchema>;
 
 export const getAllOrganizations = async () => {
@@ -392,6 +410,33 @@ export const updateStream = async (
 
 export const deleteStream = async (organizationId: string, streamId: string) => {
   await apiClient.delete(`/organizations/${organizationId}/streams/${streamId}`);
+};
+
+// Treasury outgoings (admin only) — the mirror of the stream calls above.
+export const getExpensesByOrganization = async (organizationId: string) => {
+  const response = await apiClient.get(`/organizations/${organizationId}/expenses`);
+  return OrganizationExpenseSchema.array().parse(response);
+};
+
+export const createOrganizationExpense = async (
+  organizationId: string,
+  payload: { name: string; currency?: string; amount: number; description?: string | null; spentDate?: string }
+) => {
+  const response = await apiClient.post(`/organizations/${organizationId}/expenses`, payload);
+  return OrganizationExpenseSchema.parse(response);
+};
+
+export const updateOrganizationExpense = async (
+  organizationId: string,
+  expenseId: string,
+  payload: { name?: string; currency?: string; amount?: number; description?: string | null; spentDate?: string }
+) => {
+  const response = await apiClient.put(`/organizations/${organizationId}/expenses/${expenseId}`, payload);
+  return OrganizationExpenseSchema.parse(response);
+};
+
+export const deleteOrganizationExpense = async (organizationId: string, expenseId: string) => {
+  await apiClient.delete(`/organizations/${organizationId}/expenses/${expenseId}`);
 };
 
 // Contracts

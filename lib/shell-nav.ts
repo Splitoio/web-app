@@ -59,7 +59,7 @@ const BUSINESS_NAV: NavGroup[] = [
     label: "Business",
     items: [
       { href: "/members", label: "Members", dot: B },
-      { href: "/treasury", label: "Treasury", dot: P },
+      { href: "/treasury", label: "Treasury Log", dot: P },
     ],
   },
   {
@@ -123,7 +123,7 @@ const BUSINESS_META: Record<string, MetaFactory> = {
   "/approvals": () => ({ title: "Needs approval", subtitle: "Waiting on you before it can be paid" }),
   "/create": () => ({ title: "New request", subtitle: "Bill a client, or pay someone out" }),
   "/members": () => ({ title: "Members", subtitle: "Who's here, and on what terms" }),
-  "/treasury": () => ({ title: "Treasury", subtitle: "What's come in, and where it came from" }),
+  "/treasury": () => ({ title: "Treasury Log", subtitle: "What's come in, what's gone out, and where it stands" }),
   "/settings": () => ({ title: "Settings", subtitle: "Workspace settings and defaults" }),
 };
 
