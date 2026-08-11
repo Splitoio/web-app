@@ -28,6 +28,7 @@ import { LockedFeature } from "@/components/shell/locked-feature";
 import { useIsLocked, useSessionStatus } from "@/contexts/session";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
+import { useMyInvites } from "@/features/business/hooks/use-invites";
 import {
   useActiveWorkspace,
   useSetActiveWorkspace,
@@ -107,7 +108,7 @@ function WorkspaceSwitcherButton({
 export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useMobileMenu();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   // The lock is for a genuinely signed-out visitor only. A signed-in user whose
   // GET /api/users/me failed also leaves the store empty, and showing
   // them "Guest session" + a padlocked switcher would be a lie the 5-minute
@@ -132,7 +133,21 @@ export function Sidebar() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const navGroups = navGroupsFor(activeWorkspace.kind, isWorkspaceAdmin(activeWorkspace));
+  // Pending invites are addressed to the account, not the active workspace —
+  // one query drives both the sidebar badge and the topbar bell dot.
+  const { data: myInvites } = useMyInvites({ enabled: isAuthenticated });
+  const pendingInviteCount = myInvites?.length ?? 0;
+
+  const navGroups = navGroupsFor(activeWorkspace.kind, isWorkspaceAdmin(activeWorkspace)).map(
+    (group) => ({
+      ...group,
+      items: group.items.map((item) =>
+        item.href === "/notifications" && pendingInviteCount > 0
+          ? { ...item, badge: pendingInviteCount }
+          : item
+      ),
+    })
+  );
   const wsColor = activeWorkspace.color || A;
   // The cap is the server's verdict (`GET /api/workspaces`), not local
   // arithmetic — the row is disabled with a reason rather than failing on submit.

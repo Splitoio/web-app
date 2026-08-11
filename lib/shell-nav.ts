@@ -42,7 +42,10 @@ const PERSONAL_NAV: NavGroup[] = [
   },
   {
     label: "Account",
-    items: [{ href: "/settings", label: "Settings", dot: T.dim }],
+    items: [
+      { href: "/notifications", label: "Notifications", dot: A },
+      { href: "/settings", label: "Settings", dot: T.dim },
+    ],
   },
 ];
 
@@ -64,7 +67,10 @@ const BUSINESS_NAV: NavGroup[] = [
   },
   {
     label: "Account",
-    items: [{ href: "/settings", label: "Settings", dot: T.dim }],
+    items: [
+      { href: "/notifications", label: "Notifications", dot: A },
+      { href: "/settings", label: "Settings", dot: T.dim },
+    ],
   },
 ];
 
@@ -114,6 +120,7 @@ const PERSONAL_META: Record<string, MetaFactory> = {
   "/create": () => ({ title: "New request", subtitle: "Ask in any currency, get paid in the one you want" }),
   "/groups": () => ({ title: "Groups", subtitle: "Running tabs with the people you see often" }),
   "/people": () => ({ title: "People", subtitle: "Everyone you've requested from or paid" }),
+  "/notifications": () => ({ title: "Notifications", subtitle: "Workspace invitations addressed to you" }),
   "/settings": () => ({ title: "Settings", subtitle: "Your account and how you get paid" }),
 };
 
@@ -124,6 +131,7 @@ const BUSINESS_META: Record<string, MetaFactory> = {
   "/create": () => ({ title: "New request", subtitle: "Bill a client, or pay someone out" }),
   "/members": () => ({ title: "Members", subtitle: "Who's here, and on what terms" }),
   "/treasury": () => ({ title: "Treasury Log", subtitle: "What's come in, what's gone out, and where it stands" }),
+  "/notifications": () => ({ title: "Notifications", subtitle: "Workspace invitations addressed to you" }),
   "/settings": () => ({ title: "Settings", subtitle: "Workspace settings and defaults" }),
 };
 

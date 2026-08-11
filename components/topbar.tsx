@@ -6,6 +6,8 @@ import { Icons, O, RADIUS, T, TYPE, A } from "@/lib/splito-design";
 import { pageMetaFor } from "@/lib/shell-nav";
 import { useActiveWorkspace } from "@/contexts/workspace";
 import { usePageActionsRenderer, usePageTitleOverride } from "@/contexts/page-title";
+import { useAuthStore } from "@/stores/authStore";
+import { useMyInvites } from "@/features/business/hooks/use-invites";
 
 /**
  * Sticky app header (design 123–139): the current screen's title and subtitle,
@@ -17,12 +19,18 @@ import { usePageActionsRenderer, usePageTitleOverride } from "@/contexts/page-ti
  * to override title/subtitle with its own data once loaded. No override falls
  * back to pageMetaFor()'s static section title.
  */
-export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
+export function Topbar() {
   const pathname = usePathname() ?? "/";
   const workspace = useActiveWorkspace();
   const override = usePageTitleOverride();
   const renderActions = usePageActionsRenderer();
   const meta = pageMetaFor(pathname, workspace);
+  const { isAuthenticated } = useAuthStore();
+  // Same query/cache as the sidebar's Notifications badge
+  // (features/business/hooks/use-invites.ts) — one fetch, two surfaces
+  // agreeing on the same count.
+  const { data: myInvites } = useMyInvites({ enabled: isAuthenticated });
+  const hasUnread = (myInvites?.length ?? 0) > 0;
   const title = override?.title ?? meta.title;
   // An empty-string override is how a screen says "no subtitle at all" (as
   // opposed to `undefined`, which falls back to the static section subtitle).
@@ -50,15 +58,13 @@ export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
         {/* This screen's own actions, if it published any — usePageActions(). */}
         {renderActions ? renderActions() : null}
 
-        {/* There is no notifications surface yet — no route, no endpoint, and
-            `hasUnread` is never set true. Gated visibly rather than left looking
-            live, since a bell that swallows every click reads as broken. */}
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          aria-label="Notifications — coming soon"
-          title="Notifications are coming soon"
+        {/* `/notifications` (app/notifications/page.tsx) lists pending org
+            invitations addressed to this account; `hasUnread` mirrors the
+            sidebar badge off the same `useMyInvites()` cache. */}
+        <Link
+          href="/notifications"
+          aria-label={hasUnread ? "Notifications — unread invites" : "Notifications"}
+          title="Notifications"
           className="abtn relative flex items-center justify-center transition-all"
           style={{
             width: 36,
@@ -67,8 +73,6 @@ export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.09)",
             color: T.muted,
-            opacity: 0.55,
-            cursor: "not-allowed",
           }}
         >
           {Icons.bell({ size: 16 })}
@@ -85,7 +89,7 @@ export function Topbar({ hasUnread = false }: { hasUnread?: boolean }) {
               }}
             />
           )}
-        </button>
+        </Link>
 
         <Link
           href="/create"
