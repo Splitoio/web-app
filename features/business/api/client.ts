@@ -67,6 +67,14 @@ export const OrganizationInviteSchema = z.object({
     .nullable(),
   /** Only returned by create/resend — the list never leaks the token. */
   inviteUrl: z.string().optional(),
+  /**
+   * Only returned by create/resend, and only when the invite has an email
+   * (link-only invites never attempt delivery). `false` means the invite row
+   * is still valid — the admin just needs to share `inviteUrl` manually.
+   */
+  emailDelivered: z.boolean().optional(),
+  /** User-facing reason, present only when `emailDelivered` is `false`. */
+  deliveryError: z.string().optional(),
 });
 export type OrganizationInvite = z.infer<typeof OrganizationInviteSchema>;
 
