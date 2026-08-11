@@ -55,11 +55,23 @@ export function AuthProvider({
   // dashboard or the create screen.)
   const isRoot = pathname === "/";
   const isPublicPage = isPublicRoute(pathname); // includes "/"
-  // No session cookie => nobody to fetch. "/" used to fire GET /api/users/me
-  // for every anonymous visitor and 401, which is noise on a page that is
-  // no-account by design. /pay/* and /invite/* opt out entirely: they are
-  // chrome-free and render nothing that depends on who is looking.
-  const skipFetch = isAuthPage || (isPublicPage && !isRoot) || !hasSession;
+  // `hasSession` is a HINT, never the authority. It is the Next server looking
+  // for the session cookie on the app's OWN origin — and the cookie is set by
+  // the backend on a different host, so unless crossSubDomainCookies is enabled
+  // (backend/src/lib/auth.ts: only when AUTH_COOKIE_DOMAIN is set, which it is
+  // NOT in production today) the app origin never sees it and `hasSession` is
+  // false for EVERYONE, signed in or not.
+  //
+  // This used to read `|| !hasSession`, which skipped the fetch entirely and
+  // let the UI conclude "anonymous" without ever asking. Every signed-in user
+  // was therefore shown the guest console and could not get out of it: sign in,
+  // get bounced to "/", get told you are a guest, forever.
+  //
+  // Only GET /api/users/me can answer this, because only the browser sends that
+  // cookie cross-origin. So we always ask, on every route that renders anything
+  // identity-dependent. /pay/* and /invite/* still opt out: they are chrome-free
+  // and render the same thing for everyone.
+  const skipFetch = isAuthPage || (isPublicPage && !isRoot);
   const neverGate = isAuthPage || (isPublicPage && !hasSession);
   const { data: user, isPending, isError, error } = useGetUser({ enabled: !skipFetch });
   const posthog = usePostHog();
@@ -95,28 +107,32 @@ export function AuthProvider({
   // The one place that decides how much the UI is allowed to assume — see
   // contexts/session.tsx. `!user` has FOUR different meanings and the screens
   // below must not collapse them into "signed out".
-  const status: SessionStatus = !hasSession
-    ? // No cookie: there is nothing to wait for and nothing that can fail.
-      "anonymous"
+  // Derived from the ANSWER, not from the cookie hint. Ordering matters: the
+  // query result wins wherever we have one, and `hasSession` is consulted only
+  // on routes that deliberately never ask.
+  const status: SessionStatus = skipFetch
+    ? // This route opted out of the fetch (/login, /pay/*, /invite/*). Nothing
+      // here renders a locked or gated surface, so fall back to the cookie hint
+      // rather than reporting a "loading" that would never resolve — a disabled
+      // query stays `isPending` forever.
+      hasSession
+      ? "authenticated"
+      : "anonymous"
     : user
       ? "authenticated"
       : sessionRejected
-        ? // Cookie present but the server rejected it — same as having none.
+        ? // 401 — no session behind the request, whether or not a cookie was
+          // sent. This is the real "signed out", and the only thing that should
+          // ever produce a locked console.
           "anonymous"
         : isError
-          ? // A cookie exists and the fetch failed for some OTHER reason (500,
-            // network, backend restarting). Not a signed-out visitor — a
-            // signed-in one whose backend hiccuped. Telling them to sign in
-            // would be a lie, and a sticky one (staleTime 5min, no refetch on
-            // focus), so screens show an error with a way out instead.
+          ? // The fetch failed for some OTHER reason (500, network, backend
+            // restarting). Not a signed-out visitor — possibly a signed-in one
+            // whose backend hiccuped. Telling them to sign in would be a lie,
+            // and a sticky one (staleTime 5min, no refetch on focus), so screens
+            // show an error with a way out instead.
             "error"
-          : skipFetch
-            ? // Cookie present, but this route opted out of the fetch (/pay/*,
-              // /invite/*). Nothing there renders a locked or gated surface, so
-              // trust the cookie rather than reporting a "loading" that would
-              // never resolve — a disabled query stays `isPending` forever.
-              "authenticated"
-            : "loading";
+          : "loading";
 
   // `skipFetch` must be part of this test: react-query reports a DISABLED query
   // as `isPending` forever, so gating on `isPending` alone would hang a
