@@ -13,7 +13,7 @@ import { A, T, Btn, RADIUS, SHADOW, HERO_SURFACE, BORDER } from "@/lib/splito-de
  * "Log income received" — the create half of the treasury income-stream flow
  * (design 1218, `.abtn` "Log income"). Edit/delete live on the legacy
  * `/organization/[id]` layout for now; this is scoped to the create action
- * the Treasury screen exposes.
+ * the Treasury Log screen exposes.
  */
 export function LogIncomeModal({
   isOpen,

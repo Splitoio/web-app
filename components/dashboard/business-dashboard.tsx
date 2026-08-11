@@ -112,7 +112,7 @@ function OrgDashboard({ summary, streams }: { summary: WorkspaceSummary; streams
                 color: T.muted,
               }}
             >
-              Open treasury
+              Open treasury log
             </Link>
           </div>
           {allocation.length > 0 && (

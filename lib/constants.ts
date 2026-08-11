@@ -16,6 +16,10 @@ export const QueryKeys = {
   INVOICES: "invoices",
   ORGANIZATION_ACTIVITY: "organization-activity",
   STREAMS: "streams",
+  // Org treasury outgoings. Distinct from EXPENSES, which is the group-scoped
+  // bill-splitting list — sharing a key would cross-invalidate two unrelated
+  // resources.
+  ORGANIZATION_EXPENSES: "organization-expenses",
   CONTRACTS: "contracts",
   WORKSPACE_SUMMARY: "workspace-summary",
 } as const;

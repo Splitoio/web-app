@@ -5,7 +5,7 @@ import { Eyebrow, T, card } from "@/lib/splito-design";
 
 /**
  * The shared empty state for the three org-only screens — Approvals, Members,
- * Treasury (.design/INDEX.md §5). They are absent from `NAV_PERSONAL`
+ * Treasury Log (.design/INDEX.md §5). They are absent from `NAV_PERSONAL`
  * (lib/shell-nav.ts) but are still real top-level routes, so a personal
  * workspace can reach them by typed URL and must land on this instead of the
  * real screen.
