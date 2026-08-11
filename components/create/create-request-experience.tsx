@@ -36,7 +36,7 @@
 // contract linking, approval) are rendered as visibly gated/disabled rather
 // than wired to fake data — see comments below.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -45,7 +45,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
 import { useIsLocked } from "@/contexts/session";
 import { LockedFeature, LockedButton } from "@/components/shell/locked-feature";
-import { useGetSettlementPreference } from "@/features/user/hooks/use-update-profile";
+import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { useActiveWorkspace } from "@/contexts/workspace";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/workspace";
 import { formatCurrency } from "@/utils/formatters";
@@ -205,12 +205,22 @@ function CreateForm({
   //                      signed out; a failed /users/me must never say it)
   const isLocked = useIsLocked();
   const { isConnected, address, walletType } = useWallet();
-  // Only tells the user whether Settings has an address on file for the
-  // selected chain — this form has never prefilled from it (only from a
-  // connected wallet, see canPrefillWallet below), and this doesn't add that.
-  // Gated: an anonymous visitor has no settlement preferences and the request
-  // would 401 for nothing.
-  const { data: settlementPrefs = [] } = useGetSettlementPreference({ enabled: isAuthenticated });
+  // The saved wallets from Settings → Wallets, and the source of truth for
+  // "do I have an address on file for this chain?".
+  //
+  // This used to ask GET /users/settlement-preference instead, which was wrong:
+  // that endpoint returns [] whenever the user has no UserAcceptedToken rows,
+  // *even when a ChainAccount exists* (user.controller.ts, the
+  // `acceptedTokens.length === 0` early return). A wallet added through
+  // Settings → Wallets / "Connect a wallet" writes a ChainAccount and no
+  // accepted-token row, so a user with a perfectly good Stellar address was
+  // told "No Stellar address on file". The wallet list is a strict superset —
+  // saveSettlementPreference writes a ChainAccount too — so reading it here
+  // makes Settings and this form agree by construction.
+  //
+  // Gated: an anonymous visitor has no wallets and getUserWallets toasts on a
+  // 401, so the request must not fire signed out.
+  const { data: walletData } = useUserWallets({ enabled: isAuthenticated });
 
   const [kind, setKind] = useState<Kind>("request"); // "request" is the landing state — split is never the default
   const [amount, setAmount] = useState("");
@@ -285,9 +295,30 @@ function CreateForm({
 
   const canPrefillWallet =
     dest.chain === "stellar" && walletType === "stellar" && isConnected && !!address;
-  const hasSettlementAddress = settlementPrefs.some(
-    (p) => p.chainId === dest.chain && !!p.wallet?.address
+
+  // "The default wallet for this chain, else the only wallet for this chain."
+  // Deliberately not "the default, full stop": a wallet added through Settings →
+  // Wallets is created with isDefault false (see addUserChainAccountController),
+  // so a user with exactly one Stellar address would otherwise have no usable
+  // receive address at all. With several wallets and none flagged default we
+  // stay out of it rather than guess — the helper text then points at Settings.
+  const chainWallets = (walletData?.accounts ?? []).filter(
+    (w) => w.chainId === dest.chain && !!w.address
   );
+  const savedAddress =
+    chainWallets.find((w) => w.isDefault)?.address ??
+    (chainWallets.length === 1 ? chainWallets[0].address : undefined);
+  const hasSettlementAddress = chainWallets.length > 0;
+
+  // Prefill the receive field from the saved wallet, but never fight the user:
+  // once the field has been edited by hand it is theirs, and re-selecting a
+  // chain won't clobber it. Clearing the field by hand counts as an edit, so
+  // this does not immediately refill it.
+  const [addressTouched, setAddressTouched] = useState(false);
+  useEffect(() => {
+    if (addressTouched) return;
+    setDestinationAddress(savedAddress ?? "");
+  }, [savedAddress, addressTouched]);
 
   // The design's "Bills against a contract" block, gated to business
   // workspaces. There is no contract-linking API for Requests yet (the
@@ -838,6 +869,8 @@ function CreateForm({
               // Editing the address is the user acting on the error, so retire it.
               onChange={(e) => {
                 setDestinationAddress(e.target.value);
+                // The field is the user's from here on — stop prefilling into it.
+                setAddressTouched(true);
                 if (addressRejected) setSubmitError(null);
               }}
               placeholder={dest.chain === "stellar" ? "G..." : "Solana wallet address"}
@@ -878,7 +911,12 @@ function CreateForm({
         {canPrefillWallet && address !== destinationAddress && (
           <button
             type="button"
-            onClick={() => setDestinationAddress(address ?? "")}
+            onClick={() => {
+              setDestinationAddress(address ?? "");
+              // An explicit choice of address, same as typing one — the saved
+              // wallet must not overwrite it on the next render.
+              setAddressTouched(true);
+            }}
             className="text-[12px] font-semibold -mt-3 mb-5 block"
             style={{ color: A }}
           >
