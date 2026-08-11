@@ -304,6 +304,35 @@ export const acceptInvite = async (token: string) => {
   return AcceptInviteResultSchema.parse(response);
 };
 
+/**
+ * `GET /api/invites/mine` — the signed-in user's own pending invites, already
+ * filtered server-side to PENDING + non-expired + addressed to the caller's
+ * email. Drives the in-app notifications surface; `lookupInvite` above stays
+ * the public, token-scoped read for the `/invite/[token]` landing page.
+ */
+export const MyInviteSchema = z.object({
+  id: z.string(),
+  token: z.string(),
+  organizationId: z.string(),
+  organizationName: z.string(),
+  role: OrgRoleSchema,
+  invitedByName: z.string().nullable(),
+  invitedByEmail: z.string().nullable(),
+  createdAt: z.coerce.date(),
+  expiresAt: z.coerce.date(),
+});
+export type MyInvite = z.infer<typeof MyInviteSchema>;
+
+export const getMyInvites = async () => {
+  const response = await apiClient.get("/invites/mine");
+  return z.object({ invites: MyInviteSchema.array() }).parse(response).invites;
+};
+
+/** Invitee-scoped — the invited person turning an offer down, not an org admin revoking it. */
+export const declineInvite = async (inviteId: string) => {
+  await apiClient.post(`/invites/${inviteId}/decline`, {});
+};
+
 export const createInvoice = async (payload: {
   organizationId: string;
   amount: number;
