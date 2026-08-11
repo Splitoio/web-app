@@ -27,6 +27,7 @@ import {
 } from "@/components/pay/amount-hero";
 import { PayerPicker } from "@/components/pay/payer-picker";
 import { WalletConnect, type ConnectedWallet } from "@/components/pay/wallet-connect";
+import { usePayerIdentity } from "@/components/pay/use-payer-identity";
 import { SourcePicker } from "@/components/pay/source-picker";
 import { QuotePanel } from "@/components/pay/quote-panel";
 import { SummaryPanel } from "@/components/pay/summary-panel";
@@ -570,6 +571,30 @@ export default function PayRequestPage() {
 
   const payerShare = request?.payers.find((p) => p.payerId === selectedPayerId)?.shareAmount;
 
+  /**
+   * The ONLY two places this page knows about accounts. Both fail open: a
+   * guest, a failed lookup, or a signed-in payer with nothing saved on this
+   * chain all land back on the untouched anonymous flow. See
+   * components/pay/use-payer-identity.ts — in particular why the page has to
+   * ask for the session itself rather than read useSessionStatus().
+   *
+   * Nothing here is passed to the public API. `payerId` is still the only
+   * thing that identifies who paid; the payment is submitted through the
+   * unauthenticated public router exactly as before.
+   */
+  const { name: payerName, savedAddress } = usePayerIdentity(
+    request?.destinationChain ?? null
+  );
+
+  // Narrowed to the two chains this app can actually sign on (pay-wallet.ts).
+  // The backend may know more chains than we have adapters for, and suggesting
+  // a wallet we could never sign with would be a dead end.
+  const savedWallet = useMemo(() => {
+    const chain = request?.destinationChain;
+    if (!savedAddress || (chain !== "stellar" && chain !== "solana")) return null;
+    return { chain, address: savedAddress } as const;
+  }, [request?.destinationChain, savedAddress]);
+
   // "Paid"/"already-paid" is the design's separate full-page receipt state
   // (.design/splito-finance.dc.html:1578-1623) — no top header row, more top
   // padding instead. Every other phase gets the guest-checkout header
@@ -586,8 +611,11 @@ export default function PayRequestPage() {
         >
           <Image src="/logo.svg" alt="Splito" width={88} height={22} className="h-[22px] w-auto opacity-85" />
           <div className="flex-1" />
+          {/* "guest" stays the literal, unconditional fallback: it is what a
+              stranger sees, what a failed session lookup sees, and what a
+              still-loading one sees. Only a resolved name replaces it. */}
           <span className="text-[12px]" style={{ color: T.dim }}>
-            Paying as guest
+            {payerName ? `Paying as ${payerName}` : "Paying as guest"}
           </span>
           <Link
             href="/"
@@ -654,7 +682,10 @@ export default function PayRequestPage() {
             <div className="flex flex-col gap-4">
               {phase === "connect-wallet" && (
                 <Card className="p-6">
-                  <WalletConnect onConnected={handleWalletConnected} />
+                  <WalletConnect
+                    onConnected={handleWalletConnected}
+                    savedWallet={savedWallet}
+                  />
                 </Card>
               )}
 
