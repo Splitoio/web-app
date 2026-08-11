@@ -91,9 +91,12 @@ export default function Page() {
     return <DashboardScreen kind={isResolvingWorkspace ? null : workspace.kind} />;
   }
 
-  // "loading" cannot reach here — AuthProvider holds the spinner for "/" whenever
-  // a session cookie exists — but if that ever changes, showing the create screen
-  // to a signed-in user is the wrong default, so wait rather than guess.
+  // "loading" IS reachable here, and normally so: "/" is public, so AuthProvider
+  // does not hold its own spinner for a visitor with no server-visible cookie —
+  // which, until AUTH_COOKIE_DOMAIN is set on the backend, is every visitor.
+  // We genuinely do not know yet which screen is right, and showing the guest
+  // console to a signed-in user is the failure this whole file exists to
+  // prevent, so wait for GET /api/users/me rather than guess.
   if (status === "loading") return <ScreenSpinner />;
 
   return <CreateRequestExperience />;
