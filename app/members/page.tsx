@@ -280,8 +280,16 @@ function MembersScreen() {
     createInvite.mutate(
       { organizationId, payload: { email: trimmedEmail, role } },
       {
-        onSuccess: () => {
-          toast.success(`Invite sent to ${trimmedEmail}`);
+        onSuccess: (invite) => {
+          if (invite.emailDelivered === false) {
+            toast.warning(
+              invite.deliveryError ??
+                `Invite created, but the email to ${trimmedEmail} couldn't be sent — share the link manually`
+            );
+            if (invite.inviteUrl) void copyLink(invite.inviteUrl);
+          } else {
+            toast.success(`Invite sent to ${trimmedEmail}`);
+          }
           closeInvite();
         },
         onError: (err: unknown) => toast.error(errMsg(err, "Failed to invite")),
@@ -342,6 +350,14 @@ function MembersScreen() {
   const handleResend = (invite: OrganizationInvite) => {
     resend.mutate(invite.id, {
       onSuccess: (updated) => {
+        if (updated.emailDelivered === false) {
+          toast.warning(
+            updated.deliveryError ??
+              "New link created, but the email couldn't be sent — share the link manually"
+          );
+          if (updated.inviteUrl) void copyLink(updated.inviteUrl);
+          return;
+        }
         toast.success(
           invite.kind === "email"
             ? "Invite re-sent — the previous link has stopped working"
