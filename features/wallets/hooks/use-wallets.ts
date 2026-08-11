@@ -17,11 +17,15 @@ export const WALLET_QUERY_KEYS = {
   CHAINS: "chains",
 };
 
-// Hook to fetch all user's wallets
-export const useUserWallets = () => {
+// Hook to fetch all user's wallets.
+// `enabled` is opt-out gating for callers that render signed out: getUserWallets
+// toasts on failure, so an unauthenticated fetch would 401 and surface a bogus
+// "Failed to fetch wallet accounts" toast. Defaults to on for existing callers.
+export const useUserWallets = (options?: { enabled?: boolean }) => {
   return useQuery<{ accounts: Wallet[] }>({
     queryKey: [WALLET_QUERY_KEYS.WALLETS],
     queryFn: getUserWallets,
+    enabled: options?.enabled ?? true,
     staleTime: 1000 * 60 * 5, // 5 minutes
     select: (data) => {
       // Handle cases where the API returns an object with accounts array
