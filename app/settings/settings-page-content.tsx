@@ -13,9 +13,10 @@ import type { SettlementPreference } from "@/features/user/api/client";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import { ChangePasswordModal } from "@/components/change-password-modal";
 import type { User } from "@/api-helpers/modelSchema/UserSchema";
-import type { Workspace } from "@/lib/workspace";
+import { isWorkspaceAdmin, type Workspace } from "@/lib/workspace";
+import { EXPENSE_CATEGORY_LABELS } from "@/lib/expense-categories";
 import {
-  A, G, R, P, T, Icons, Btn, Toggle, Mono, Eyebrow, AvatarChip,
+  A, G, R, P, O, T, Icons, Btn, Toggle, Mono, Eyebrow, AvatarChip, StatBox,
   getUserColor, card, pill, fmt, SURFACE, BORDER, INSET,
 } from "@/lib/splito-design";
 import { signOut } from "@/lib/auth";
@@ -41,6 +42,8 @@ import {
   useUpdateOrganization,
 } from "@/features/business/hooks/use-organizations";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
+import { useAnalytics, useAnalyticsReport } from "@/features/analytics/hooks/use-analytics";
+import { downloadAnalyticsExport, type ReportBucket, type ReportFilters } from "@/features/analytics/api/client";
 import { QueryKeys } from "@/lib/constants";
 import {
   StellarWalletsKit,
@@ -266,6 +269,7 @@ const ACCOUNT_SECTIONS = [
   { id: "wallets", label: "Wallets" },
   { id: "settlement", label: "Settlement" },
   { id: "reminders", label: "Reminders" },
+  { id: "reports", label: "Reports & export" },
   { id: "security", label: "Security" },
 ] as const;
 
@@ -871,6 +875,223 @@ function RemindersSection() {
   );
 }
 
+// ─── Account: Reports & export ────────────────────────────────────────────────
+
+/** First of the current month → today, the window the report opens on. */
+function defaultReportWindow(): { from: string; to: string } {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(first), to: iso(now) };
+}
+
+function money(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+  } catch {
+    // A token symbol (e.g. "XLM") is not an ISO 4217 code and throws.
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+}
+
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 132, flex: "1 1 132px" }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: T.faded }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const filterControlStyle: React.CSSProperties = {
+  borderRadius: 11, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.03)",
+  padding: "9px 11px", fontSize: 12.5, color: T.main, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box",
+};
+
+/** Horizontal bar rows — the app has no chart dependency, and adding one for
+ *  eleven bars would be the heaviest thing on the settings page. */
+function BarList({ buckets, currency, color }: { buckets: ReportBucket[]; currency: string; color: string }) {
+  const peak = Math.max(...buckets.map((b) => Math.abs(b.amount)), 1);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+      {buckets.map((b) => (
+        <div key={b.key}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
+            <span style={{ fontSize: 12.5, color: T.body, fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {b.key} <span style={{ color: T.faded, fontWeight: 500 }}>· {b.count}</span>
+            </span>
+            <Mono style={{ fontSize: 12, color: T.main, flexShrink: 0 }}>{money(b.amount, currency)}</Mono>
+          </div>
+          <div style={{ height: 6, borderRadius: 4, background: INSET, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.max((Math.abs(b.amount) / peak) * 100, 2)}%`, background: color, borderRadius: 4, transition: "width .25s" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReportsSection({ workspace }: { workspace: Workspace }) {
+  const isBusiness = workspace.kind === "business";
+  // Cosmetic only — the server resolves the caller's OrgRole itself and hands a
+  // MEMBER their own rows however this toggle is set.
+  const canSeeOrgWide = isWorkspaceAdmin(workspace);
+
+  const [range, setRange] = useState(defaultReportWindow);
+  const [category, setCategory] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [orgWide, setOrgWide] = useState(canSeeOrgWide);
+  const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => { setOrgWide(canSeeOrgWide); }, [canSeeOrgWide, workspace.id]);
+
+  const filters: ReportFilters = React.useMemo(() => ({
+    from: range.from || undefined,
+    to: range.to || undefined,
+    category: category || undefined,
+    currency: currency || undefined,
+    organizationId: isBusiness ? workspace.id : undefined,
+    scope: isBusiness && !orgWide ? "own" : undefined,
+  }), [range.from, range.to, category, currency, isBusiness, workspace.id, orgWide]);
+
+  // Account-level balances — the same figures the dashboard shows, unfiltered.
+  const { data: balances, isLoading: isLoadingBalances } = useAnalytics();
+  const { data: report, isLoading, isError, refetch } = useAnalyticsReport(filters);
+
+  // "Currencies present in this window". Captured only while unfiltered,
+  // otherwise selecting one would collapse the list to that single option.
+  const [currencyOptions, setCurrencyOptions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!currency && report) setCurrencyOptions(report.byCurrency.map((b) => b.key));
+  }, [currency, report]);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await downloadAnalyticsExport(filters);
+      toast.success("Export downloaded");
+    } catch (error) {
+      console.error("Report export failed", error);
+      toast.error("Failed to export report");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const base = report?.baseCurrency ?? "USD";
+  const isEmpty = !!report && report.transactionCount === 0;
+  const change = report?.previousPeriod;
+
+  return (
+    <div>
+      <Intro
+        title="Reports & export"
+        subtitle={isBusiness ? `Spend across ${workspace.name}, filtered and downloadable.` : "Your spend, filtered and downloadable."}
+      />
+
+      <div style={{ display: "flex", gap: 26, flexWrap: "wrap", marginBottom: 22 }}>
+        <StatBox label="YOU OWE" value={isLoadingBalances ? "—" : fmt(Number(balances?.owed ?? 0))} color={R} />
+        <StatBox label="OWED TO YOU" value={isLoadingBalances ? "—" : fmt(Number(balances?.lent ?? 0))} color={G} />
+        <StatBox label="SETTLED THIS MONTH" value={isLoadingBalances ? "—" : fmt(Number(balances?.settled ?? 0))} color={T.body} />
+      </div>
+
+      <Divider mb={18} />
+
+      <div style={{ display: "flex", gap: 11, flexWrap: "wrap", marginBottom: 16 }}>
+        <FilterField label="From">
+          <input type="date" value={range.from} max={range.to || undefined} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} style={filterControlStyle} />
+        </FilterField>
+        <FilterField label="To">
+          <input type="date" value={range.to} min={range.from || undefined} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} style={filterControlStyle} />
+        </FilterField>
+        <FilterField label="Category">
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={filterControlStyle}>
+            <option value="">All categories</option>
+            {EXPENSE_CATEGORY_LABELS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Currency">
+          <select value={currency} onChange={(e) => setCurrency(e.target.value)} style={filterControlStyle}>
+            <option value="">All currencies</option>
+            {currencyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </FilterField>
+      </div>
+
+      {canSeeOrgWide && (
+        <Row>
+          <div>
+            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>Whole workspace</p>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: T.sub }}>Include every member&apos;s requests, not just yours.</p>
+          </div>
+          <Toggle on={orgWide} onChange={setOrgWide} label="Report on the whole workspace" />
+        </Row>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", margin: "16px 0 20px" }}>
+        <Btn variant="primary" onClick={handleExport} disabled={isExporting || isLoading || isEmpty}>
+          {isExporting ? "Preparing…" : "Export CSV"}
+        </Btn>
+      </div>
+
+      {isLoading ? (
+        <div style={{ padding: "28px 0", display: "flex", justifyContent: "center" }}>
+          <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} />
+        </div>
+      ) : isError ? (
+        <div style={{ padding: "8px 0 20px" }}>
+          <p style={{ fontSize: 13, color: R, margin: "0 0 10px" }}>Couldn&apos;t load your report.</p>
+          <Btn onClick={() => refetch()}>Try again</Btn>
+        </div>
+      ) : isEmpty ? (
+        <p style={{ fontSize: 13, color: T.muted, padding: "8px 0 20px" }}>
+          Nothing in this range. Widen the dates or clear the category and currency filters.
+        </p>
+      ) : report ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
+            <StatBox label="TOTAL SPEND" value={money(report.totalSpend, base)} color={A} />
+            <StatBox label="REQUESTS" value={String(report.transactionCount)} />
+            {change && (
+              <StatBox
+                label="VS PREVIOUS PERIOD"
+                value={change.changePct === null ? "New" : `${change.changePct > 0 ? "+" : ""}${change.changePct}%`}
+                color={change.changePct !== null && change.changePct > 0 ? R : G}
+              />
+            )}
+          </div>
+
+          {report.truncated && (
+            <p style={{ margin: 0, fontSize: 12, color: O }}>
+              Showing the {report.transactionCount.toLocaleString()} most recent requests in this range — narrow the dates for a complete total.
+            </p>
+          )}
+
+          <div>
+            <p style={{ margin: "0 0 10px", fontSize: 12.5, fontWeight: 800, color: T.label }}>By category</p>
+            <BarList buckets={report.byCategory} currency={base} color={A} />
+          </div>
+
+          <div>
+            <p style={{ margin: "0 0 10px", fontSize: 12.5, fontWeight: 800, color: T.label }}>By currency</p>
+            <BarList buckets={report.byCurrency} currency={base} color={P} />
+          </div>
+
+          <div>
+            <p style={{ margin: "0 0 10px", fontSize: 12.5, fontWeight: 800, color: T.label }}>By month</p>
+            <BarList buckets={report.byMonth} currency={base} color={G} />
+          </div>
+
+          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: T.dim }}>
+            {`Amounts are converted to ${base} at today's rate, except requests created with a locked-in rate.`}
+            {report.scope === "own" && isBusiness && " You're seeing only the requests you're on."}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ─── Account: Security ─────────────────────────────────────────────────────────
 
 function SecuritySection({ onChangePassword, onLogout, isLoggingOut }: { onChangePassword: () => void; onLogout: () => void; isLoggingOut: boolean }) {
@@ -1306,6 +1527,7 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
             />
           )}
           {sec === "reminders" && <RemindersSection />}
+          {sec === "reports" && <ReportsSection workspace={workspace} />}
           {sec === "security" && (
             <SecuritySection
               onChangePassword={() => setIsChangePasswordOpen(true)}
