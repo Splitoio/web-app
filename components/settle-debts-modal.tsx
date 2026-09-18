@@ -25,6 +25,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { useGetSettlementPreference, useGetUserSettlementPreference } from "@/features/user/hooks/use-update-profile";
 import { A, G, R, O, P } from "@/lib/splito-design";
+import { deriveSettleAmount } from "@/lib/settle-amounts";
 
 type ExpenseWithParticipants = Request & { expenseParticipants?: RequestPayer[] };
 
@@ -231,16 +232,25 @@ export function SettleDebtsModal({
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  // The counterparty we're actually settling with, when one is selected (step-1→2→3 group
+  // flow, or the friend-picker flow). Scopes the multi-currency pricing below to what is owed
+  // to THIS member only — see #32: without this, groupBalancesObj summed every counterparty in
+  // the group, so settling with one person could charge the total owed across everyone.
+  const settleTargetId = selectedSettleMemberId || selectedUser?.id || null;
+
   // Multi-currency pricing for group settlements (memoized to stabilize useMemo deps below)
   const groupBalancesObj = useMemo(() => {
     if (balances && typeof balances === "object" && !Array.isArray(balances)) {
       return balances as Record<string, number>;
     }
     if (balances && Array.isArray(balances) && user) {
-      return transformGroupBalancesToCurrencyMap(balances as GroupBalance[], user.id);
+      const scoped = settleTargetId
+        ? (balances as GroupBalance[]).filter((b) => b.firendId === settleTargetId)
+        : (balances as GroupBalance[]);
+      return transformGroupBalancesToCurrencyMap(scoped, user.id);
     }
     return {};
-  }, [balances, user]);
+  }, [balances, user, settleTargetId]);
 
   // Memoize group debt currencies to prevent infinite loops
   const groupDebtCurrencies = useMemo(() => {
@@ -1321,8 +1331,14 @@ export function SettleDebtsModal({
                             <div className="flex items-center justify-between pt-3 mt-1 border-t border-white/[0.06] px-0.5">
                               <span className="text-white/70 text-[13px] font-semibold">Net balance</span>
                               <span className="text-[15px] font-extrabold tabular-nums" style={{ color: selectedMemberRow.direction === "owe" ? R : G }}>
-                                {selectedMemberRow.direction === "owe" ? "-" : "+"}
-                                {formatCurrency(Math.abs(selectedMemberRow.netConvertedSigned), defaultCurrency || "USD")}
+                                {(() => {
+                                  const { amount, currency, sign } = deriveSettleAmount({
+                                    netConvertedSigned: selectedMemberRow.netConvertedSigned,
+                                    direction: selectedMemberRow.direction,
+                                    defaultCurrency: defaultCurrency || "USD",
+                                  });
+                                  return <>{sign}{formatCurrency(amount, currency)}</>;
+                                })()}
                               </span>
                             </div>
                           </div>
@@ -1385,14 +1401,17 @@ export function SettleDebtsModal({
                               )}
                             </div>
                             <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0" style={{ color: row.direction === "owe" ? R : G }}>
-                              {row.direction === "owe" ? "-" : "+"}
                               {(() => {
-                                const amt = specificMemberAmounts?.[memberId] !== undefined
-                                  ? Math.abs(specificMemberAmounts[memberId])
-                                  : Math.abs(row.netConvertedSigned);
-                                const cur = singleExpense?.currency || row.debts[0]?.currency || defaultCurrency || "USD";
-                                const fmt = formatWithDefault(amt, cur);
-                                return <>{fmt.primary}{fmt.secondary && <span className="text-[11px] font-semibold text-white/35"> ({fmt.secondary})</span>}</>;
+                                // row.netConvertedSigned (and specificMemberAmounts, when set) are
+                                // already converted into defaultCurrency by memberDebtRows — never
+                                // relabel/reconvert them as a native per-leg currency here (#32).
+                                const { amount, currency, sign } = deriveSettleAmount({
+                                  netConvertedSigned: row.netConvertedSigned,
+                                  direction: row.direction,
+                                  defaultCurrency: defaultCurrency || "USD",
+                                  specificAmount: specificMemberAmounts?.[memberId],
+                                });
+                                return <>{sign}{formatCurrency(amount, currency)}</>;
                               })()}
                             </p>
                           </div>
