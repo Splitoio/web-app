@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // `next dev` only. tools/docs-capture.mjs points app.splito.io at this dev
+  // server (Chromium --host-resolver-rules) so the documentation screenshots
+  // show real links instead of localhost ones; without this, Next blocks the
+  // HMR and /_next requests from that host and the pages never hydrate.
+  allowedDevOrigins: ["app.splito.io"],
   images: {
     remotePatterns: [
       {

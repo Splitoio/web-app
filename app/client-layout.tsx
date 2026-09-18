@@ -37,10 +37,14 @@ export function ClientLayout({
   // "/invite/*" is chrome-free for the same reason: a signed-out visitor lands
   // there straight from an invite email, and the shell's session-requiring
   // queries would 401 them off to /login before they can read who invited them.
+  // "/docs" is chrome-free for the same reason again, plus one of its own: it
+  // is a documentation site with its own shell (app/docs/layout.tsx), and the
+  // product sidebar inside a guide about the product reads as the product.
   const isAuthPage =
     isAuthRoute(pathname ?? "") ||
     pathname?.startsWith("/pay") ||
-    pathname?.startsWith("/invite");
+    pathname?.startsWith("/invite") ||
+    pathname?.startsWith("/docs");
 
   // A signed-out visitor on "/" USED TO get a chrome-free card here — logo,
   // "Log in", and a stripped-down request form. That branch is gone. The
