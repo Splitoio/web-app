@@ -233,12 +233,14 @@ export function Table({
   head,
   rows,
 }: {
-  head: string[];
-  rows: (ReactNode)[][];
+  /** Omit for a key/value table, where a header row would say nothing. */
+  head?: string[];
+  rows: ReactNode[][];
 }) {
   return (
     <div className="my-6 overflow-x-auto rounded-[14px] border border-white/[0.08]">
       <table className="w-full min-w-[520px] border-collapse text-left text-[14px]">
+        {head ? (
         <thead>
           <tr className="bg-white/[0.03]">
             {head.map((cell) => (
@@ -251,6 +253,7 @@ export function Table({
             ))}
           </tr>
         </thead>
+        ) : null}
         <tbody>
           {rows.map((row, rowIndex) => (
             <tr key={rowIndex} className="align-top">
@@ -283,7 +286,9 @@ export function Status({ children, tone }: { children: ReactNode; tone: string }
 }
 
 export function DocLink({ href, children }: { href: string; children: ReactNode }) {
-  const external = href.startsWith("http");
+  // A path with a file extension is a static asset in public/, not a route.
+  // next/link would try to navigate the router to it and 404.
+  const external = href.startsWith("http") || /\.[a-z0-9]+$/i.test(href);
   const className =
     "text-[#22D3EE] underline decoration-[#22D3EE]/30 underline-offset-[3px] hover:decoration-[#22D3EE] transition-colors";
   if (external) {

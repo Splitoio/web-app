@@ -18,351 +18,168 @@ const HREF = "/docs/api";
 
 export const metadata = { title: "Business API" };
 
-export default function ApiPage() {
+export default function ApiOverviewPage() {
   return (
     <article>
       <PageHeader href={HREF} />
 
       <Lead>
-        The Business API is a versioned, server to server surface at{" "}
-        <Code>https://server.splito.io/api/v1</Code>. A key belongs to exactly one workspace and
-        carries scopes; the workspace is never a request parameter, so a key cannot reach past the
-        business it was minted in.
+        The same data the business dashboard renders, behind a bearer key instead of a session
+        cookie. A key belongs to exactly one business workspace and carries scopes, so it cannot
+        reach past the business it was minted in.
       </Lead>
 
-      <H2 id="keys">Minting a key</H2>
-
-      <P_>
-        Keys are created with your dashboard session, not with another key: minting a credential
-        requires a human, and a key can never issue or widen another one. Owner and admin only.
-      </P_>
-
-      <Pre label="create a key">{`curl -X POST https://server.splito.io/api/organizations/<organizationId>/api-keys \\
-  -H 'Content-Type: application/json' \\
-  --cookie "$SPLITO_SESSION_COOKIE" \\
-  -d '{
-    "name": "Billing sync",
-    "scopes": ["invoices:write", "treasury:read"],
-    "expiresInDays": 365,
-    "rateLimitPerMin": 120
-  }'`}</Pre>
-
-      <P_>
-        The response is the only place the token ever appears in full. It looks like{" "}
-        <Code>spl_sk_&lt;prefix&gt;_&lt;secret&gt;</Code>: the prefix is stored so a request is one
-        indexed lookup, the secret is stored only as a salted hash. There is no way to read it back
-        later, so losing it means rotating.
-      </P_>
-
       <Table
-        head={["Operation", "Endpoint"]}
         rows={[
-          ["Create", <Code>POST /api/organizations/:organizationId/api-keys</Code>],
-          ["List, including revoked", <Code>GET /api/organizations/:organizationId/api-keys</Code>],
-          ["Rotate", <Code>POST /api/organizations/:organizationId/api-keys/:keyId/rotate</Code>],
-          ["Rename, rescope", <Code>PATCH /api/organizations/:organizationId/api-keys/:keyId</Code>],
-          ["Revoke", <Code>DELETE /api/organizations/:organizationId/api-keys/:keyId</Code>],
+          ["Base URL", <Code>https://api.splito.io/api/v1</Code>],
+          ["Version", <>v1, in the path. A breaking change ships as /api/v2.</>],
+          ["Auth", <Code>Authorization: Bearer spl_sk_...</Code>],
+          ["Content type", <Code>application/json</Code>],
+          [
+            "Machine readable",
+            <DocLink href="/docs/openapi.business-api.yaml">openapi.business-api.yaml</DocLink>,
+          ],
         ]}
       />
 
-      <Callout tone="gap" title="No key screen in the dashboard yet">
+      <Callout tone="warn" title="Check availability before you build">
         <p>
-          Key management has endpoints but no UI. Until it lands, mint keys with the calls above,
-          using the session cookie from a signed-in browser.
+          This surface is written and tested, but it is not reachable in production yet:{" "}
+          <Code>api.splito.io</Code> does not resolve, and the deployed backend at{" "}
+          <Code>server.splito.io</Code> answers 404 on <Code>/api/v1</Code>. Everything below is
+          accurate against the code that will ship. Confirm with support before you point an
+          integration at it.
         </p>
       </Callout>
 
-      <H2 id="auth">Authenticating</H2>
-
-      <Pre label="every call">{`curl https://server.splito.io/api/v1/ping \\
-  -H 'Authorization: Bearer spl_sk_xxxxxxxxxxxxxxxx_yyyyyyyyyyyyyyyyyyyyyyyy'`}</Pre>
+      <H2 id="tenancy">One key, one workspace</H2>
 
       <P_>
-        <Code>GET /api/v1/ping</Code> and <Code>GET /api/v1/meta</Code> need a valid key but no
-        scope, so a narrowly scoped key can still prove itself. A bad prefix, a bad secret and a
-        malformed header all answer the same <Code>401 invalid_api_key</Code>, on purpose.
+        A workspace is either your personal money or one business. The Business API only ever
+        addresses a business workspace, and only ever the one its key belongs to.{" "}
+        <Strong>There is no organizationId parameter anywhere on the surface</Strong>, not in a
+        path, not in a query, not in a body. A <Code>workspaceId</Code> sent to{" "}
+        <Code>POST /requests</Code> that disagrees with the key is rejected rather than silently
+        overwritten.
       </P_>
-
-      <H3>Scopes</H3>
 
       <P_>
-        Write implies read, per resource: <Code>invoices:write</Code> also grants{" "}
-        <Code>invoices:read</Code>, and says nothing about treasury. <Code>requests:*</Code> takes
-        a whole resource; <Code>*</Code> takes everything, including scopes added later.
+        A key&apos;s powers come from its scopes, not from the role of whoever created it. It does
+        inherit one thing from its creator though: it stops working the moment that person loses
+        their seat, checked on every request. Offboarding somebody offboards their automations.
       </P_>
 
-      <Table
-        head={["Scope", "Grants"]}
-        rows={[
-          ["organization:read", "The workspace profile, its settings and its member count."],
-          ["dashboard:read", "The aggregated dashboard summary."],
-          ["members:read", "List members and pending invites."],
-          ["members:write", "Invite people, revoke invites, change roles."],
-          ["requests:read", "List and read money requests, payers and links."],
-          ["requests:write", "Create and cancel money requests."],
-          ["invoices:read", "List and read invoices."],
-          ["invoices:write", "Create invoices and move them through their lifecycle."],
-          ["treasury:read", "Read income streams and treasury expenses."],
-          ["treasury:write", "Record, edit and delete treasury entries."],
-          ["contracts:read", "List and read contracts."],
-          ["activity:read", "Read the workspace activity feed."],
-          ["webhooks:read", "List endpoints and inspect delivery attempts."],
-          ["webhooks:write", "Create, edit, disable and delete endpoints."],
-        ]}
-      />
+      <H2 id="quickstart">Quickstart</H2>
 
-      <H2 id="shape">Request and response shape</H2>
+      <H3>1. Mint a key</H3>
 
-      <Pre label="success">{`{
-  "data": { "id": "cmu6...", "status": "SENT", "amount": 3400, "currency": "USD" }
-}
+      <P_>
+        Key management is session authenticated and lives outside <Code>/api/v1</Code>. See{" "}
+        <DocLink href="/docs/api/keys">API keys</DocLink> for the full lifecycle.
+      </P_>
 
-// list responses add pagination
+      <Pre label="from a signed-in browser session">{`curl -X POST https://server.splito.io/api/organizations/<organizationId>/api-keys \\
+  -H 'Content-Type: application/json' \\
+  --cookie "$SPLITO_SESSION_COOKIE" \\
+  -d '{ "name": "Ops sync", "scopes": ["dashboard:read", "requests:write"] }'`}</Pre>
+
+      <H3>2. Verify it</H3>
+
+      <Pre label="GET /api/v1/ping">{`curl -s https://api.splito.io/api/v1/ping \\
+  -H "Authorization: Bearer $SPLITO_KEY"
+
 {
-  "data": [ ... ],
-  "pagination": { "limit": 50, "offset": 0, "total": 214, "hasMore": true }
-}`}</Pre>
-
-      <Pre label="failure">{`{
-  "error": {
-    "code": "insufficient_scope",
-    "message": "This key does not carry invoices:write.",
-    "requestId": "req_01J9..."
+  "data": {
+    "object": "ping",
+    "ok": true,
+    "apiVersion": "v1",
+    "key": { "id": "clx9k2p00001", "name": "Ops sync", "scopes": ["*"], "effectiveScopes": ["..."] },
+    "organization": { "id": "clv7org0001", "name": "Harbourline Studio" },
+    "serverTime": "2026-09-18T12:00:00.000Z"
   }
 }`}</Pre>
 
-      <UL>
-        <li>
-          Branch on <Code>error.code</Code>, never on the message. The codes are{" "}
-          <Code>unauthenticated</Code>, <Code>invalid_api_key</Code>, <Code>api_key_revoked</Code>,{" "}
-          <Code>api_key_expired</Code>, <Code>api_key_actor_inactive</Code>,{" "}
-          <Code>insufficient_scope</Code>, <Code>invalid_request</Code>, <Code>not_found</Code>,{" "}
-          <Code>conflict</Code>, <Code>idempotency_key_reused</Code>,{" "}
-          <Code>idempotency_in_progress</Code>, <Code>rate_limited</Code>,{" "}
-          <Code>internal_error</Code> and <Code>api_disabled</Code>.
-        </li>
-        <li>
-          <Code>requestId</Code> is on every response including 401s. Quote it in a support
-          request.
-        </li>
-        <li>
-          Paginate with <Code>limit</Code> and <Code>offset</Code>. The ceiling is 100 per page.
-        </li>
-        <li>
-          Rate limits are per key, 120 requests a minute by default, reported on every response as{" "}
-          <Code>X-RateLimit-Limit</Code>, <Code>X-RateLimit-Remaining</Code> and{" "}
-          <Code>X-RateLimit-Reset</Code>.
-        </li>
-      </UL>
-
-      <H3>Idempotency</H3>
-
       <P_>
-        Send <Code>Idempotency-Key</Code> on any write and the response is recorded against it for
-        24 hours. A retry with the same key replays the original response instead of creating a
-        second invoice. Reusing a key against a different endpoint or body is a conflict rather
-        than a silent replay.
+        <Code>GET /ping</Code> and <Code>GET /meta</Code> need a valid key but no scope, so a
+        narrowly scoped key can still prove itself instead of leaving setup to guesswork.{" "}
+        <Code>/meta</Code> returns the scope catalog, the webhook event catalog and the limits this
+        deployment enforces, read from the same constants the enforcement reads.
       </P_>
 
-      <Pre label="safe retry">{`curl -X POST https://server.splito.io/api/v1/invoices \\
-  -H 'Authorization: Bearer spl_sk_...' \\
-  -H 'Idempotency-Key: invoice-2026-09-harbourline-0042' \\
+      <H3>3. Do something</H3>
+
+      <Pre label="POST /api/v1/requests">{`curl -X POST https://api.splito.io/api/v1/requests \\
+  -H "Authorization: Bearer $SPLITO_KEY" \\
+  -H 'Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000' \\
   -H 'Content-Type: application/json' \\
   -d '{
-    "amount": 3400,
-    "currency": "USD",
-    "dueDate": "2026-09-30T00:00:00.000Z",
-    "description": "Illustration set, Kestrel Health"
+    "amount": 1200,
+    "denominationCurrency": "USD",
+    "destinationAsset": "usdc-stellar",
+    "destinationChain": "stellar",
+    "destinationAddress": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+    "payerCount": 3,
+    "name": "Workshop fee, Kestrel Health"
   }'`}</Pre>
 
-      <H2 id="endpoints">What you can call</H2>
+      <H2 id="token">The token</H2>
 
-      <Table
-        head={["Area", "Endpoints", "Scope"]}
-        rows={[
-          [
-            "Discovery",
-            <>
-              <Code>GET /ping</Code>, <Code>GET /meta</Code>
-            </>,
-            "none",
-          ],
-          ["Dashboard", <Code>GET /dashboard/summary</Code>, "dashboard:read"],
-          ["Workspace", <Code>GET /organization</Code>, "organization:read"],
-          [
-            "Members",
-            <>
-              <Code>GET /members</Code>, <Code>PATCH /members/:userId</Code>,{" "}
-              <Code>DELETE /members/:userId</Code>
-            </>,
-            "members:read / write",
-          ],
-          [
-            "Invites",
-            <>
-              <Code>GET /invites</Code>, <Code>POST /invites</Code>,{" "}
-              <Code>POST /invites/:id/revoke</Code>
-            </>,
-            "members:read / write",
-          ],
-          [
-            "Requests",
-            <>
-              <Code>GET /requests</Code>, <Code>POST /requests</Code>,{" "}
-              <Code>GET /requests/:id</Code>, <Code>POST /requests/:id/cancel</Code>
-            </>,
-            "requests:read / write",
-          ],
-          [
-            "Invoices",
-            <>
-              <Code>GET /invoices</Code>, <Code>POST /invoices</Code>,{" "}
-              <Code>GET /invoices/:id</Code>, <Code>PATCH /invoices/:id</Code>
-            </>,
-            "invoices:read / write",
-          ],
-          [
-            "Treasury",
-            <>
-              <Code>/treasury/income-streams</Code> and <Code>/treasury/expenses</Code>, each with
-              list, create, patch and delete
-            </>,
-            "treasury:read / write",
-          ],
-          [
-            "Contracts",
-            <>
-              <Code>GET /contracts</Code>, <Code>GET /contracts/:id</Code> (read only)
-            </>,
-            "contracts:read",
-          ],
-          ["Activity", <Code>GET /activity</Code>, "activity:read"],
-          [
-            "Webhooks",
-            <>
-              <Code>/webhooks</Code>, <Code>/webhooks/:id</Code>,{" "}
-              <Code>/webhooks/:id/rotate-secret</Code>, <Code>/webhooks/:id/test</Code>,{" "}
-              <Code>/webhooks/deliveries</Code>
-            </>,
-            "webhooks:read / write",
-          ],
-        ]}
-      />
-
-      <P_>
-        Invoice status moves follow the same table the dashboard obeys, so{" "}
-        <Code>PATCH /invoices/:id</Code> with an illegal target is refused with the reason. See{" "}
-        <DocLink href="/docs/invoices">Invoices and approvals</DocLink>.
-      </P_>
-
-      <H2 id="webhooks">Webhooks</H2>
-
-      <P_>
-        Register a URL, subscribe to event types, and Splito posts a signed JSON body when
-        something happens. Subscribe to <Code>*</Code> for everything, or{" "}
-        <Code>invoice.*</Code> for a whole resource so a new status does not need a redeploy.
-      </P_>
-
-      <Pre label="the body">{`{
-  "id": "evt_...",
-  "type": "invoice.approved",
-  "createdAt": "2026-09-18T09:14:02.511Z",
-  "organizationId": "cmu6...",
-  "apiVersion": "v1",
-  "data": { ... }
-}`}</Pre>
-
-      <H3>Events</H3>
-
-      <Table
-        head={["Event", "Fires when"]}
-        rows={[
-          ["request.created", "A money request was created in this workspace."],
-          ["request.partially_paid", "At least one payer, but not all, has paid."],
-          ["request.settled", "Every payer has paid their share."],
-          ["request.cancelled", "The request was cancelled."],
-          ["request.expired", "The request passed its expiry unsettled."],
-          ["invoice.created", "An invoice was raised."],
-          ["invoice.sent", "An invoice was sent to its recipient."],
-          ["invoice.approved", "An invoice was approved."],
-          ["invoice.declined", "An invoice was declined."],
-          ["invoice.paid", "An invoice was marked paid."],
-          ["invoice.overdue", "An invoice passed its due date unpaid."],
-          ["invoice.cleared", "An invoice was cleared end to end."],
-          ["invoice.cancelled", "An invoice was cancelled."],
-          ["invite.created", "Someone was invited to the workspace."],
-          ["invite.accepted", "An invite was accepted. member.joined follows."],
-          ["invite.declined", "An invite was declined."],
-          ["invite.revoked", "An invite was revoked before it was used."],
-          ["member.joined", "A member took a seat."],
-          ["treasury.income.recorded", "An income stream was recorded."],
-          ["treasury.expense.recorded", "A treasury expense was recorded."],
-          ["webhook.test", "You asked for a test event."],
-        ]}
-      />
-
-      <H3>Verifying the signature</H3>
-
-      <P_>
-        Every delivery carries <Code>Splito-Signature: t=&lt;unix seconds&gt;,v1=&lt;hex&gt;</Code>
-        , along with <Code>Splito-Event-Id</Code>, <Code>Splito-Event-Type</Code> and{" "}
-        <Code>Splito-Delivery-Attempt</Code>. The signed string is the timestamp, a full stop, then
-        the raw body, so a captured request cannot be replayed later without breaking the
-        signature. Look up <Code>v1</Code> by name rather than by position.
-      </P_>
-
-      <Pre label="node">{`import { createHmac, timingSafeEqual } from "crypto";
-
-export function verify(rawBody, header, secret, toleranceSeconds = 300) {
-  const parts = Object.fromEntries(header.split(",").map((p) => p.trim().split("=")));
-  const t = Number.parseInt(parts.t, 10);
-  if (!Number.isFinite(t) || !parts.v1) return false;
-  if (Math.abs(Math.floor(Date.now() / 1000) - t) > toleranceSeconds) return false;
-
-  const expected = createHmac("sha256", secret).update(\`\${t}.\${rawBody}\`).digest("hex");
-  const a = Buffer.from(expected, "utf8");
-  const b = Buffer.from(parts.v1, "utf8");
-  return a.length === b.length && timingSafeEqual(a, b);
-}`}</Pre>
-
-      <Callout tone="warn" title="Verify against the raw body">
-        <p>
-          Parse the JSON after you have verified, not before. Re-serialising changes the bytes and
-          the signature will not match.
-        </p>
-      </Callout>
-
-      <H3>Retries</H3>
+      <Pre>{`spl_sk_<prefix>_<secret>
+        └ 16 chars  └ 43 chars`}</Pre>
 
       <UL>
-        <li>2xx is success. Everything else is retried, including 404 and 410.</li>
         <li>
-          Eight attempts, backing off 30 seconds, 1 minute, 2, 4, and so on up to an hour: a little
-          over four hours in total.
+          The prefix is stored in the clear and is unique, so authenticating is one indexed read.
         </li>
         <li>
-          An endpoint that fails 20 times in a row is disabled, and stays disabled until you
-          re-enable it.
+          The secret is stored only as <Code>sha256(secret + pepper)</Code> and compared in
+          constant time, so a dump of the key table does not let anybody call the API.
         </li>
         <li>
-          The event id is stable across retries, so deduplicate on{" "}
-          <Code>Splito-Event-Id</Code>. Delivery is at least once.
+          That is why the plaintext token is returned exactly once, at create or rotate, and can
+          never be read back. Lose it and you rotate.
         </li>
         <li>
-          <Code>POST /webhooks/:id/test</Code> sends <Code>webhook.test</Code> to that endpoint
-          whether or not it subscribed to it, which is how you prove the URL and the signature
-          before the subscription list is right.
+          A bare token without the <Code>Bearer </Code> prefix is also accepted.
         </li>
       </UL>
 
-      <Callout tone="note" title="Both surfaces have a kill switch">
+      <H3>When a key stops working</H3>
+
+      <Table
+        head={["Condition", "Error code"]}
+        rows={[
+          ["Revoked, or replaced by a rotation", <Code>api_key_revoked</Code>],
+          ["Past its expiresAt", <Code>api_key_expired</Code>],
+          [
+            "The member it acts as is no longer in the workspace",
+            <Code>api_key_actor_inactive</Code>,
+          ],
+        ]}
+      />
+
+      <P_>
+        A wrong prefix, a wrong secret and a malformed header all answer the same{" "}
+        <Code>invalid_api_key</Code>. Telling a caller &quot;that key exists but the secret is
+        wrong&quot; would turn a guess into a confirmed hit.
+      </P_>
+
+      <Callout tone="note" title="There is no sandbox">
         <p>
-          If the API is turned off, every <Code>/api/v1</Code> route answers{" "}
-          <Code>503 api_disabled</Code> while key management keeps working, so keys stay revocable.
-          Webhooks have their own switch. Neither is something you can set yourself: ask support if
-          you see a 503 that does not clear.
+          There is no <Code>sk_test_</Code> counterpart, because a test key hitting the same
+          database is a live key with a reassuring name. For a scratch environment, create a second
+          workspace: that is a real boundary.
         </p>
       </Callout>
+
+      <H2 id="spec">The OpenAPI description</H2>
+
+      <P_>
+        <DocLink href="/docs/openapi.business-api.yaml">openapi.business-api.yaml</DocLink> is
+        OpenAPI 3.1, generated from the same route table that enforces the permissions. Import it
+        into Postman or Insomnia, generate a client, or put it in front of a request validating
+        proxy. These pages are the prose half: the rules, the reasons and the runbook.
+      </P_>
 
       <Pager href={HREF} />
     </article>

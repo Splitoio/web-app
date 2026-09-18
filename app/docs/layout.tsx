@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { SidebarLinks } from "./sidebar-links";
+import { DocsTabs, SidebarLinks } from "./sidebar-links";
 
 export const metadata: Metadata = {
   title: { default: "Splito for business", template: "%s · Splito docs" },
@@ -32,14 +32,15 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
         <div className="mx-auto flex h-[62px] max-w-[1280px] items-center gap-4 px-5 sm:px-8">
           <Link href="/docs" className="flex items-center gap-2.5 no-underline">
             <Image src="/logo.svg" alt="Splito" width={92} height={22} priority />
-            <span className="hidden text-[12px] font-bold uppercase tracking-[0.14em] text-[#777] sm:inline">
+            <span className="hidden text-[12px] font-bold uppercase tracking-[0.14em] text-[#777] md:inline">
               Docs
             </span>
           </Link>
+          <DocsTabs />
           <div className="flex-1" />
           <Link
             href="/"
-            className="rounded-full bg-[#22D3EE] px-4 py-2 text-[13px] font-bold text-black no-underline transition-opacity hover:opacity-90"
+            className="shrink-0 whitespace-nowrap rounded-full bg-[#22D3EE] px-3 py-2 text-[12.5px] font-bold text-black no-underline transition-opacity hover:opacity-90 sm:px-4 sm:text-[13px]"
           >
             Open the app
           </Link>

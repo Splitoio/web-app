@@ -2,19 +2,48 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DOC_SECTIONS } from "./nav";
+import { DOC_TABS, tabFor } from "./nav";
 
 /**
- * The only client component in /docs, and only because "which page am I on"
- * cannot be answered in a layout server component. Everything else here is
- * static markup.
+ * The two client components in /docs, and only because "which page am I on"
+ * cannot be answered in a layout server component. Everything else is static
+ * markup: no fetch, nothing else to hydrate.
  */
+
+/** Guide / API. Lives in the header so it is visible at every width. */
+export function DocsTabs() {
+  const pathname = usePathname() ?? "/docs";
+  const activeTab = tabFor(pathname);
+
+  return (
+    <div className="flex gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] p-1">
+      {DOC_TABS.map((tab) => {
+        const active = tab.id === activeTab.id;
+        return (
+          <Link
+            key={tab.id}
+            href={tab.href}
+            aria-current={active ? "page" : undefined}
+            className={`rounded-full px-3.5 py-[5px] text-[12.5px] font-bold no-underline transition-colors ${
+              active ? "bg-white/[0.1] text-white" : "text-[#8a8a8a] hover:text-white"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The section list for whichever tab is active. */
 export function SidebarLinks() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/docs";
+  const activeTab = tabFor(pathname);
 
   return (
     <div className="space-y-6">
-      {DOC_SECTIONS.map((section) => (
+      {activeTab.sections.map((section) => (
         <div key={section.label}>
           <div className="mb-2 px-2 text-[10px] font-extrabold uppercase tracking-[0.13em] text-[#666]">
             {section.label}
