@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
-import { getAnalytics, AnalyticsData } from "../api/client";
+import {
+  AnalyticsData,
+  AnalyticsReport,
+  ReportFilters,
+  getAnalytics,
+  getAnalyticsReport,
+} from "../api/client";
 
 export const useAnalytics = () => {
   return useQuery<AnalyticsData>({
@@ -13,3 +19,16 @@ export const useAnalytics = () => {
     refetchOnMount: true,
   });
 }; 
+/**
+ * The filtered spend report behind the settings "Reports & export" section.
+ *
+ * The filters are part of the query key, so changing a date range or a
+ * category refetches rather than serving the previous window's numbers.
+ */
+export const useAnalyticsReport = (filters: ReportFilters) => {
+  return useQuery<AnalyticsReport>({
+    queryKey: [QueryKeys.ANALYTICS, "report", filters],
+    queryFn: () => getAnalyticsReport(filters),
+    staleTime: 1000 * 60,
+  });
+};
