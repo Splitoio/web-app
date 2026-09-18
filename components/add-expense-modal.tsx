@@ -28,14 +28,14 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 const CATEGORY_OPTIONS: { emoji: string; label: string; api: string }[] = [
   { emoji: "🍽", label: "Food", api: "FOOD" },
   { emoji: "🏠", label: "Accommodation", api: "ACCOMMODATION" },
-  { emoji: "🚗", label: "Travel", api: "TRAVEL" },
-  { emoji: "✈️", label: "Travel", api: "TRAVEL" },
-  { emoji: "🛒", label: "Other", api: "OTHER" },
-  { emoji: "🎟", label: "Other", api: "OTHER" },
-  { emoji: "🎵", label: "Other", api: "OTHER" },
-  { emoji: "💊", label: "Other", api: "OTHER" },
-  { emoji: "🏄", label: "Other", api: "OTHER" },
-  { emoji: "⚡️", label: "Other", api: "OTHER" },
+  { emoji: "🚗", label: "Transport", api: "TRAVEL" },
+  { emoji: "✈️", label: "Flights", api: "TRAVEL" },
+  { emoji: "🛒", label: "Groceries", api: "OTHER" },
+  { emoji: "🎟", label: "Events", api: "OTHER" },
+  { emoji: "🎵", label: "Music", api: "OTHER" },
+  { emoji: "💊", label: "Health", api: "OTHER" },
+  { emoji: "🏄", label: "Activities", api: "OTHER" },
+  { emoji: "⚡️", label: "Utilities", api: "OTHER" },
 ];
 
 interface AddExpenseModalProps {
