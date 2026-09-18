@@ -3,7 +3,9 @@ const AUTH_ROUTES = new Set(["/login", "/signup", "/forgot-password", "/reset-pa
 // that somebody with no account can see which workspace invited them BEFORE
 // signing up (GET /api/invites/lookup needs no session and seats nobody).
 // Accepting still requires one — that check is the backend's.
-const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign", "/pay", "/invite"];
+// "/docs" is the partner guide (app/docs). It is read by people evaluating
+// Splito who have no account at all, so it must never bounce to /login.
+const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign", "/pay", "/invite", "/docs"];
 
 // Canonical source of truth for "no session required" pathnames. Consumed
 // server-side by proxy.ts (session-cookie redirect gate) and client-side by
