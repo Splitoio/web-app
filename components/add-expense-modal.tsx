@@ -25,17 +25,17 @@ import { Card, A, G, P, O, T, getUserColor, BORDER, INSET } from "@/lib/splito-d
 import { useGroupLayoutOptional } from "@/contexts/group-layout-context";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
-const CATEGORY_OPTIONS: { emoji: string; api: string }[] = [
-  { emoji: "🍽", api: "FOOD" },
-  { emoji: "🏠", api: "ACCOMMODATION" },
-  { emoji: "🚗", api: "TRAVEL" },
-  { emoji: "✈️", api: "TRAVEL" },
-  { emoji: "🛒", api: "OTHER" },
-  { emoji: "🎟", api: "OTHER" },
-  { emoji: "🎵", api: "OTHER" },
-  { emoji: "💊", api: "OTHER" },
-  { emoji: "🏄", api: "OTHER" },
-  { emoji: "⚡️", api: "OTHER" },
+const CATEGORY_OPTIONS: { emoji: string; label: string; api: string }[] = [
+  { emoji: "🍽", label: "Food", api: "FOOD" },
+  { emoji: "🏠", label: "Accommodation", api: "ACCOMMODATION" },
+  { emoji: "🚗", label: "Transport", api: "TRAVEL" },
+  { emoji: "✈️", label: "Flights", api: "TRAVEL" },
+  { emoji: "🛒", label: "Groceries", api: "OTHER" },
+  { emoji: "🎟", label: "Events", api: "OTHER" },
+  { emoji: "🎵", label: "Music", api: "OTHER" },
+  { emoji: "💊", label: "Health", api: "OTHER" },
+  { emoji: "🏄", label: "Activities", api: "OTHER" },
+  { emoji: "⚡️", label: "Utilities", api: "OTHER" },
 ];
 
 interface AddExpenseModalProps {
@@ -1216,7 +1216,7 @@ export function AddExpenseModal({
                     gap: 8,
                   }}
                 >
-                  {CATEGORY_OPTIONS.map(({ emoji, api }) => {
+                  {CATEGORY_OPTIONS.map(({ emoji, label, api }) => {
                     const sel = formData.categoryEmoji === emoji;
                     return (
                       <button
@@ -1230,17 +1230,31 @@ export function AddExpenseModal({
                           }))
                         }
                         style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4,
                           background: sel ? `${A}15` : "rgba(255,255,255,0.04)",
                           border: `1.5px solid ${sel ? A + "44" : "rgba(255,255,255,0.08)"}`,
                           borderRadius: 14,
-                          padding: "12px 0",
-                          fontSize: 20,
+                          padding: "10px 2px",
                           cursor: "pointer",
                           transition: "all 0.2s",
                           boxShadow: sel ? `0 0 12px ${A}22` : "none",
                         }}
                       >
-                        {emoji}
+                        <span style={{ fontSize: 20 }}>{emoji}</span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            lineHeight: 1.15,
+                            textAlign: "center",
+                            color: sel ? A : T.soft,
+                          }}
+                        >
+                          {label}
+                        </span>
                       </button>
                     );
                   })}
