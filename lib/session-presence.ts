@@ -7,7 +7,7 @@
  *
  * This exists for exactly one decision, in api-helpers/client.ts's 401
  * interceptor: telling an ANONYMOUS VISITOR apart from an EXPIRED SESSION.
- * Both look identical at the HTTP layer — a 401 — but they mean opposite
+ * Both look identical at the HTTP layer (a 401), but they mean opposite
  * things:
  *
  *   - no cookie ever  → the visitor is browsing the logged-out console and a

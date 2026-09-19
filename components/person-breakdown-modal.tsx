@@ -9,12 +9,12 @@ export interface PersonBreakdownPerson {
   name: string;
   sub?: string;
   init: string;
-  /** Avatar chip accent — defaults to `A` (cyan). */
+  /** Avatar chip accent, defaults to `A` (cyan). */
   color?: string;
   netLabel?: string;
   /** Formatted net-balance figure, e.g. "+$310.00". */
   net: string;
-  /** Defaults to `T.main` — pass `G`/`R` to signal owed-to-you / you-owe. */
+  /** Defaults to `T.main`; pass `G`/`R` to signal owed-to-you / you-owe. */
   netColor?: string;
 }
 
@@ -53,7 +53,7 @@ export interface PersonBreakdownModalProps {
  * Person-breakdown modal (design lines 1425-1479): full-screen dim+blur
  * backdrop, centered card, net-balance figure, per-currency balances, and
  * itemized history, ending in a Request/Settle-up action row. Presentational
- * only — the dashboard and People screens own the data and pass it in.
+ * only; the dashboard and People screens own the data and pass it in.
  */
 export function PersonBreakdownModal({
   open,
@@ -167,7 +167,7 @@ export function PersonBreakdownModal({
             {person.net}
           </p>
           <p style={{ margin: "8px 0 0", fontSize: 12, color: T.dim }}>
-            Balances don&apos;t net across currencies — each one settles on its own.
+            Balances don&apos;t net across currencies, each one settles on its own.
           </p>
         </div>
 

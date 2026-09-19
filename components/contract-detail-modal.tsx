@@ -13,7 +13,7 @@ interface ContractDetailModalProps {
 }
 
 function formatDate(d: Date | null | undefined) {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -180,7 +180,7 @@ export function ContractDetailModal({ isOpen, onClose, contract }: ContractDetai
               {contract.createdBy && (
                 <DetailRow
                   label="Created By"
-                  value={contract.createdBy.name || contract.createdBy.email || "—"}
+                  value={contract.createdBy.name || contract.createdBy.email || "-"}
                 />
               )}
 
@@ -207,7 +207,7 @@ function DetailRow({ icon, label, value }: { icon?: React.ReactNode; label: stri
       )}
       <div className="min-w-0">
         <p className="text-white/50 text-sm">{label}</p>
-        <p className="text-white text-sm font-medium">{value || "—"}</p>
+        <p className="text-white text-sm font-medium">{value || "-"}</p>
       </div>
     </div>
   );

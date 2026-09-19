@@ -23,7 +23,7 @@ export const WorkspaceSchema = z.object({
  * `GET /api/workspaces` (backend PR #29, A4) returns the synthetic personal
  * workspace plus every Organization the user belongs to, and reports how many
  * business workspaces the account has against the cap so the switcher can show
- * "N / 10". The count is authoritative from the server — the cap is enforced
+ * "N / 10". The count is authoritative from the server: the cap is enforced
  * there too, not here.
  */
 const WorkspacesResponseSchema = z.object({
@@ -37,7 +37,7 @@ const WorkspacesResponseSchema = z.object({
 });
 
 /**
- * What `getWorkspaces` hands the app — not the raw payload. `canCreateBusiness`
+ * What `getWorkspaces` hands the app, not the raw payload. `canCreateBusiness`
  * is always resolved here so callers never have to redo the cap arithmetic.
  */
 export type WorkspacesResponse = {
@@ -68,7 +68,7 @@ export async function getWorkspaces(): Promise<WorkspacesResponse> {
 }
 
 /**
- * `GET /api/workspaces/:id/summary` (backend PR #29, workspace.controller.ts) —
+ * `GET /api/workspaces/:id/summary` (backend PR #29, workspace.controller.ts):
  * everything the dashboard hero needs in one call: request totals, status
  * counts, business-only approval/treasury counters, recent activity, and (for
  * the personal workspace only) the split-balance rollup that feeds "Settle
@@ -82,7 +82,7 @@ export const WorkspaceSummarySchema = z.object({
     kind: z.enum(["personal", "business"]),
     initials: z.string(),
     color: z.string(),
-    /** null for personal — same rule as WorkspaceSchema above. */
+    /** null for personal, same rule as WorkspaceSchema above. */
     role: z.string().nullable(),
     memberCount: z.number().int().nonnegative(),
   }),
@@ -137,7 +137,7 @@ export type WorkspaceTreasury = WorkspaceSummary["treasury"];
 
 /**
  * The Treasury screen's hero total is the `treasury` slice of the same
- * `/workspaces/:id/summary` payload the dashboard reads — this just fetches
+ * `/workspaces/:id/summary` payload the dashboard reads; this just fetches
  * and re-shapes it rather than parsing/summing streams separately, so the two
  * screens can never disagree.
  */

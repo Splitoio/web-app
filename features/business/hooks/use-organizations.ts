@@ -41,7 +41,7 @@ export const useGetOrganizationById = (organizationId: string) => {
 };
 
 /**
- * Members are a separate fetch, not a field on the organization — the old
+ * Members are a separate fetch, not a field on the organization; the old
  * `group.groupUsers[]` nesting is gone.
  */
 export const useGetOrganizationMembers = (organizationId: string) => {

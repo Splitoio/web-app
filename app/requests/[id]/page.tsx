@@ -28,14 +28,14 @@ import {
   expiryLabel,
 } from "@/components/requests/request-bits";
 
-/** Per-payer link — the only link that exists. Rebuilt from the token + payerId. */
+/** Per-payer link: the only link that exists. Rebuilt from the token + payerId. */
 function payerLink(token: string | null, payerId: string): string {
   if (!token) return "";
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}/pay/${token}?payer=${payerId}`;
 }
 
-/** The general pay link — no `?payer=`, so the payer picks who they are (pay page's "select-payer" phase). */
+/** The general pay link: no `?payer=`, so the payer picks who they are (pay page's "select-payer" phase). */
 function generalPayLink(token: string | null): string {
   if (!token) return "";
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -43,11 +43,11 @@ function generalPayLink(token: string | null): string {
 }
 
 /**
- * The happy-path status stepper — OPEN → PARTIALLY_PAID → SETTLED, matching
+ * The happy-path status stepper: OPEN → PARTIALLY_PAID → SETTLED, matching
  * the design's stepper treatment (splito-finance.dc.html:754-761): completed
  * pips filled + checked, connectors behind them lit, the current pip
  * outlined, everything ahead dim. EXPIRED/CANCELLED are terminal alternates
- * off that path, not a 4th/5th pip — StatusStepper swaps to a one-line
+ * off that path, not a 4th/5th pip; StatusStepper swaps to a one-line
  * terminal state for those instead of pretending they're "further along".
  */
 const HAPPY_STEPS: { status: RequestStatus; label: string }[] = [
@@ -153,7 +153,7 @@ function unpaidSummary(count: number): string {
     : `${count} payers haven't paid. Send a reminder below.`;
 }
 
-/** Disabled text action — a control the design shows with no backing endpoint yet. */
+/** Disabled text action: a control the design shows with no backing endpoint yet. */
 function DeadAction({ children, title }: { children: React.ReactNode; title: string }) {
   return (
     <span
@@ -188,7 +188,7 @@ function PayerRow({
   const [nudging, setNudging] = useState(false);
   const color = FRIEND_COLORS[(payer.index - 1) % FRIEND_COLORS.length];
   // `name` is null for an anonymous (payerCount) request, or a group member
-  // with no name/email on file — same positional fallback either way, and
+  // with no name/email on file, same positional fallback either way, and
   // the same one the create form's created-share screen already uses.
   const displayName = payer.name ?? `Person ${payer.index}`;
 
@@ -359,7 +359,7 @@ function RequestDetailScreen() {
   }, [id, load]);
 
   // The shell's <Topbar/> (>=1025px) shows the static "Requests" section
-  // title until a dynamic screen overrides it — lib/shell-nav.ts's
+  // title until a dynamic screen overrides it; lib/shell-nav.ts's
   // pageMetaFor() has no entry for /requests/<id>. usePageTitle() is that
   // override hook (contexts/page-title.tsx); it no-ops while `data` is null.
   usePageTitle(
@@ -393,8 +393,8 @@ function RequestDetailScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      {/* Below 1025px the shell's own <Topbar/> isn't mounted (app/client-layout.tsx)
-          — this is the only heading in that range. At >=1025px usePageTitle()
+      {/* Below 1025px the shell's own <Topbar/> isn't mounted (app/client-layout.tsx):
+          this is the only heading in that range. At >=1025px usePageTitle()
           above puts the same title into the shell's topbar instead, so this
           stays hidden there rather than showing a second one. */}
       <div className="block min-[1025px]:hidden border-b border-white/[0.07] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10">
@@ -449,13 +449,13 @@ function RequestDetailScreen() {
                     {assetLabel(data.destinationAsset)} on {chainLabel(data.destinationChain)}
                   </p>
                   <div className="flex gap-3.5 mt-2.5">
-                    <DeadAction title="Editing an existing request isn't supported yet — no PATCH /api/requests/:id endpoint.">
+                    <DeadAction title="Editing an existing request isn't supported yet: no PATCH /api/requests/:id endpoint.">
                       Edit
                     </DeadAction>
-                    <DeadAction title="Duplicating a request isn't supported yet — the create flow has no prefill-from-existing endpoint.">
+                    <DeadAction title="Duplicating a request isn't supported yet: the create flow has no prefill-from-existing endpoint.">
                       Duplicate
                     </DeadAction>
-                    <DeadAction title="Cancelling a request isn't supported yet — no cancel/delete endpoint on /api/requests/:id.">
+                    <DeadAction title="Cancelling a request isn't supported yet: no cancel/delete endpoint on /api/requests/:id.">
                       Cancel request
                     </DeadAction>
                   </div>
@@ -544,12 +544,12 @@ function RequestDetailScreen() {
                       style={{ fontSize: 12, color: T.body }}
                       title={data.destinationAddress ?? ""}
                     >
-                      {data.destinationAddress ?? "—"}
+                      {data.destinationAddress ?? "-"}
                     </p>
                     {data.destinationAddress && <CopyButton value={data.destinationAddress} />}
                   </div>
                   <p className="mt-1.5" style={{ fontSize: 11, color: T.dim }}>
-                    Fixed for this request — a different address means a new request.
+                    Fixed for this request: a different address means a new request.
                   </p>
                 </div>
               </div>
@@ -581,7 +581,7 @@ function RequestDetailScreen() {
             <Card className="p-5">
               {unpaidPayers.length === 0 ? (
                 <p style={{ fontSize: 12, color: T.dim, margin: 0 }}>
-                  Everyone has paid — nothing to nudge.
+                  Everyone has paid: nothing to nudge.
                 </p>
               ) : (
                 <>
@@ -614,7 +614,7 @@ function NudgeRow({
 }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  // Same fallback as PayerRow above — null covers both the anonymous flow
+  // Same fallback as PayerRow above; null covers both the anonymous flow
   // and a group member with no name/email on file.
   const displayName = payer.name ?? `Person ${payer.index}`;
 
@@ -657,7 +657,7 @@ function NudgeRow({
 
 /**
  * The shell now renders its chrome for signed-out visitors too, so
- * `/requests/[id]` — including any real request id typed or bookmarked — is
+ * `/requests/[id]` (including any real request id typed or bookmarked) is
  * reachable without a session. Gate here, above RequestDetailScreen's
  * `getRequestDetail` fetch: hooks can't be called conditionally, so the only
  * way to keep that request-detail lookup from firing for an anonymous
@@ -668,7 +668,7 @@ export default function RequestDetailPage() {
     <GatedScreen
       title="Request details"
       reason="Sign in to see this request"
-      blurb="Tracking a request — its payers, its status and its history — belongs to the account that created it."
+      blurb="Tracking a request, its payers, its status and its history, belongs to the account that created it."
     >
       <RequestDetailScreen />
     </GatedScreen>

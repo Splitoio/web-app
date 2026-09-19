@@ -33,13 +33,13 @@ export function Providers({
     <PostHogProvider>
       <QueryClientProvider client={queryClient}>
         {/*
-          No global AptosWalletAdapterProvider here — it used to wrap every
+          No global AptosWalletAdapterProvider here; it used to wrap every
           route, and constructing its WalletCore on mount fires 4 mainnet RPC
           calls (api.mainnet.aptoslabs.com) on EVERY page load, including
           signed-out pages with no wallet connected. `useWallet()` from
           hooks/useWallet.ts reads Aptos state via `@aptos-labs/wallet-adapter-react`'s
           own `useWallet()`, whose context has a `{ connected: false }`
-          default when no provider is mounted — so it degrades gracefully
+          default when no provider is mounted, so it degrades gracefully
           here. Components that need real Aptos wallet connect/sign
           (WalletSelector, AddWalletModal) mount their own scoped provider
           locally, so the client only spins up on first actual use.

@@ -2,13 +2,13 @@ import { ImageResponse } from "next/og";
 
 /**
  * The link-preview card for every shared request link. Non-users meet the
- * product here before they meet the app, so it says what the product does —
- * request money — and never mentions splitting.
+ * product here before they meet the app, so it says what the product does
+ * (request money) and never mentions splitting.
  * Palette is the app's hardcoded chrome: #0b0b0b background, #22D3EE accent.
  */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "Splito — request money in any currency";
+export const alt = "Splito: request money in any currency";
 
 export default function OpengraphImage() {
   return new ImageResponse(

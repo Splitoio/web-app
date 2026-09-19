@@ -10,7 +10,7 @@ import { isWorkspaceAdmin } from "@/lib/workspace";
 
 // Below 1025px the sidebar is a drawer, so the nav destinations also get a
 // bottom bar. Sourced from the same nav table as the sidebar, so personal and
-// business workspaces stay in step — see lib/shell-nav.ts.
+// business workspaces stay in step; see lib/shell-nav.ts.
 //
 // Serves both workspace kinds: personal is 5 items, business is 6.
 const ICON_FOR: Record<string, (p?: { size?: number }) => React.ReactNode> = {
@@ -27,8 +27,8 @@ const ICON_FOR: Record<string, (p?: { size?: number }) => React.ReactNode> = {
 /**
  * Sidebar labels are written for a 258px rail ("Requests & invoices", "Needs
  * approval") and truncate at a sixth of a 390px viewport. The bar keeps the
- * sidebar's destinations and ordering — the nav table stays the single source
- * of truth — and only shortens the words for this width. The design mock is
+ * sidebar's destinations and ordering (the nav table stays the single source
+ * of truth) and only shortens the words for this width. The design mock is
  * desktop-only, so there is nothing here to copy from it.
  */
 const SHORT_LABEL: Record<string, string> = {

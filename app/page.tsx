@@ -10,14 +10,14 @@ import { BusinessDashboard } from "@/components/dashboard/business-dashboard";
 import { BusinessDashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 
 /**
- * The signed-in dashboard — hero/settle-up/groups/activity for the personal
+ * The signed-in dashboard: hero/settle-up/groups/activity for the personal
  * workspace, or the treasury/approval or revenue arrangement for a business
  * one (contexts/workspace.tsx decides which, never the URL). Design 145-241
- * and 244-369 have no in-page title row — the shell's <Topbar/> (title +
+ * and 244-369 have no in-page title row; the shell's <Topbar/> (title +
  * "+ Create") is it. But Topbar only mounts at >=1025px (client-layout.tsx),
  * so below that this is the only heading; `min-[1025px]:hidden` keeps it from
  * doubling up with Topbar once that breakpoint hits. Matches the same
- * treatment in app/requests/[id]/page.tsx. No CTA here — the shell's
+ * treatment in app/requests/[id]/page.tsx. No CTA here: the shell's
  * "+ Create" already covers the primary action at >=1025px, and no page in
  * this app duplicates it below that either (see app/requests/page.tsx).
  */
@@ -37,7 +37,7 @@ function DashboardScreen({ kind }: { kind: "personal" | "business" | null }) {
             yet. Guessing "personal" here mounts PersonalDashboard, which fires
             /workspaces/personal/summary for an account whose active workspace
             is a business one. Only "personal" resolves without the list, so an
-            unresolved id is always a business one — show its skeleton. */}
+            unresolved id is always a business one; show its skeleton. */}
         {kind === null ? (
           <BusinessDashboardSkeleton />
         ) : kind === "business" ? (
@@ -55,7 +55,7 @@ function DashboardScreen({ kind }: { kind: "personal" | "business" | null }) {
  *
  * SIGNED IN  → the dashboard, exactly as before.
  * SIGNED OUT → the real console, in the full shell (sidebar, topbar, mobile
- *              nav — see app/client-layout.tsx), showing the create-request
+ *              nav (see app/client-layout.tsx), showing the create-request
  *              screen. This is where the marketing site's CTAs land.
  *
  * This replaced a stripped-down, chrome-free anonymous card that lived here.
@@ -65,7 +65,7 @@ function DashboardScreen({ kind }: { kind: "personal" | "business" | null }) {
  * next to it (components/shell/locked-feature.tsx) rather than being hidden.
  *
  * The branch is on the session already held client-side (useAuthStore), never
- * a blocking fetch — components/AuthProvider.tsx never gates "/" behind the
+ * a blocking fetch: components/AuthProvider.tsx never gates "/" behind the
  * session request either.
  */
 export default function Page() {
@@ -92,7 +92,7 @@ export default function Page() {
   }
 
   // "loading" IS reachable here, and normally so: "/" is public, so AuthProvider
-  // does not hold its own spinner for a visitor with no server-visible cookie —
+  // does not hold its own spinner for a visitor with no server-visible cookie;
   // which, until AUTH_COOKIE_DOMAIN is set on the backend, is every visitor.
   // We genuinely do not know yet which screen is right, and showing the guest
   // console to a signed-in user is the failure this whole file exists to

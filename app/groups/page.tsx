@@ -27,8 +27,8 @@ function GroupsScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      {/* Below 1025px the shell's own <Topbar/> isn't mounted (app/client-layout.tsx)
-          — this is the only heading + create affordance in that range. At
+      {/* Below 1025px the shell's own <Topbar/> isn't mounted (app/client-layout.tsx):
+          this is the only heading + create affordance in that range. At
           >=1025px the shell topbar already renders the title and the single
           "+ Create" button, so this stays hidden there rather than showing a
           second one. */}
@@ -106,7 +106,7 @@ function GroupsScreen() {
 /**
  * The shell now renders its chrome for signed-out visitors too, so
  * `/groups` is reachable without a session. Gate here, above GroupsScreen's
- * `<GroupsList/>` (which fetches the group list itself) — hooks can't be
+ * `<GroupsList/>` (which fetches the group list itself); hooks can't be
  * called conditionally, so the only way to keep that query from firing for
  * an anonymous visitor is to never mount the component that owns it.
  */

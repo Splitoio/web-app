@@ -51,7 +51,7 @@ type GroupWithBalances = {
  * One "Settle up" tile (design 179-198). Backend convention (matches
  * components/friends-list.tsx): positive net = you owe the friend, negative =
  * the friend owes you. Each tile converts its own balances to the account's
- * display currency — same per-row pattern friends-list.tsx uses — rather than
+ * display currency (same per-row pattern friends-list.tsx uses) rather than
  * forcing one conversion pass up front.
  */
 function SettleTile({
@@ -173,7 +173,7 @@ export function PersonalDashboard() {
   if (summaryLoading || !summary) return <PersonalDashboardSkeleton />;
 
   const personal = summary.personal ?? { owed: 0, lent: 0, groupCount: 0, friendCount: 0 };
-  // Name the two directions explicitly — the API's field names read backwards at
+  // Name the two directions explicitly: the API's field names read backwards at
   // a glance. computeOverallBalances signs a balance NEGATIVE when this user is
   // the one who paid/requested, so workspace.controller.ts buckets negatives into
   // `lent` (money owed TO you) and positives into `owed` (money YOU owe).
@@ -199,7 +199,7 @@ export function PersonalDashboard() {
         }))
     : [];
   const modalItems: PersonHistoryItem[] = [];
-  // Balances don't net across currencies (the modal says so) — the headline
+  // Balances don't net across currencies (the modal says so); the headline
   // figure is the largest single-currency balance, not a cross-currency sum.
   const primaryBalance = openFriend?.balances
     ? [...openFriend.balances].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0]
@@ -222,7 +222,7 @@ export function PersonalDashboard() {
             borderRadius: "50%",
             pointerEvents: "none",
             // A flat fill clipped by the card's overflow:hidden reads as a hard
-            // vertical seam across the hero rather than a glow — fade it out.
+            // vertical seam across the hero rather than a glow; fade it out.
             background: `radial-gradient(circle, ${A}1a 0%, ${A}00 70%)`,
           }}
         />
@@ -313,7 +313,7 @@ export function PersonalDashboard() {
           defaultCurrency={defaultCurrency}
           viewAllHref="/requests"
           viewAllLabel="View all requests →"
-          emptyLabel="Nothing yet — create your first request."
+          emptyLabel="Nothing yet, create your first request."
         />
       </div>
 

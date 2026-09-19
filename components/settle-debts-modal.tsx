@@ -234,7 +234,7 @@ export function SettleDebtsModal({
 
   // The counterparty we're actually settling with, when one is selected (step-1→2→3 group
   // flow, or the friend-picker flow). Scopes the multi-currency pricing below to what is owed
-  // to THIS member only — see #32: without this, groupBalancesObj summed every counterparty in
+  // to THIS member only, see #32: without this, groupBalancesObj summed every counterparty in
   // the group, so settling with one person could charge the total owed across everyone.
   const settleTargetId = selectedSettleMemberId || selectedUser?.id || null;
 
@@ -722,7 +722,7 @@ export function SettleDebtsModal({
   const canProceedWithSettlement = (chain?: string | null) => {
     const c = chain ?? selectedChain;
     if (c === 'stellar') {
-      // Browser wallet MUST be connected — a saved DB address alone can't sign transactions
+      // Browser wallet MUST be connected: a saved DB address alone can't sign transactions
       return !!(walletConnected && wallet && (address || userStellarAddress));
     }
     if (c === 'solana' || c === 'base') {
@@ -954,7 +954,7 @@ export function SettleDebtsModal({
     return amount * (balanceRates[fromCurrency] ?? 1);
   };
 
-  // Calculate totals split by direction (per-counterparty net in default currency — do not sum abs of mixed-currency legs)
+  // Calculate totals split by direction (per-counterparty net in default currency, do not sum abs of mixed-currency legs)
   const totalToPay = memberDebtRows
     .filter((r) => r.direction === "owe")
     .reduce((sum, row) => sum + Math.abs(row.netConvertedSigned), 0);
@@ -990,7 +990,7 @@ export function SettleDebtsModal({
     setSettleStep(step);
   }, []);
 
-  // Compute expense breakdown for selected member — both directions, each tagged
+  // Compute expense breakdown for selected member: both directions, each tagged
   const selectedMemberExpenses = useMemo(() => {
     if (!selectedSettleMemberId || !user || !_expenses.length) return [];
 
@@ -1113,7 +1113,7 @@ export function SettleDebtsModal({
                   </button>
                 </div>
 
-                {/* Progress bar — hidden for single-expense, 3 steps for "owe", 2 for "owed" */}
+                {/* Progress bar (hidden for single-expense, 3 steps for "owe", 2 for "owed") */}
                 {!expenseId && (() => {
                   const totalSteps = selectedMemberRow && selectedMemberRow.direction === "owed" ? 2 : 3;
                   return (
@@ -1403,7 +1403,7 @@ export function SettleDebtsModal({
                             <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0" style={{ color: row.direction === "owe" ? R : G }}>
                               {(() => {
                                 // row.netConvertedSigned (and specificMemberAmounts, when set) are
-                                // already converted into defaultCurrency by memberDebtRows — never
+                                // already converted into defaultCurrency by memberDebtRows, never
                                 // relabel/reconvert them as a native per-leg currency here (#32).
                                 const { amount, currency, sign } = deriveSettleAmount({
                                   netConvertedSigned: row.netConvertedSigned,

@@ -14,7 +14,7 @@ import { QueryKeys } from "@/lib/constants";
 
 /**
  * Invites are the ONLY way somebody joins a business workspace, and creating
- * one seats nobody — so the invite list and the member list are separate
+ * one seats nobody, so the invite list and the member list are separate
  * caches that move independently.
  */
 export const useGetOrganizationInvites = (
@@ -56,7 +56,7 @@ export const useRevokeInvite = () => {
 
 /**
  * Rotates the token server-side: every link already copied or emailed for this
- * invite stops working. The UI must say so — a silently-dead link is worse
+ * invite stops working. The UI must say so: a silently-dead link is worse
  * than no resend button.
  */
 export const useResendInvite = () => {
@@ -67,7 +67,7 @@ export const useResendInvite = () => {
   });
 };
 
-/** PUBLIC — deliberately usable with no session, for the `/invite/[token]` page. */
+/** PUBLIC, deliberately usable with no session, for the `/invite/[token]` page. */
 export const useLookupInvite = (token: string) => {
   return useQuery({
     queryKey: [QueryKeys.ORGANIZATION_INVITES, "lookup", token],
@@ -94,7 +94,7 @@ export const useAcceptInvite = () => {
 };
 
 /**
- * The signed-in user's own pending invites — powers the notifications route
+ * The signed-in user's own pending invites; powers the notifications route
  * plus the bell/badge counts in the shell. Callers gate `enabled` on
  * `isAuthenticated` themselves (see useWorkspaces) since the shell mounts for
  * signed-out visitors too and this endpoint requires a session.
@@ -108,7 +108,7 @@ export const useMyInvites = (options?: { enabled?: boolean }) => {
 };
 
 /**
- * Invitee-scoped decline. Invalidates the same caches as useAcceptInvite —
+ * Invitee-scoped decline. Invalidates the same caches as useAcceptInvite:
  * declining seats nobody, so BUSINESS_ORGANIZATIONS/WORKSPACES won't actually
  * change, but the workspace switcher's query still races the invite list on
  * every mutation here and staying symmetric means neither branch can drift

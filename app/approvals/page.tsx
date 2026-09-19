@@ -16,7 +16,7 @@ import {
 } from "@/features/business/api/client";
 import { formatCurrency } from "@/utils/formatters";
 
-/** Approvable states — mirrors the backend's own check (invoice.controller.ts approveInvoice/declineInvoice). */
+/** Approvable states: mirrors the backend's own check (invoice.controller.ts approveInvoice/declineInvoice). */
 const PENDING_STATUSES = new Set(["DRAFT", "SENT"]);
 
 function initialsOf(name: string | null | undefined): string {
@@ -31,7 +31,7 @@ function formatDueDate(date: Date): string {
 }
 
 /**
- * Approvals (design 499-523). Business workspaces only — the nav item itself
+ * Approvals (design 499-523). Business workspaces only: the nav item itself
  * is already absent from the personal sidebar (navGroupsFor in shell-nav.ts),
  * this is the direct-navigation fallback.
  */
@@ -40,7 +40,7 @@ function ApprovalsScreen() {
   const isResolving = useIsResolvingWorkspace();
   const isBusiness = workspace.kind === "business";
   // Approve/decline is OWNER/ADMIN only on the backend (invoice.controller.ts
-  // approveInvoice/declineInvoice) — MEMBER never sees the queue, not just a
+  // approveInvoice/declineInvoice), MEMBER never sees the queue, not just a
   // disabled button, matching Members/Treasury/Approvals being admin-only
   // screens rather than admin-only actions on a shared screen.
   const isAdmin = isWorkspaceAdmin(workspace);
@@ -99,7 +99,7 @@ function ApprovalsScreen() {
       setInvoices((cur) => cur?.filter((i) => i.id !== inv.id) ?? cur);
       toast.success("Approved");
     } catch {
-      toast.error("Couldn't approve — try again.");
+      toast.error("Couldn't approve, try again.");
     } finally {
       setBusyId(null);
     }
@@ -114,7 +114,7 @@ function ApprovalsScreen() {
       setInvoices((cur) => cur?.filter((i) => i.id !== inv.id) ?? cur);
       toast.success("Declined");
     } catch {
-      toast.error("Couldn't decline — try again.");
+      toast.error("Couldn't decline, try again.");
     } finally {
       setBusyId(null);
     }

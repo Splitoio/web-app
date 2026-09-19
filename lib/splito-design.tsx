@@ -6,25 +6,25 @@ import React from "react";
 // Single source of truth for the palette in .design/INDEX.md §1. Screens import
 // from here; they never re-type a hex. Mirrored (not duplicated) into CSS custom
 // properties in app/globals.css and into tailwind.config.ts under `splito.*`.
-// Dark-only — there is no light theme.
+// Dark-only: there is no light theme.
 
-/** Cyan — brand accent: primary buttons, links, focus rings, personal workspace. */
+/** Cyan: brand accent: primary buttons, links, focus rings, personal workspace. */
 export const A = "#22D3EE";
-/** Green — positive: cleared / paid / approved, positive net position. */
+/** Green: positive: cleared / paid / approved, positive net position. */
 export const G = "#34D399";
-/** Red — negative: overdue / declined / rejected, "you owe". */
+/** Red: negative: overdue / declined / rejected, "you owe". */
 export const R = "#F87171";
-/** Purple — tertiary: Split type, Solana, groups. */
+/** Purple: tertiary: Split type, Solana, groups. */
 export const P = "#A78BFA";
-/** Orange — pending/warning: partly paid, awaiting approval, unread dot. */
+/** Orange: pending/warning: partly paid, awaiting approval, unread dot. */
 export const O = "#FB923C";
-/** Indigo — tertiary 2: Ethereum. */
+/** Indigo: tertiary 2: Ethereum. */
 export const B = "#818CF8";
 
 export const ACCENTS = { A, G, R, P, O, B } as const;
 export type AccentKey = keyof typeof ACCENTS;
 
-/** Page background — `html`, `body` and the shell wrapper. */
+/** Page background: `html`, `body` and the shell wrapper. */
 export const BG = "#0b0b0b";
 
 /** Text ramp, brightest last. */
@@ -43,9 +43,9 @@ export const T = {
   white: "#fff",
 };
 
-/** Standard card/surface fill — rows, tiles, panels. */
+/** Standard card/surface fill: rows, tiles, panels. */
 export const SURFACE = "linear-gradient(145deg,#111 0%,#0d0d0d 100%)";
-/** Hero/feature panel fill — balance hero, treasury hero, group header. */
+/** Hero/feature panel fill: balance hero, treasury hero, group header. */
 export const HERO_SURFACE = "linear-gradient(135deg,#141414 0%,#0f0f0f 100%)";
 /** Workspace-switcher / popover panel fill (flat, not a gradient). */
 export const PANEL = "#17171A";
@@ -70,7 +70,7 @@ export const SHADOW = {
   dropdown: "0 12px 32px rgba(0,0,0,0.6)",
 } as const;
 
-/** DM Mono — every number, amount, address and token symbol. */
+/** DM Mono: every number, amount, address and token symbol. */
 export const MONO = "var(--font-dm-mono), 'DM Mono', monospace";
 
 /** Fade-up mount animation (`@keyframes fU`). Spread into a style object. */
@@ -634,7 +634,7 @@ export function GroupAvatar({
 // components (capitalised) are the same thing pre-wrapped when there is nothing
 // to override. Screens should reach for one of these before writing a hex.
 
-/** Standard surface card — radius 20, 1px hairline border, 145° gradient fill. */
+/** Standard surface card: radius 20, 1px hairline border, 145° gradient fill. */
 export function card(overrides: React.CSSProperties = {}): React.CSSProperties {
   return {
     background: SURFACE,
@@ -644,7 +644,7 @@ export function card(overrides: React.CSSProperties = {}): React.CSSProperties {
   };
 }
 
-/** Hero/feature panel — bigger radius, 135° gradient, drop shadow + top highlight. */
+/** Hero/feature panel: bigger radius, 135° gradient, drop shadow + top highlight. */
 export function heroCard(overrides: React.CSSProperties = {}): React.CSSProperties {
   return {
     background: HERO_SURFACE,
@@ -656,7 +656,7 @@ export function heroCard(overrides: React.CSSProperties = {}): React.CSSProperti
 }
 
 /**
- * Section eyebrow — 11px/700 uppercase with 0.1em tracking. The single
+ * Section eyebrow: 11px/700 uppercase with 0.1em tracking. The single
  * most-used style in the design; pass a role colour to tint it.
  */
 export function eyebrow(color: string = T.soft): React.CSSProperties {
@@ -670,7 +670,7 @@ export function eyebrow(color: string = T.soft): React.CSSProperties {
   };
 }
 
-/** Nav-group header — 10px/800, 0.12em tracking, dimmer than an eyebrow. */
+/** Nav-group header: 10px/800, 0.12em tracking, dimmer than an eyebrow. */
 export function navGroupLabel(): React.CSSProperties {
   return { ...TYPE.navGroup, margin: 0 };
 }
@@ -691,7 +691,7 @@ export function pill(color: string): React.CSSProperties {
   };
 }
 
-/** Circular initials chip — people, workspaces and tokens all use this. */
+/** Circular initials chip: people, workspaces and tokens all use this. */
 export function avatarChip(
   color: string,
   size = 32,
@@ -744,7 +744,7 @@ export const Eyebrow = ({
 );
 
 /**
- * Status pill — coloured dot plus same-coloured label. `color` defaults to the
+ * Status pill: coloured dot plus same-coloured label. `color` defaults to the
  * accent `statusColor()` derives from the label, so callers usually pass only
  * the status text.
  */
@@ -800,7 +800,7 @@ export const AvatarChip = ({
   </span>
 );
 
-/** 38×22 pill track with an 18px knob — "lock the rate", "require a contract". */
+/** 38×22 pill track with an 18px knob: "lock the rate", "require a contract". */
 export const Toggle = ({
   on,
   onChange,

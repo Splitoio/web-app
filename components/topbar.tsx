@@ -12,10 +12,10 @@ import { useMyInvites } from "@/features/business/hooks/use-invites";
 /**
  * Sticky app header (design 123–139): the current screen's title and subtitle,
  * the notification bell, and the one primary action. Title copy is workspace-
- * aware — see lib/shell-nav.ts.
+ * aware: see lib/shell-nav.ts.
  *
  * A dynamic detail screen (a group, a request) doesn't have a static entry in
- * lib/shell-nav.ts's tables — it calls usePageTitle() (contexts/page-title.tsx)
+ * lib/shell-nav.ts's tables: it calls usePageTitle() (contexts/page-title.tsx)
  * to override title/subtitle with its own data once loaded. No override falls
  * back to pageMetaFor()'s static section title.
  */
@@ -27,7 +27,7 @@ export function Topbar() {
   const meta = pageMetaFor(pathname, workspace);
   const { isAuthenticated } = useAuthStore();
   // Same query/cache as the sidebar's Notifications badge
-  // (features/business/hooks/use-invites.ts) — one fetch, two surfaces
+  // (features/business/hooks/use-invites.ts): one fetch, two surfaces
   // agreeing on the same count.
   const { data: myInvites } = useMyInvites({ enabled: isAuthenticated });
   const hasUnread = (myInvites?.length ?? 0) > 0;
@@ -55,7 +55,7 @@ export function Topbar() {
 
         <div className="flex-1" />
 
-        {/* This screen's own actions, if it published any — usePageActions(). */}
+        {/* This screen's own actions, if it published any: usePageActions(). */}
         {renderActions ? renderActions() : null}
 
         {/* `/notifications` (app/notifications/page.tsx) lists pending org
@@ -63,7 +63,7 @@ export function Topbar() {
             sidebar badge off the same `useMyInvites()` cache. */}
         <Link
           href="/notifications"
-          aria-label={hasUnread ? "Notifications — unread invites" : "Notifications"}
+          aria-label={hasUnread ? "Notifications: unread invites" : "Notifications"}
           title="Notifications"
           className="abtn relative flex items-center justify-center transition-all"
           style={{

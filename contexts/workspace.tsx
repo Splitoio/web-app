@@ -20,7 +20,7 @@ type WorkspaceContextValue = {
   /** How many business workspaces the account has, and the cap ("N / 10"). */
   businessCount: number;
   businessCap: number;
-  /** The server's verdict on the cap — the switcher disables "+ New" on false. */
+  /** The server's verdict on the cap: the switcher disables "+ New" on false. */
   canCreateBusiness: boolean;
   isLoading: boolean;
   /**
@@ -62,7 +62,7 @@ export function WorkspaceProvider({
   const { data, isLoading } = useWorkspacesQuery({ enabled: isAuthenticated });
 
   // Cookie first (it is what the server rendered against), then the prop the
-  // server read, then personal — which always exists.
+  // server read, then personal, which always exists.
   const [activeId, setActiveId] = React.useState<string>(
     () => initialWorkspaceId ?? PERSONAL_WORKSPACE_ID
   );
@@ -80,7 +80,7 @@ export function WorkspaceProvider({
   );
 
   // A stale cookie (workspace left, deleted, or another account's) must never
-  // strand the user on a workspace they cannot see — fall back to personal.
+  // strand the user on a workspace they cannot see: fall back to personal.
   const active = useMemo(
     () => workspaces.find((w) => w.id === activeId) ?? workspaces[0] ?? PERSONAL_WORKSPACE,
     [workspaces, activeId]
@@ -151,11 +151,11 @@ export function useWorkspaces() {
 }
 
 /**
- * The workspace the app is currently showing. This — not the URL — is what
+ * The workspace the app is currently showing. This (not the URL) is what
  * decides whether a screen renders its personal or business arrangement.
  *
  * On the first paint after a reload this is the personal fallback even when
- * the cookie names a business workspace — the list has not arrived yet. A
+ * the cookie names a business workspace: the list has not arrived yet. A
  * screen that renders a different arrangement per `kind` should pair this with
  * `useIsResolvingWorkspace()` and hold a skeleton until it returns false.
  */

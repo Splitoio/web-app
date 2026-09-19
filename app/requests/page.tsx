@@ -14,7 +14,7 @@ import { GatedScreen } from "@/components/shell/locked-feature";
 
 /**
  * The list-screen table (design 462-496). Filter pills map onto the four
- * RequestStatus values a requester actually acts on — EXPIRED/CANCELLED stay
+ * RequestStatus values a requester actually acts on: EXPIRED/CANCELLED stay
  * visible under "All" rather than getting their own pill, matching the
  * design's four-pill row.
  */
@@ -27,7 +27,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "SETTLED", label: "Cleared" },
 ];
 
-/** Design vocabulary (INDEX.md §1) for each RequestStatus — statusColor() derives the dot from this text. */
+/** Design vocabulary (INDEX.md §1) for each RequestStatus: statusColor() derives the dot from this text. */
 const STATUS_LABEL: Record<RequestStatus, string> = {
   OPEN: "Sent",
   PARTIALLY_PAID: "Partly paid",
@@ -285,7 +285,7 @@ function RequestsScreen() {
 /**
  * The shell now renders its chrome (sidebar/topbar/nav) for signed-out
  * visitors too, so `/requests` is reachable without a session. Gate here,
- * one level above RequestsScreen's `listRequests` fetch — hooks can't be
+ * one level above RequestsScreen's `listRequests` fetch; hooks can't be
  * called conditionally, so the only way to stop that query from firing for
  * an anonymous visitor is to never mount the component that owns it.
  */
@@ -294,7 +294,7 @@ export default function RequestsPage() {
     <GatedScreen
       title="Requests"
       reason="Sign in to see your requests"
-      blurb="Every request you've sent lives here — who has paid, who hasn't, and what's still outstanding."
+      blurb="Every request you've sent lives here: who has paid, who hasn't, and what's still outstanding."
     >
       <RequestsScreen />
     </GatedScreen>

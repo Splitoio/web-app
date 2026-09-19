@@ -32,7 +32,7 @@ const settleDebtStellar = async (
   wallet: StellarWallet
 ) => {
   // Same source the kit was constructed with, driven by NEXT_PUBLIC_CHAIN_NETWORK
-  // to mirror the backend's CHAIN_NETWORK — never sniffed off the kit's
+  // to mirror the backend's CHAIN_NETWORK: never sniffed off the kit's
   // undocumented internal config.
   const signedTx = await wallet.signTransaction(unsignedTx.serializedTx, {
     networkPassphrase: STELLAR_WALLET_NETWORK,

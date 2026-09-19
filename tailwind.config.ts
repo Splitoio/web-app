@@ -70,7 +70,7 @@ const config: Config = {
           "5": "hsl(var(--chart-5))",
         },
         // Splito design palette (.design/INDEX.md §1). Mirrors the constants
-        // exported from lib/splito-design.tsx — change both together.
+        // exported from lib/splito-design.tsx, change both together.
         splito: {
           bg: "#0b0b0b",
           panel: "#17171A",

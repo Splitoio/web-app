@@ -111,16 +111,16 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
       <div style={{ textAlign: "center", padding: "80px 20px" }}>
         {/* Tailwind's preflight sets `svg { display: block }`, so the parent's
             text-align (which centred the old emoji glyph) no longer centres
-            this icon — mx-auto does, same idiom as pay/status-banner.tsx. */}
+            this icon: mx-auto does, same idiom as pay/status-banner.tsx. */}
         <Users size={40} strokeWidth={1.5} color={T.faint} className="mx-auto" style={{ marginBottom: 18 }} />
         <p style={{ fontSize: 18, fontWeight: 800, color: T.body, marginBottom: 8 }}>
           No groups yet
         </p>
         <p style={{ fontSize: 14, color: T.sub, marginBottom: 24 }}>
-          Create a group to start requesting money together — rent, trips, anything shared
+          Create a group to start requesting money together: rent, trips, anything shared
         </p>
         {/* Btn renders as a flex element, so textAlign on the parent can't centre
-            it — the flex wrapper is what keeps this CTA centred in the empty state. */}
+            it: the flex wrapper is what keeps this CTA centred in the empty state. */}
         <div className="flex justify-center">
           <Btn
             variant="primary"

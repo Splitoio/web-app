@@ -2,7 +2,7 @@ const AUTH_ROUTES = new Set(["/login", "/signup", "/forgot-password", "/reset-pa
 // "/invite" is public because the whole point of the invite landing page is
 // that somebody with no account can see which workspace invited them BEFORE
 // signing up (GET /api/invites/lookup needs no session and seats nobody).
-// Accepting still requires one — that check is the backend's.
+// Accepting still requires one: that check is the backend's.
 // "/docs" is the partner guide (app/docs). It is read by people evaluating
 // Splito who have no account at all, so it must never bounce to /login.
 const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign", "/pay", "/invite", "/docs"];
@@ -12,7 +12,7 @@ const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign", "/pay", "/invite", "/d
 // api-helpers/client.ts (401 interceptor) and components/AuthProvider.tsx
 // (render-blocking gate). components/onboarding-gate.tsx and
 // app/client-layout.tsx still keep their own narrower auth-page checks
-// (chrome/UI decisions, not security gates) — if you add a new public route,
+// (chrome/UI decisions, not security gates): if you add a new public route,
 // update it here first, then check those two for whether their UI treatment
 // should change too.
 
@@ -29,10 +29,10 @@ export function isAuthRoute(pathname: string): boolean {
 }
 
 export function isPublicRoute(pathname: string): boolean {
-  // "/" is the anonymous create-request landing — an account is offered,
+  // "/" is the anonymous create-request landing: an account is offered,
   // never required. See .specs/2026-08-06-request-money-design.md and
   // .plans/2026-08-06-request-money.md ("NO AUTH, EVER"). Must be an exact
-  // match, not a prefix — every other route also starts with "/".
+  // match, not a prefix: every other route also starts with "/".
   if (pathname === "/") return true;
   return PUBLIC_ROUTE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
@@ -61,8 +61,8 @@ export function getSessionCookieValue(
  * Returns null unless the value is a same-origin *path*. `startsWith("/")` on
  * its own is not enough: `//evil.example` and `/\evil.example` are
  * protocol-relative URLs that browsers resolve off-origin, so a bare prefix
- * check is an open redirect. Anyone honouring a callbackUrl — the proxy's
- * auth-route bounce, the login page, the signup page — must go through this.
+ * check is an open redirect. Anyone honouring a callbackUrl (the proxy's
+ * auth-route bounce, the login page, the signup page) must go through this.
  */
 export function safeCallbackPath(raw: string | null | undefined): string | null {
   if (!raw || !raw.startsWith("/")) return null;

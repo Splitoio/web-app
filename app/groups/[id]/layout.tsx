@@ -168,7 +168,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
             <div className="mb-4 flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
               <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
               <p className="flex-1 text-mobile-sm sm:text-sm text-yellow-200">
-                You haven&apos;t set a settlement preference yet — others won&apos;t be able to pay you.{" "}
+                You haven&apos;t set a settlement preference yet. Others won&apos;t be able to pay you.{" "}
                 <Link href="/settings" className="underline text-yellow-400 hover:text-yellow-300">
                   Set it up
                 </Link>

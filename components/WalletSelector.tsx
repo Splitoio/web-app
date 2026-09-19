@@ -51,7 +51,7 @@ import { useToast } from "./ui/use-toast";
 // import { useToast } from "@/components/ui/use-toast";
 
 /**
- * Not `export` — `useWallet()` below only works inside an
+ * Not `export`: `useWallet()` below only works inside an
  * `AptosWalletAdapterProvider`. That provider used to be mounted globally
  * (components/providers.tsx), firing 4 mainnet RPC calls on every page load
  * regardless of whether Aptos was ever needed. Scoping the provider to just
@@ -126,7 +126,7 @@ function WalletSelectorInner(walletSortingOptions: WalletSortingOptions) {
   );
 }
 
-/** Public entry point — mounts the Aptos wallet-adapter client only while a `WalletSelector` exists. */
+/** Public entry point: mounts the Aptos wallet-adapter client only while a `WalletSelector` exists. */
 export function WalletSelector(walletSortingOptions: WalletSortingOptions) {
   return (
     <AptosWalletAdapterProvider>

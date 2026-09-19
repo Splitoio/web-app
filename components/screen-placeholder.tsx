@@ -5,7 +5,7 @@ import { Eyebrow, T, card } from "@/lib/splito-design";
 /**
  * Stand-in body for a route that exists (so the shell, nav and redirects are
  * real) but whose screen has not been built yet. Delete the placeholder when
- * the screen lands — do not build on top of it.
+ * the screen lands; do not build on top of it.
  */
 export function ScreenPlaceholder({
   screen,

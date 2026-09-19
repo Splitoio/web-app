@@ -11,6 +11,6 @@ export const UpdateUserResponseSchema = z.object({
   onboardedOrgInOrg: z.boolean().optional(),
   // Account-level default for whether a new request locks its exchange rate.
   // updateUserDetails (backend user.controller.ts) already reads and persists
-  // this field on User — it was just missing from the accepted payload shape.
+  // this field on User; it was just missing from the accepted payload shape.
   timeLockInDefault: z.boolean().optional(),
 });

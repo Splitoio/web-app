@@ -25,7 +25,7 @@ import {
 /**
  * Group detail hero (design lines 1262-1276): back link → hero card (avatar,
  * name, description, member-avatar stack, balance figure, Request/Add-someone
- * actions) → tab strip. "Request from this group" is the headline action —
+ * actions) → tab strip. "Request from this group" is the headline action:
  * it opens the same add-expense flow as before (the real, working mechanism
  * for asking this group's members for money), just relabeled; splitting stays
  * one tab away, never the default copy.

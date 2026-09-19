@@ -19,7 +19,7 @@ type GroupItem = {
 };
 
 /**
- * Group tile — design lines 1238-1256: overlapping member-avatar stack,
+ * Group tile, design lines 1238-1256: overlapping member-avatar stack,
  * name, sub, balance figure + tag. Same net-balance math as before, just
  * presented as a grid tile instead of a list row.
  */

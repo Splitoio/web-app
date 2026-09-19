@@ -40,7 +40,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Two responsive copies of this form share the DOM (desktop card below vs
-    // the sm:hidden mobile block) — only one is ever on screen, but both are
+    // the sm:hidden mobile block); only one is ever on screen, but both are
     // real <form> elements. offsetParent is null when an ancestor has
     // display:none, which is exactly how Tailwind's hidden/sm:hidden hides
     // the other copy, so this stops a submit on the off-screen copy (e.g. an

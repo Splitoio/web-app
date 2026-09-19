@@ -10,7 +10,7 @@ import { useCreateStream } from "@/features/business/hooks/use-streams";
 import { A, T, Btn, RADIUS, SHADOW, HERO_SURFACE, BORDER } from "@/lib/splito-design";
 
 /**
- * "Log income received" — the create half of the treasury income-stream flow
+ * "Log income received": the create half of the treasury income-stream flow
  * (design 1218, `.abtn` "Log income"). Edit/delete live on the legacy
  * `/organization/[id]` layout for now; this is scoped to the create action
  * the Treasury Log screen exposes.
@@ -91,7 +91,7 @@ export function LogIncomeModal({
               Log income received
             </h2>
             <p className="text-[12px] mb-5" style={{ color: T.muted }}>
-              Record money you actually received — this fills your treasury.
+              Record money you actually received. This fills your treasury.
             </p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

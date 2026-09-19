@@ -8,7 +8,7 @@ import {
 import { QueryKeys } from "@/lib/constants";
 
 /**
- * Treasury outgoings for a business workspace — the mirror of use-streams.ts.
+ * Treasury outgoings for a business workspace: the mirror of use-streams.ts.
  * Not to be confused with `useGetExpenses` in features/expenses, which reads
  * the group-scoped bill-splitting list off `/groups/:id/expenses`.
  */

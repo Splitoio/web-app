@@ -13,7 +13,7 @@ import type { WorkspaceSummary } from "@/features/workspaces/api/client";
  * Only two items are checkable against real data: `WorkspaceSummarySchema`
  * (features/workspaces/api/client.ts) has no `description` field, so a
  * "set your workspace details" item can't be derived here without a new
- * fetch — see the PR notes for what was deliberately left out rather than
+ * fetch; see the PR notes for what was deliberately left out rather than
  * faked as always-complete.
  */
 type ChecklistItem = {

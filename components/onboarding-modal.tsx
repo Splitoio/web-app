@@ -61,7 +61,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
         style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(20px)" }}
       />
 
-      {/* Card — bottom sheet on mobile, centered modal on desktop */}
+      {/* Card: bottom sheet on mobile, centered modal on desktop */}
       <div
         role="dialog"
         aria-modal="true"
@@ -75,7 +75,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
           animation: "slideUp 0.35s cubic-bezier(.32,1.2,.64,1)",
         }}
       >
-        {/* Drag handle — mobile only */}
+        {/* Drag handle: mobile only */}
         <div
           className="sm:hidden mx-auto mb-5 h-1 w-10 rounded-full"
           style={{ background: "rgba(255,255,255,0.18)" }}

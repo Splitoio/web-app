@@ -290,7 +290,7 @@ function StudioDashboard({ summary, invoices }: { summary: WorkspaceSummary; inv
  * Which arrangement a business workspace gets is data-driven, not a third
  * workspace kind: a workspace with treasury streams or an approval queue
  * reads as an org (design 244-369); one with neither reads as a freelance/
- * studio workspace (design 371-459). See features/workspaces schema — there
+ * studio workspace (design 371-459). See features/workspaces schema: there
  * is no field to key this off other than the data itself.
  */
 export function BusinessDashboard() {
@@ -310,9 +310,9 @@ export function BusinessDashboard() {
 
   return (
     <>
-      {/* OWNER/ADMIN only. Both items are admin work — /members hides "Invite
-          someone" from a MEMBER entirely — so for everyone else the checklist
-          is a list of things they cannot do, and "Invite a teammate — Done"
+      {/* OWNER/ADMIN only. Both items are admin work: /members hides "Invite
+          someone" from a MEMBER entirely, so for everyone else the checklist
+          is a list of things they cannot do, and "Invite a teammate, Done"
           reads as a claim about an affordance they never had. */}
       {isWorkspaceAdmin(workspace) && <WorkspaceSetupChecklist summary={summary} />}
       {variant === "org" ? (

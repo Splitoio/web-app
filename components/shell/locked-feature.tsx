@@ -10,7 +10,7 @@ import { useSessionStatus } from "@/contexts/session";
  * The one locked-feature idiom for the logged-out console.
  *
  * Everything a signed-out visitor cannot use renders as REAL UI that is
- * disabled, with an inline reason underneath — never blurred fake data, never a
+ * disabled, with an inline reason underneath: never blurred fake data, never a
  * modal that ambushes the first click. It is the same "disabled affordance with
  * a live reason" treatment the create form's submit button already uses
  * (app/page.tsx, components/create/create-request-experience.tsx): a control
@@ -24,7 +24,7 @@ import { useSessionStatus } from "@/contexts/session";
  *
  * Copy convention, without exception: "Sign in to <do the thing>".
  *
- * NOTHING here may key off `isAuthenticated` — a failed GET /api/users/me also
+ * NOTHING here may key off `isAuthenticated`: a failed GET /api/users/me also
  * makes that false, and telling a signed-in user to sign in because the backend
  * hiccuped is worse than showing nothing. Read `useSessionStatus()`
  * (contexts/session.tsx), which separates anonymous from loading from error.
@@ -32,7 +32,7 @@ import { useSessionStatus } from "@/contexts/session";
 
 const REASON_COLOR = "rgba(34,211,238,0.75)";
 
-/** The shared reason line. Never rendered on its own — always under the thing it explains. */
+/** The shared reason line. Never rendered on its own: always under the thing it explains. */
 function LockReason({
   reason,
   center = false,
@@ -42,7 +42,7 @@ function LockReason({
   reason: string;
   center?: boolean;
   id?: string;
-  /** The wrapper's accessible name already carries this text — don't say it twice. */
+  /** The wrapper's accessible name already carries this text: don't say it twice. */
   hidden?: boolean;
 }) {
   return (
@@ -71,7 +71,7 @@ function LockReason({
  *
  * `inert` ALSO removes the subtree from the accessibility tree, which is why
  * `label` is required rather than optional. Without it a screen-reader user got
- * the reason line and nothing else — a disembodied "Sign in to switch
+ * the reason line and nothing else: a disembodied "Sign in to switch
  * workspaces" with no way to know what control it referred to, on a page whose
  * entire purpose is showing people what the product does. The wrapper therefore
  * names itself and its own unavailability, and the visible reason line is
@@ -103,7 +103,7 @@ export function LockedFeature({
 }
 
 /**
- * A single locked action — the `[ View all requests ]` / "Sign in to see your
+ * A single locked action: the `[ View all requests ]` / "Sign in to see your
  * requests" pair. Styled as the dashed outline the create form already uses for
  * "disabled, and here's why", never as a dimmed solid fill: a 50%-opacity
  * accent fill just looks like a dull button.
@@ -231,7 +231,7 @@ export function LockedScreen({
 }
 
 /**
- * Shown when a session cookie exists but GET /api/users/me failed — the visitor
+ * Shown when a session cookie exists but GET /api/users/me failed: the visitor
  * IS signed in as far as anyone can tell, so this must never say "sign in".
  *
  * Retry is a full reload rather than a react-query invalidate: the user request
@@ -261,7 +261,7 @@ export function SessionErrorScreen({ title }: { title: string }) {
           Couldn&rsquo;t load {title}
         </p>
         <p style={{ margin: "6px 0 0", fontSize: 12.5, color: T.sub, lineHeight: 1.6 }}>
-          We couldn&rsquo;t reach your account just now. You&rsquo;re still signed in — this is on
+          We couldn&rsquo;t reach your account just now. You&rsquo;re still signed in; this is on
           our end, not yours.
         </p>
         <div className="flex gap-2.5 justify-center" style={{ marginTop: 18 }}>
@@ -298,7 +298,7 @@ export function ScreenSpinner() {
 
 /**
  * Route-level gate. `children` is only ever MOUNTED for a signed-in visitor, so
- * every query the screen owns is gated by simply not existing otherwise — hooks
+ * every query the screen owns is gated by simply not existing otherwise: hooks
  * cannot be called conditionally, and passing the element as `children` builds a
  * descriptor without running anything.
  *

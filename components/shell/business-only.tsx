@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { Eyebrow, T, card } from "@/lib/splito-design";
 
 /**
- * The shared empty state for the three org-only screens — Approvals, Members,
+ * The shared empty state for the three org-only screens: Approvals, Members,
  * Treasury Log (.design/INDEX.md §5). They are absent from `NAV_PERSONAL`
  * (lib/shell-nav.ts) but are still real top-level routes, so a personal
  * workspace can reach them by typed URL and must land on this instead of the
@@ -40,7 +40,7 @@ export function BusinessOnly({ screen, blurb }: { screen: string; blurb: string 
 
 /**
  * Held while `useIsResolvingWorkspace()` is true. Without it a reload with a
- * business workspace cookie renders `BusinessOnly` for a beat — `active` is
+ * business workspace cookie renders `BusinessOnly` for a beat: `active` is
  * the personal stand-in until the workspace list lands (contexts/workspace.tsx,
  * `isResolvingActive`), so the gate fires on a business workspace and the user
  * is told to switch to the one they are already in.

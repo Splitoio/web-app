@@ -29,7 +29,7 @@ export const OrganizationSchema = z.object({
 export type Organization = z.infer<typeof OrganizationSchema>;
 
 /**
- * `GET /api/organizations/:id/members` — a FLAT list. It is not nested inside
+ * `GET /api/organizations/:id/members`: a FLAT list. It is not nested inside
  * the organization payload the way `groupUsers` was nested in a group, so the
  * detail screen fetches it separately.
  */
@@ -47,7 +47,7 @@ export const InviteStatusSchema = z.enum(["PENDING", "ACCEPTED", "REVOKED"]);
 export type InviteStatus = z.infer<typeof InviteStatusSchema>;
 
 /**
- * An invite is a PENDING offer — it creates no user and no membership. Nobody
+ * An invite is a PENDING offer: it creates no user and no membership. Nobody
  * appears in the member list until they accept, so the members screen has to
  * show invites as their own thing rather than pretending the person was added.
  */
@@ -65,12 +65,12 @@ export const OrganizationInviteSchema = z.object({
   createdBy: z
     .object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable() })
     .nullable(),
-  /** Only returned by create/resend — the list never leaks the token. */
+  /** Only returned by create/resend: the list never leaks the token. */
   inviteUrl: z.string().optional(),
   /**
    * Only returned by create/resend, and only when the invite has an email
    * (link-only invites never attempt delivery). `false` means the invite row
-   * is still valid — the admin just needs to share `inviteUrl` manually.
+   * is still valid: the admin just needs to share `inviteUrl` manually.
    */
   emailDelivered: z.boolean().optional(),
   /** User-facing reason, present only when `emailDelivered` is `false`. */
@@ -154,7 +154,7 @@ export type IncomeStream = z.infer<typeof IncomeStreamSchema>;
 
 /**
  * A treasury outgoing, the mirror of `IncomeStream`. NOT the group-scoped
- * `Expense` in features/expenses — that one belongs to bill-splitting and
+ * `Expense` in features/expenses: that one belongs to bill-splitting and
  * carries participants and shares.
  */
 export const OrganizationExpenseSchema = z.object({
@@ -212,7 +212,7 @@ export const getOrganizationMembers = async (organizationId: string) => {
 };
 
 /**
- * The role a member ends up with is set once, here or at invite acceptance —
+ * The role a member ends up with is set once, here or at invite acceptance,
  * there is no "add then demote" second request any more.
  */
 export const updateOrganizationMemberRole = async (
@@ -247,7 +247,7 @@ export const getOrganizationInvites = async (
 
 /**
  * ONE request per invite. Omit `email` for a shareable link invite; omit
- * `role` for MEMBER. `role: "OWNER"` is a 400 — ownership is transferred
+ * `role` for MEMBER. `role: "OWNER"` is a 400: ownership is transferred
  * explicitly, never handed out by a link.
  */
 export const createOrganizationInvite = async (
@@ -270,7 +270,7 @@ export const resendInvite = async (inviteId: string) => {
 };
 
 /**
- * `GET /api/invites/lookup?token=` — PUBLIC, no session. The landing page has
+ * `GET /api/invites/lookup?token=`: PUBLIC, no session. The landing page has
  * to name the workspace and the invited email before the visitor has an
  * account, otherwise signing up is a leap of faith.
  */
@@ -313,7 +313,7 @@ export const acceptInvite = async (token: string) => {
 };
 
 /**
- * `GET /api/invites/mine` — the signed-in user's own pending invites, already
+ * `GET /api/invites/mine`: the signed-in user's own pending invites, already
  * filtered server-side to PENDING + non-expired + addressed to the caller's
  * email. Drives the in-app notifications surface; `lookupInvite` above stays
  * the public, token-scoped read for the `/invite/[token]` landing page.
@@ -336,7 +336,7 @@ export const getMyInvites = async () => {
   return z.object({ invites: MyInviteSchema.array() }).parse(response).invites;
 };
 
-/** Invitee-scoped — the invited person turning an offer down, not an org admin revoking it. */
+/** Invitee-scoped: the invited person turning an offer down, not an org admin revoking it. */
 export const declineInvite = async (inviteId: string) => {
   await apiClient.post(`/invites/${inviteId}/decline`, {});
 };
@@ -420,7 +420,7 @@ export const deleteInvoice = async (invoiceId: string) => {
   await apiClient.delete(`/invoices/${invoiceId}`);
 };
 
-// Income received entries — fills the org treasury (admin only). These moved
+// Income received entries: fills the org treasury (admin only). These moved
 // off `/api/groups/:groupId/streams` with everything else business-shaped;
 // same verbs, same bodies, organization id in the path.
 export const getStreamsByOrganization = async (organizationId: string) => {
@@ -449,7 +449,7 @@ export const deleteStream = async (organizationId: string, streamId: string) => 
   await apiClient.delete(`/organizations/${organizationId}/streams/${streamId}`);
 };
 
-// Treasury outgoings (admin only) — the mirror of the stream calls above.
+// Treasury outgoings (admin only): the mirror of the stream calls above.
 export const getExpensesByOrganization = async (organizationId: string) => {
   const response = await apiClient.get(`/organizations/${organizationId}/expenses`);
   return OrganizationExpenseSchema.array().parse(response);
@@ -482,7 +482,7 @@ export const ContractSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
   createdById: z.string(),
-  /** Always lowercased by the backend now — compare case-insensitively anyway. */
+  /** Always lowercased by the backend now: compare case-insensitively anyway. */
   assignedToEmail: z.string(),
   /**
    * The PENDING invite `createContract` creates alongside the contract, so a

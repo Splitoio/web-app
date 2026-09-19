@@ -35,7 +35,7 @@ export async function proxy(request: NextRequest) {
       : null; // null = unknown (no cookie to validate)
 
     if (isAuthRoute(pathname) && isSessionValid === true) {
-      // A signed-in visitor has no business on /login or /signup — but they may
+      // A signed-in visitor has no business on /login or /signup, but they may
       // have been sent there mid-flight by something with a destination in
       // mind. Sign-up is exactly that case: better-auth's emailAndPassword
       // auto-signs-in, so `/signup?callbackUrl=/invite/<token>` hands off to

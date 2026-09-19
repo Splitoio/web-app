@@ -29,7 +29,7 @@ export function formatRelativeTime(date: Date): string {
 }
 
 /**
- * Compact age like "2h", "3d", "1mo" — narrow trailing table/list columns
+ * Compact age like "2h", "3d", "1mo": narrow trailing table/list columns
  * that have no room for formatRelativeTime's "3 days ago" prose.
  */
 export function formatCompactAge(date: Date): string {

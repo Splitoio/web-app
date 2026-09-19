@@ -4,20 +4,20 @@
 // Design: .design/splito-finance.dc.html lines 526-695 (Create), 698-724 (Created/Share).
 //
 // ONE create experience, mounted by two routes:
-//   /create        — the topbar's "+ Create", any visitor.
-//   /   (app/page.tsx) — for a SIGNED-OUT visitor only; signed in, "/" is the
+//   /create        : the topbar's "+ Create", any visitor.
+//   /   (app/page.tsx) : for a SIGNED-OUT visitor only; signed in, "/" is the
 //                        dashboard. This is what the marketing site's CTAs land on.
 // It used to live at app/create/page.tsx and a second, stripped-down copy of
 // the same form lived inline in app/page.tsx for anonymous visitors. There is
 // only this one now.
 //
 // Creating a request NEVER requires an account (the backend's POST /api/requests
-// is session-optional — see createRequestSchema in request-money.controller.ts,
+// is session-optional: see createRequestSchema in request-money.controller.ts,
 // which takes an anonymous `payerCount` and find-or-creates a shadow user off
 // the destination address). What a signed-out visitor cannot do is the part
 // that needs an identity: requesting from a GROUP. That renders through
 // components/shell/locked-feature.tsx as a real, disabled control with a
-// reason — never hidden, never fake.
+// reason: never hidden, never fake.
 //
 // Contract linking is NOT locked, even though it is account-shaped: it isn't
 // built for anyone yet, so it keeps its "Soon" treatment for every visitor. A
@@ -30,11 +30,11 @@
 // request-money.controller.ts, model Request in schema.prisma) only supports:
 // one generic request, an even split across either an anonymous payerCount
 // (1..50, no names) OR a real group's other members (named, requester
-// excluded — exactly one of the two, never both), four destination pairs, an
+// excluded, exactly one of the two, never both), four destination pairs, an
 // optional name + expiresAt, and an optional workspaceId. Blocks the design
 // calls for that have no backend behavior yet (split modes beyond even,
 // contract linking, approval) are rendered as visibly gated/disabled rather
-// than wired to fake data — see comments below.
+// than wired to fake data; see comments below.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -81,10 +81,10 @@ import { chainLabel } from "@/components/requests/request-bits";
 import { FormErrorNotice } from "@/components/requests/form-error";
 import { toFormError, type FormError } from "@/lib/request-errors";
 
-// ─── Destination options — settlement is Stellar-only (owner decision:
+// --- Destination options: settlement is Stellar-only (owner decision:
 // XLM and USDC on Stellar). Solana was never a settlement destination beyond
 // these two now-removed pairs. (This list used to have a second, narrower copy
-// in app/page.tsx's guest form — that form is gone and this is the only one.) ──
+// in app/page.tsx's guest form: that form is gone and this is the only one.) ---
 const DESTINATIONS: {
   chain: DestinationChain;
   asset: DestinationAsset;
@@ -99,7 +99,7 @@ const DESTINATIONS: {
 // Format-only pre-check so the button can say why it is disabled before a
 // round-trip; the backend re-validates every address it is handed
 // (validateAddressForChain, request-money.controller.ts). There used to be a
-// second copy of this in app/page.tsx's guest form — one form now, one copy.
+// second copy of this in app/page.tsx's guest form; one form now, one copy.
 function isValidAddress(chain: DestinationChain, address: string): boolean {
   const trimmed = address.trim();
   if (!trimmed) return false;
@@ -110,7 +110,7 @@ function isValidAddress(chain: DestinationChain, address: string): boolean {
 type Kind = "request" | "split";
 
 // Design offers 5 named split modes (Evenly/Percentage/Exact/Shares/
-// Adjustment) — SplitTypeSchema's 6th value, SETTLEMENT, marks a settle-up
+// Adjustment): SplitTypeSchema's 6th value, SETTLEMENT, marks a settle-up
 // transaction after the fact, not a way to divide a new request, so it has no
 // place on this form. Only EQUAL ("Evenly") is wired: createRequestSchema
 // takes a payerCount, not per-payer amounts, so the backend can only divide
@@ -200,8 +200,8 @@ function CreateForm({
   // the anonymous POST /api/requests supports stays fully live.
   const { isAuthenticated } = useAuthStore();
   // Two different questions, deliberately not the same flag:
-  //   isAuthenticated — "is there a real user to fetch data for?" (query gating)
-  //   isLocked        — "should this say 'Sign in to …'?" (only when genuinely
+  //   isAuthenticated: "is there a real user to fetch data for?" (query gating)
+  //   isLocked        : "should this say 'Sign in to …'?" (only when genuinely
   //                      signed out; a failed /users/me must never say it)
   const isLocked = useIsLocked();
   const { isConnected, address, walletType } = useWallet();
@@ -214,27 +214,27 @@ function CreateForm({
   // `acceptedTokens.length === 0` early return). A wallet added through
   // Settings → Wallets / "Connect a wallet" writes a ChainAccount and no
   // accepted-token row, so a user with a perfectly good Stellar address was
-  // told "No Stellar address on file". The wallet list is a strict superset —
-  // saveSettlementPreference writes a ChainAccount too — so reading it here
+  // told "No Stellar address on file". The wallet list is a strict superset;
+  // saveSettlementPreference writes a ChainAccount too, so reading it here
   // makes Settings and this form agree by construction.
   //
   // Gated: an anonymous visitor has no wallets and getUserWallets toasts on a
   // 401, so the request must not fire signed out.
   const { data: walletData } = useUserWallets({ enabled: isAuthenticated });
 
-  const [kind, setKind] = useState<Kind>("request"); // "request" is the landing state — split is never the default
+  const [kind, setKind] = useState<Kind>("request"); // "request" is the landing state; split is never the default
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
   // Locking is the product's headline promise, so it leads as on. This value is
   // always sent on submit (see timeLockIn in the createRequest call) rather than
   // relying on the backend's User.timeLockInDefault fallback, which is false.
   const [lockIn, setLockIn] = useState(true);
-  // "Request from a group" sends `groupId`, never an anonymous `payerCount` —
+  // "Request from a group" sends `groupId`, never an anonymous `payerCount`;
   // the backend accepts exactly one of the two. See canSubmit/handleSubmit.
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   // How many opaque payer slots to split "Request money" across (1..50, the
   // backend's cap). This form used to hardcode 1 and the only way to ask
-  // several people was a group, which needs an account — so the anonymous
+  // several people was a group, which needs an account, so the anonymous
   // flow lost the capability the old landing page's stepper had. Group mode
   // ignores this: membership decides the count there.
   const [payerCount, setPayerCount] = useState(1);
@@ -244,10 +244,10 @@ function CreateForm({
   const [expiryDays, setExpiryDays] = useState<number>(14);
   const [submitting, setSubmitting] = useState(false);
   // Server-side rejection, rendered inline under the address field and pinned
-  // until dismissed — never a toast. See components/requests/form-error.tsx.
+  // until dismissed, never a toast. See components/requests/form-error.tsx.
   const [submitError, setSubmitError] = useState<FormError | null>(null);
 
-  // Fetched only in "split" mode — GET /api/groups, the same endpoint and
+  // Fetched only in "split" mode (GET /api/groups), the same endpoint and
   // query key components/groups-list.tsx already uses for the Groups page,
   // so the two share a cache. Groups are split-only; business workspaces are
   // Organizations and never appear here.
@@ -261,7 +261,7 @@ function CreateForm({
   });
   const groups = groupsData ?? [];
   // Groups you can actually request from float to the top, so the list never
-  // opens looking dead — on a fresh account every group is solo (you're the
+  // opens looking dead: on a fresh account every group is solo (you're the
   // only member until you invite), which is the default first run, not an
   // edge case. Stable within each bucket, so the API's own order survives.
   const sortedGroups = [
@@ -270,12 +270,12 @@ function CreateForm({
   ];
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
   // The requester is always a member of their own group and is always
-  // excluded from the payers (backend behaviour, not a guess) — so the
+  // excluded from the payers (backend behaviour, not a guess), so the
   // resulting payer count is members-minus-you, full stop. A group of one
   // (just the requester) yields zero payers, which the backend 400s on
   // ("This group has no other members to request from"). Such a group is never
-  // selectable in the picker below — its row links to that group's edit screen
-  // to invite someone instead — so `selectedGroupId` can only ever hold a group
+  // selectable in the picker below; its row links to that group's edit screen
+  // to invite someone instead, so `selectedGroupId` can only ever hold a group
   // with real payers and the request can't fail that way on submit.
   const selectedGroupMemberCount = selectedGroup ? (selectedGroup.groupUsers ?? []).length : 0;
   const selectedGroupPayerCount = Math.max(selectedGroupMemberCount - 1, 0);
@@ -284,7 +284,7 @@ function CreateForm({
   const parsedAmount = Number(amount);
   const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const addressValid = isValidAddress(dest.chain, destinationAddress);
-  /** The server rejected the address itself — mark the field, not just the notice. */
+  /** The server rejected the address itself: mark the field, not just the notice. */
   const addressRejected = submitError?.field === "destinationAddress";
   const effectivePayerCount = kind === "split" ? selectedGroupPayerCount : payerCount;
   const canSubmit =
@@ -301,7 +301,7 @@ function CreateForm({
   // Wallets is created with isDefault false (see addUserChainAccountController),
   // so a user with exactly one Stellar address would otherwise have no usable
   // receive address at all. With several wallets and none flagged default we
-  // stay out of it rather than guess — the helper text then points at Settings.
+  // stay out of it rather than guess; the helper text then points at Settings.
   const chainWallets = (walletData?.accounts ?? []).filter(
     (w) => w.chainId === dest.chain && !!w.address
   );
@@ -323,7 +323,7 @@ function CreateForm({
   // The design's "Bills against a contract" block, gated to business
   // workspaces. There is no contract-linking API for Requests yet (the
   // contract objects on the Members screen belong to workspace membership,
-  // not to a request) — shown as a real, disabled affordance rather than
+  // not to a request), shown as a real, disabled affordance rather than
   // wired to fabricated contract data.
   //
   // Deliberately NOT shown to signed-out visitors as a locked affordance:
@@ -335,7 +335,7 @@ function CreateForm({
 
   // The design's approval-required notice. Workspace has no approval
   // threshold field yet (lib/workspace.ts) and Requests have no approval
-  // workflow — kept as a real conditional, permanently false, until that
+  // workflow: kept as a real conditional, permanently false, until that
   // ships. Never render a false "needs approval" claim in the meantime.
   const needsApproval = false;
 
@@ -351,7 +351,7 @@ function CreateForm({
         destinationAsset: dest.asset,
         destinationChain: dest.chain,
         destinationAddress: destinationAddress.trim(),
-        // Exactly one of the two — never both, never neither (the backend
+        // Exactly one of the two: never both, never neither (the backend
         // 400s either violation).
         ...(kind === "split" ? { groupId: selectedGroupId! } : { payerCount }),
         name: title.trim() || undefined,
@@ -363,7 +363,7 @@ function CreateForm({
         // rate" as on.
         timeLockIn: lockIn,
       });
-      // Trust the server's count over our local guess — group mode derives it
+      // Trust the server's count over our local guess; group mode derives it
       // from actual membership at creation time (equals links.length).
       onCreated(res, res.payerCount);
     } catch (err) {
@@ -390,7 +390,7 @@ function CreateForm({
           color={A}
           onClick={() => setKind("request")}
         />
-        {/* Groups belong to an account — there is nothing to list for a signed-out
+        {/* Groups belong to an account: there is nothing to list for a signed-out
             visitor and the backend rejects a `groupId` from one outright. Shown
             as the real tile, disabled, with the reason. Asking several people
             without an account is still possible: that's the payer-count stepper
@@ -399,7 +399,7 @@ function CreateForm({
             The live tile keys off `isAuthenticated`, NOT `!isLocked`, so it
             agrees with the getAllGroups query gate above. Keyed off the lock it
             stayed clickable in the error state while the query stayed disabled,
-            so the panel opened and confidently reported "No groups yet — create
+            so the panel opened and confidently reported "No groups yet, create
             a group first" to someone who may well have several. */}
         {isAuthenticated ? (
           <TypeTile
@@ -526,7 +526,7 @@ function CreateForm({
           }}
         />
 
-        {/* Anonymous payer slots. One link per person, each for an even share —
+        {/* Anonymous payer slots. One link per person, each for an even share,
             no names, no account, on either side. Group mode has its own count
             (membership) and never shows this. */}
         {kind === "request" && (
@@ -621,7 +621,7 @@ function CreateForm({
                   // (violet tint + check), needs-an-invite (dashed amber +
                   // "Invite" affordance). The last one is a Link to that
                   // group's own edit screen, which already hosts the invite
-                  // link + add-by-email UI (components/group-invite-link.tsx) —
+                  // link + add-by-email UI (components/group-invite-link.tsx);
                   // it is never a selection, so `selectedGroupId` can never
                   // hold a solo group and canSubmit stays honest.
                   const rowStyle = {
@@ -647,7 +647,7 @@ function CreateForm({
                         </p>
                         <p style={{ margin: "2px 0 0", fontSize: 11, color: solo ? O : T.sub }}>
                           {solo
-                            ? "Just you so far — invite someone to request from them"
+                            ? "Just you so far, invite someone to request from them"
                             : `${memberCount} members · ${groupPayerCount} ${groupPayerCount === 1 ? "payer" : "payers"} (you're excluded)`}
                         </p>
                       </div>
@@ -696,7 +696,7 @@ function CreateForm({
             )}
             <p style={{ margin: "0 0 8px", fontSize: 11.5, color: T.dim }}>
               {selectedGroup
-                ? `${selectedGroupPayerCount} ${selectedGroupPayerCount === 1 ? "person gets" : "people get"} a private link for their share — you're never one of the payers.`
+                ? `${selectedGroupPayerCount} ${selectedGroupPayerCount === 1 ? "person gets" : "people get"} a private link for their share, you're never one of the payers.`
                 : "Everyone in the group except you gets their own private link, labelled with their name where we have one."}
             </p>
 
@@ -869,7 +869,7 @@ function CreateForm({
               // Editing the address is the user acting on the error, so retire it.
               onChange={(e) => {
                 setDestinationAddress(e.target.value);
-                // The field is the user's from here on — stop prefilling into it.
+                // The field is the user's from here on; stop prefilling into it.
                 setAddressTouched(true);
                 if (addressRejected) setSubmitError(null);
               }}
@@ -891,15 +891,15 @@ function CreateForm({
             {submitError && (
               <FormErrorNotice error={submitError} onDismiss={() => setSubmitError(null)} />
             )}
-            {/* Informational only — doesn't gate or prefill the field. Reacts to
+            {/* Informational only: doesn't gate or prefill the field. Reacts to
                 the selected chain like the label above it does. Suppressed
                 signed out: the preference query is disabled there, so
                 `hasSettlementAddress` is false for want of an answer rather
-                than because nothing is on file — and the Settings link it
+                than because nothing is on file, and the Settings link it
                 offers is itself locked. */}
             {isAuthenticated && !hasSettlementAddress && (
               <p style={{ margin: "6px 0 0", fontSize: 11.5, lineHeight: 1.4, color: T.dim }}>
-                No {dest.chain === "stellar" ? "Stellar" : "Solana"} address on file — add one in{" "}
+                No {dest.chain === "stellar" ? "Stellar" : "Solana"} address on file; add one in{" "}
                 <Link href="/settings?tab=settlement" style={{ color: A }}>
                   Settings
                 </Link>
@@ -913,7 +913,7 @@ function CreateForm({
             type="button"
             onClick={() => {
               setDestinationAddress(address ?? "");
-              // An explicit choice of address, same as typing one — the saved
+              // An explicit choice of address, same as typing one; the saved
               // wallet must not overwrite it on the next render.
               setAddressTouched(true);
             }}
@@ -982,12 +982,12 @@ function CreateForm({
                   ? `That doesn't look like a ${dest.chain === "stellar" ? "Stellar" : "Solana"} address`
                   : kind === "split" && !selectedGroupId
                     ? "Pick a group to request from"
-                    : "That group has no one else to request from — pick another"}
+                    : "That group has no one else to request from, pick another"}
           </p>
         )}
       </div>
     </div>
-    {/* Signed out there is no workspace — `useActiveWorkspace()` returns the
+    {/* Signed out there is no workspace: `useActiveWorkspace()` returns the
         "Personal" stand-in, and telling a stranger their link preview says
         "Personal is requesting" would misdescribe what the payer will see.
         "You" is the honest placeholder until there is an identity. */}
@@ -1033,10 +1033,10 @@ function PreviewPanel({
   destSymbol: string;
   destChainLabel: string;
   kind: Kind;
-  /** Requester excluded — see selectedGroupPayerCount in CreateForm. 0 while
+  /** Requester excluded: see selectedGroupPayerCount in CreateForm. 0 while
    * split mode has no group selected yet. */
   payerCount: number;
-  /** The selected group's name, split mode only — null until one is picked. */
+  /** The selected group's name, split mode only; null until one is picked. */
   groupName: string | null;
   expiryDays: number;
 }) {
@@ -1051,7 +1051,7 @@ function PreviewPanel({
             ? "Single request"
             : `${payerCount} people, evenly`
           : payerCount > 0
-            ? `${payerCount} ${payerCount === 1 ? "person" : "people"}, evenly — not you`
+            ? `${payerCount} ${payerCount === 1 ? "person" : "people"}, evenly, not you`
             : "Pick a group",
       color: "#d4d4d4",
     },
@@ -1112,7 +1112,7 @@ function CreatedShare({
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      toast.error("Couldn't copy — select and copy the link manually.");
+      toast.error("Couldn't copy; select and copy the link manually.");
     }
   };
 
@@ -1250,9 +1250,9 @@ function CreatedShare({
               <div className="min-w-0">
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.bright }}>
                   {/* `name` is null for the anonymous flow AND for a group
-                      member with no name/email on file — same positional
+                      member with no name/email on file, same positional
                       fallback either way. */}
-                  {p.name ?? `Person ${i + 1}`} — {formatCurrency(Number(p.shareAmount), "USD")}
+                  {p.name ?? `Person ${i + 1}`}: {formatCurrency(Number(p.shareAmount), "USD")}
                 </p>
                 <p style={{ margin: "2px 0 0", fontSize: 11, fontFamily: MONO, color: T.dim }} className="truncate">
                   {p.link}
@@ -1273,7 +1273,7 @@ function CreatedShare({
       )}
 
       <div className="flex gap-2.5 items-start">
-        {/* Tracking is a per-account view of a request — the link works, the
+        {/* Tracking is a per-account view of a request: the link works, the
             request is real and payable, but only the signed-in requester can
             watch it. The link itself is above and needs nobody. */}
         {!isLocked ? (
@@ -1291,7 +1291,7 @@ function CreatedShare({
             reason="Sign in to track this request"
           />
         )}
-        {/* Signed out, "/" IS this screen, so a Link to it would be a no-op —
+        {/* Signed out, "/" IS this screen, so a Link to it would be a no-op;
             same route, same mounted component, `created` still set. Reset the
             state instead. */}
         {!isLocked ? (
@@ -1345,7 +1345,7 @@ export function CreateRequestExperience() {
             className="mb-5 text-[13px]"
             style={{ color: T.muted, maxWidth: 560 }}
           >
-            No account needed — fill this in and you get a link to send. Signing in
+            No account needed. Fill this in and you get a link to send. Signing in
             adds the rest of the console: your requests, people, and treasury.
           </p>
         )}

@@ -52,7 +52,7 @@ export type DetailGroup = z.infer<typeof DetailGroupSchema>;
 
 /**
  * `Group` is bill-splitting ONLY. The `type` discriminator is gone from the
- * schema and every group endpoint IGNORES a `type` param — so asking these for
+ * schema and every group endpoint IGNORES a `type` param, so asking these for
  * "business" data silently returns personal split groups rather than erroring.
  * Business workspaces live at /api/organizations (features/business/api/client.ts).
  */
@@ -203,7 +203,7 @@ export const markAsPaid = async (
 // ─── Group accepted tokens (per-workspace settlement override) ──────────────
 // Mirrors features/user/api/client.ts's accepted-tokens trio, scoped to a
 // business workspace instead of the account. GroupAcceptedToken rows have
-// their own id — that row id, not the underlying Token's id, is what
+// their own id: that row id, not the underlying Token's id, is what
 // removeGroupAcceptedToken's URL param takes (see group.controller.ts
 // removeGroupAcceptedToken: it looks up by GroupAcceptedToken.id).
 

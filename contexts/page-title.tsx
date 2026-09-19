@@ -28,7 +28,7 @@ type PageTitleContextValue = {
 
 const PageTitleContext = createContext<PageTitleContextValue | null>(null);
 
-/** Wraps the authenticated shell (see components/providers.tsx) — one instance for the whole app. */
+/** Wraps the authenticated shell (see components/providers.tsx); one instance for the whole app. */
 export function PageTitleProvider({ children }: { children: ReactNode }) {
   const [override, setOverride] = useState<PageTitleOverride>(null);
   const [actions, setActions] = useState<PageActionsRenderer>(null);
@@ -43,14 +43,14 @@ function useContextOrThrow() {
 }
 
 /**
- * Override the topbar's title/subtitle with this screen's own — a group's
+ * Override the topbar's title/subtitle with this screen's own: a group's
  * name, a request's title. `lib/shell-nav.ts`'s `pageMetaFor()` only knows
  * static routes; a dynamic detail screen (`/groups/[id]`, `/requests/[id]`)
  * calls this once real data is in hand, e.g.:
  *
  *   usePageTitle(group?.name, `${memberCount} member${memberCount === 1 ? "" : "s"}`);
  *
- * Pass `undefined`/`null` while data is still loading — the topbar keeps
+ * Pass `undefined`/`null` while data is still loading; the topbar keeps
  * showing the static section title until a real title arrives. The override
  * is cleared automatically on unmount (route change), so leaving the screen
  * falls back to `pageMetaFor()` again.
@@ -66,14 +66,14 @@ export function usePageTitle(title: string | null | undefined, subtitle?: string
   }, [title, subtitle]);
 }
 
-/** Internal — read by <Topbar/> only. */
+/** Internal, read by <Topbar/> only. */
 export function usePageTitleOverride(): PageTitleOverride {
   return useContextOrThrow().override;
 }
 
 /**
  * Put this screen's own action buttons in the topbar, to the left of the bell
- * and "+ Create" — for a screen whose primary actions belong in the header row
+ * and "+ Create", for a screen whose primary actions belong in the header row
  * rather than floating above its content (People's "Add by email" / "Invite a
  * friend").
  *
@@ -84,7 +84,7 @@ export function usePageTitleOverride(): PageTitleOverride {
  * the element itself would loop forever. List whatever the buttons close over.
  *
  * <Topbar/> only mounts at >=1025px (app/client-layout.tsx). Below that the
- * screen is responsible for rendering the same actions in its own header — see
+ * screen is responsible for rendering the same actions in its own header, see
  * app/people/page.tsx.
  */
 export function usePageActions(render: () => ReactNode, deps: unknown[]) {
@@ -97,7 +97,7 @@ export function usePageActions(render: () => ReactNode, deps: unknown[]) {
   }, deps);
 }
 
-/** Internal — read by <Topbar/> only. */
+/** Internal, read by <Topbar/> only. */
 export function usePageActionsRenderer(): PageActionsRenderer {
   return useContextOrThrow().actions;
 }

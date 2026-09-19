@@ -34,7 +34,7 @@ import {
   useUserWallets, useAvailableChains, useAddWallet, useRemoveWallet, useSetWalletAsPrimary,
 } from "@/features/wallets/hooks/use-wallets";
 import { useActiveWorkspace, useWorkspaces, useSetActiveWorkspace } from "@/contexts/workspace";
-// A business workspace is an Organization, not a group — the group endpoints
+// A business workspace is an Organization, not a group; the group endpoints
 // ignore `type` now and would happily operate on the wrong record.
 import {
   useDeleteOrganization,
@@ -162,7 +162,7 @@ function textBtn(style: React.CSSProperties = {}): React.CSSProperties {
   return { background: "none", border: "none", padding: 0, margin: 0, fontFamily: "inherit", cursor: "pointer", ...style };
 }
 
-/** Shared visual for the ghost "ready to click" affordance — used on both a
+/** Shared visual for the ghost "ready to click" affordance, used on both a
  * real <button> (GhostButton) and, where the destination is a route rather
  * than an action, directly on a <Link> so we never nest a button inside an
  * anchor (invalid HTML, confuses keyboard/screen-reader focus). */
@@ -287,7 +287,7 @@ const ALL_SECTION_IDS: readonly string[] = [
   ...WORKSPACE_SECTIONS.map((s) => s.id),
 ];
 
-/** `/settings?tab=settlement` deep-links straight to a rail section — falls
+/** `/settings?tab=settlement` deep-links straight to a rail section, falls
  * back to "profile" for a missing/unknown value so a stale or hand-typed
  * query param never lands on a blank pane. */
 function initialSectionFromSearchParams(searchParams: URLSearchParams): SectionId {
@@ -348,7 +348,7 @@ function ProfileSection({ user, displayName, setDisplayName, hasNameChange, isSa
       <TextInput value={displayName} onChange={setDisplayName} placeholder="Your name" />
 
       <Eyebrow style={{ marginBottom: 8 }}>Email</Eyebrow>
-      <FieldBox muted>{user.email || "—"}</FieldBox>
+      <FieldBox muted>{user.email || "-"}</FieldBox>
 
       <Eyebrow style={{ marginBottom: 8 }}>Preferred currency</Eyebrow>
       <CurrencyDropdown
@@ -413,8 +413,8 @@ function WalletsSection({ wallets, isLoading, chains, onSetDefault, isSettingDef
   const [chainId, setChainId] = useState("");
   const [address, setAddress] = useState("");
   // Only Stellar can be added going forward. A wallet already saved on any
-  // other chain still renders above (the `wallets` map isn't filtered) —
-  // this only narrows what's offered for a *new* add.
+  // other chain still renders above (the `wallets` map isn't filtered).
+  // This only narrows what's offered for a *new* add.
   const enabledChains = chains.filter((c) => c.enabled && c.id === "stellar");
 
   return (
@@ -452,7 +452,7 @@ function WalletsSection({ wallets, isLoading, chains, onSetDefault, isSettingDef
       {adding ? (
         <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: BORDER, background: "rgba(255,255,255,0.02)" }}>
           {enabledChains.length === 1 ? (
-            // Only one chain is offered — a picker would be theater. State it
+            // Only one chain is offered; a picker would be theater. State it
             // as a fact instead of a choice.
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <AvatarChip init="ST" color={getChainMeta(enabledChains[0].id).color} size={30} />
@@ -718,7 +718,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {mode !== "edit-wallet" && chainIds.length === 1 && (
                 // Only Stellar is offered and no other chain is already
-                // saved — a picker of one would be theater.
+                // saved; a picker of one would be theater.
                 <div>
                   <label style={{ color: "#ccc", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>Chain</label>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 6px" }}>
@@ -870,7 +870,7 @@ function RemindersSection() {
         })
       )}
       <Divider mb={16} />
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: T.dim }}>Automatic nudge scheduling isn't configurable yet — these are nudges people sent you directly.</p>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: T.dim }}>Automatic nudge scheduling isn't configurable yet. These are nudges people sent you directly.</p>
     </div>
   );
 }
@@ -908,7 +908,7 @@ const filterControlStyle: React.CSSProperties = {
   padding: "9px 11px", fontSize: 12.5, color: T.main, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box",
 };
 
-/** Horizontal bar rows — the app has no chart dependency, and adding one for
+/** Horizontal bar rows: the app has no chart dependency, and adding one for
  *  eleven bars would be the heaviest thing on the settings page. */
 function BarList({ buckets, currency, color }: { buckets: ReportBucket[]; currency: string; color: string }) {
   const peak = Math.max(...buckets.map((b) => Math.abs(b.amount)), 1);
@@ -933,7 +933,7 @@ function BarList({ buckets, currency, color }: { buckets: ReportBucket[]; curren
 
 function ReportsSection({ workspace }: { workspace: Workspace }) {
   const isBusiness = workspace.kind === "business";
-  // Cosmetic only — the server resolves the caller's OrgRole itself and hands a
+  // Cosmetic only: the server resolves the caller's OrgRole itself and hands a
   // MEMBER their own rows however this toggle is set.
   const canSeeOrgWide = isWorkspaceAdmin(workspace);
 
@@ -954,7 +954,7 @@ function ReportsSection({ workspace }: { workspace: Workspace }) {
     scope: isBusiness && !orgWide ? "own" : undefined,
   }), [range.from, range.to, category, currency, isBusiness, workspace.id, orgWide]);
 
-  // Account-level balances — the same figures the dashboard shows, unfiltered.
+  // Account-level balances: the same figures the dashboard shows, unfiltered.
   const { data: balances, isLoading: isLoadingBalances } = useAnalytics();
   const { data: report, isLoading, isError, refetch } = useAnalyticsReport(filters);
 
@@ -990,9 +990,9 @@ function ReportsSection({ workspace }: { workspace: Workspace }) {
       />
 
       <div style={{ display: "flex", gap: 26, flexWrap: "wrap", marginBottom: 22 }}>
-        <StatBox label="YOU OWE" value={isLoadingBalances ? "—" : fmt(Number(balances?.owed ?? 0))} color={R} />
-        <StatBox label="OWED TO YOU" value={isLoadingBalances ? "—" : fmt(Number(balances?.lent ?? 0))} color={G} />
-        <StatBox label="SETTLED THIS MONTH" value={isLoadingBalances ? "—" : fmt(Number(balances?.settled ?? 0))} color={T.body} />
+        <StatBox label="YOU OWE" value={isLoadingBalances ? "-" : fmt(Number(balances?.owed ?? 0))} color={R} />
+        <StatBox label="OWED TO YOU" value={isLoadingBalances ? "-" : fmt(Number(balances?.lent ?? 0))} color={G} />
+        <StatBox label="SETTLED THIS MONTH" value={isLoadingBalances ? "-" : fmt(Number(balances?.settled ?? 0))} color={T.body} />
       </div>
 
       <Divider mb={18} />
@@ -1063,7 +1063,7 @@ function ReportsSection({ workspace }: { workspace: Workspace }) {
 
           {report.truncated && (
             <p style={{ margin: 0, fontSize: 12, color: O }}>
-              Showing the {report.transactionCount.toLocaleString()} most recent requests in this range — narrow the dates for a complete total.
+              Showing the {report.transactionCount.toLocaleString()} most recent requests in this range. Narrow the dates for a complete total.
             </p>
           )}
 
@@ -1110,7 +1110,7 @@ function SecuritySection({ onChangePassword, onLogout, isLoggingOut }: { onChang
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.bright }}>Active sessions</p>
           <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.sub }}>Session management isn't available yet.</p>
         </div>
-        <span style={{ fontSize: 12, fontWeight: 700, color: T.dim }}>—</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: T.dim }}>-</span>
       </Row>
       <Row last>
         <div>
@@ -1152,7 +1152,7 @@ function WsGeneralSection({ workspace, name, setName, hasChange, onSave, isSavin
       <ConfirmDialog
         open={confirmOpen}
         title="Delete workspace"
-        body={`This permanently deletes ${workspace.name} and everything in it — requests, members, contracts. This can't be undone.`}
+        body={`This permanently deletes ${workspace.name} and everything in it: requests, members, contracts. This can't be undone.`}
         confirmLabel="Delete"
         working={isDeleting}
         onCancel={() => setConfirmOpen(false)}
@@ -1165,7 +1165,7 @@ function WsGeneralSection({ workspace, name, setName, hasChange, onSave, isSavin
 // ─── Workspace: Accepted tokens ────────────────────────────────────────────
 // Read-only now. The per-workspace override was backed by GET/POST/DELETE
 // /groups/:groupId/accepted-tokens, and `GroupAcceptedToken` hangs off
-// `Group` — but a business workspace is an `Organization`, so those endpoints
+// `Group`, but a business workspace is an `Organization`, so those endpoints
 // 403 on a workspace id (group.controller.ts gates on GroupUser membership).
 // There is no organization-level equivalent on the backend and inventing one
 // here would only fail at runtime. What is still true is which account default
@@ -1175,7 +1175,7 @@ function WsTokensSection({ workspace, accountPrefs }: {
   workspace: Workspace; accountPrefs: SettlementPreference[];
 }) {
   const accountSummary = accountPrefs.length === 0
-    ? "You haven't set an account default yet — set one in Account → Settlement."
+    ? "You haven't set an account default yet. Set one in Account → Settlement."
     : accountPrefs.map((p) => `${p.tokens.map((t) => t.token.symbol).join(", ")} on ${p.chain.name}`).join(" · ");
   const accountWallet = accountPrefs.find((p) => p.wallet)?.wallet;
 
@@ -1189,7 +1189,7 @@ function WsTokensSection({ workspace, accountPrefs }: {
         </div>
       </div>
       <p style={{ margin: "16px 0 0", fontSize: 12, lineHeight: 1.6, color: T.dim }}>
-        A per-workspace override isn&apos;t available yet — business workspaces have no
+        A per-workspace override isn&apos;t available yet; business workspaces have no
         accepted-token store of their own, so everything in {workspace.name} settles into your
         account default.
       </p>
@@ -1205,18 +1205,18 @@ function WsApprovalsSection({ workspace }: { workspace: Workspace }) {
       <Intro title="Approvals" subtitle={`Money out of ${workspace.name} above a threshold needs a second pair of eyes.`} />
       <div style={{ opacity: 0.5, pointerEvents: "none" }}>
         <Eyebrow style={{ marginBottom: 8 }}>Threshold</Eyebrow>
-        <FieldBox><Mono>—</Mono></FieldBox>
+        <FieldBox><Mono>-</Mono></FieldBox>
         <Eyebrow style={{ marginBottom: 8 }}>Approver</Eyebrow>
         <FieldBox>Not set</FieldBox>
       </div>
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: T.dim }}>Approval routing isn't configurable yet — every request currently goes straight out.</p>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: T.dim }}>Approval routing isn't configurable yet. Every request currently goes straight out.</p>
     </div>
   );
 }
 
-// ─── Workspace: Members (preview only — the full screen lives at /members) ──────
+// ─── Workspace: Members (preview only; the full screen lives at /members) ──────
 
-/** `GET /api/organizations/:id/members` — flat, and `role` can be OWNER. */
+/** `GET /api/organizations/:id/members`: flat, and `role` can be OWNER. */
 interface MemberPreview { userId: string; role: string; name: string | null; email: string | null }
 
 function WsMembersSection({ workspace, members, isLoading }: { workspace: Workspace; members: MemberPreview[]; isLoading: boolean }) {
@@ -1422,7 +1422,7 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
     }
   }, [isBusiness, sec]);
 
-  // Members are their own fetch now — they are no longer nested in the
+  // Members are their own fetch now; they are no longer nested in the
   // workspace payload the way `group.groupUsers` was.
   const { data: orgMembers = [], isLoading: isLoadingMembers } = useGetOrganizationMembers(
     isBusiness ? workspace.id : ""
@@ -1455,7 +1455,7 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
       },
       onError: (result: unknown) => {
         const message = (result as { message?: string } | undefined)?.message;
-        toast.error(message || "Failed to delete workspace — only the owner can delete it");
+        toast.error(message || "Failed to delete workspace: only the owner can delete it");
       },
     });
   };
@@ -1467,7 +1467,7 @@ export function SettingsPageContent({ user: initialUser }: SettingsPageContentPr
       <div className="grid grid-cols-1 lg:grid-cols-[216px_1fr] gap-4 lg:gap-[26px] items-start">
         {/* Not sticky: `position: sticky` inside this items-start grid row anchors
             to `top` whenever the paired content column is tall enough to leave
-            slack (and clamps flush when it isn't) — so the rail visibly jumped
+            slack (and clamps flush when it isn't), so the rail visibly jumped
             between short and tall tabs even at scrollY 0. A plain top-anchored
             column never moves, which is what "stays put across tabs" means here. */}
         <div className="flex flex-row lg:flex-col gap-5 lg:gap-[18px] overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">

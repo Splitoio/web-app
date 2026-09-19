@@ -15,14 +15,14 @@ import { formatRelativeTime } from "@/lib/utils";
 import { GatedScreen } from "@/components/shell/locked-feature";
 
 /**
- * `/notifications` — the in-app surface for org invitations. Before this
+ * `/notifications`: the in-app surface for org invitations. Before this
  * route existed, the emailed `/invite/<token>` link was the ONLY way in; the
  * topbar bell (components/topbar.tsx) and the sidebar's Notifications item
  * (lib/shell-nav.ts) both point here, badged off the same `useMyInvites()`
  * cache this page reads.
  *
- * Accept reuses the same `useAcceptInvite()` mutation `/invite/[token]` uses
- * — one membership-creating code path. Reject is invitee-scoped
+ * Accept reuses the same `useAcceptInvite()` mutation `/invite/[token]` uses,
+ * one membership-creating code path. Reject is invitee-scoped
  * (`POST /invites/:id/decline`), distinct from the admin-only revoke on the
  * Members screen (`useRevokeInvite`).
  */
@@ -35,7 +35,7 @@ function errMsg(e: unknown, fallback: string): string {
 }
 
 function InviteRow({ invite, noDivider }: { invite: MyInvite; noDivider: boolean }) {
-  // A dedicated mutation instance per row, not one shared across the list —
+  // A dedicated mutation instance per row, not one shared across the list;
   // `isPending` is then scoped to THIS invite for free, with no need to check
   // "is the in-flight mutation's argument this row's id" the way the shared
   // accept/decline modal on the Members screen has to.

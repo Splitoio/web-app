@@ -5,13 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/lib/auth";
 
 /**
- * Who is looking at /pay/[token] — for the only two things the public payer
+ * Who is looking at /pay/[token], for the only two things the public payer
  * flow is allowed to personalise: the header line ("Paying as <name>") and
  * which wallet to SUGGEST.
  *
  * Everything in here FAILS OPEN, by design. /pay is the no-account flow
- * (.plans/2026-08-06-request-money.md "NO AUTH, EVER"): an anonymous visitor —
- * or a signed-in one whose lookup 401s, 500s, or never answers — must get
+ * (.plans/2026-08-06-request-money.md "NO AUTH, EVER"): an anonymous visitor,
+ * or a signed-in one whose lookup 401s, 500s, or never answers, must get
  * exactly the guest page, "Paying as guest" plus the plain connect buttons.
  * Nothing on this page is ever gated, blocked, or spinnered on the answer, and
  * neither lookup here can surface an error to the payer.
@@ -20,7 +20,7 @@ import { useSession } from "@/lib/auth";
  *
  * 1. The page has to ask for itself. components/AuthProvider.tsx sets
  *    `skipFetch` for every public route except "/", so on /pay it never fires
- *    GET /users/me — which means useAuthStore().user is null and
+ *    GET /users/me, which means useAuthStore().user is null and
  *    useSessionStatus() reports "anonymous" here for EVERYONE, signed in or
  *    not. Reading either of those would have made this feature silently dead.
  *
@@ -28,7 +28,7 @@ import { useSession } from "@/lib/auth";
  *    `GET /api/multichain/accounts` (backend/src/routes/multichain.routes.ts,
  *    the same one the settings Wallets tab uses), never to the public request
  *    router. That router is unauthenticated on purpose and says so in its own
- *    header — "No getSession anywhere on this router" — and teaching it to read
+ *    header ("No getSession anywhere on this router") and teaching it to read
  *    a session is what would quietly turn the stranger's pay screen into an
  *    account-aware one. The payment itself still submits through the public
  *    route, completely unchanged.
@@ -49,7 +49,7 @@ interface PayerWallet {
   isDefault: boolean;
 }
 
-/** Resolves to `[]` for every failure mode — 401, 5xx, network, bad JSON. */
+/** Resolves to `[]` for every failure mode: 401, 5xx, network, bad JSON. */
 async function fetchPayerWallets(): Promise<PayerWallet[]> {
   try {
     const response = await fetch(`${API_URL}/api/multichain/accounts`, {
@@ -67,7 +67,7 @@ async function fetchPayerWallets(): Promise<PayerWallet[]> {
 }
 
 export interface PayerIdentity {
-  /** Display name of the signed-in visitor. Null for a guest — render "guest". */
+  /** Display name of the signed-in visitor. Null for a guest; render "guest". */
   name: string | null;
   /** Their saved address on `chain`, when one is unambiguous. Null otherwise. */
   savedAddress: string | null;
@@ -102,7 +102,7 @@ export function usePayerIdentity(chain: string | null): PayerIdentity {
     if (!onChain.length) return null;
     // The default for this chain wins. Failing that, a single wallet on the
     // chain is unambiguous enough to suggest. Two non-default wallets IS a
-    // real choice, so suggest nothing and let them pick — and never write a
+    // real choice, so suggest nothing and let them pick, and never write a
     // default back to make the ambiguity go away.
     const preferred =
       onChain.find((w) => w.isDefault) ?? (onChain.length === 1 ? onChain[0] : null);

@@ -4,8 +4,8 @@ import { Card, T } from "@/lib/splito-design";
 import { formatCurrency } from "@/utils/formatters";
 
 /**
- * Amount-first, wallet-second — the settled UI direction
- * (".plans/2026-08-06-request-money.md" §"UI direction — settled"). Lowest
+ * Amount-first, wallet-second: the settled UI direction
+ * (".plans/2026-08-06-request-money.md" §"UI direction, settled"). Lowest
  * possible intimidation for a payer who has never used the product and may
  * not think of themselves as a crypto user.
  */
@@ -18,7 +18,7 @@ export function AmountHero({
 }: {
   requesterName: string | null;
   amount: number;
-  /** null / empty when the request has no description — the line is omitted. */
+  /** null / empty when the request has no description: the line is omitted. */
   requestName: string | null;
   paidCount: number;
   totalCount: number;

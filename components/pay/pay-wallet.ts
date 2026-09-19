@@ -77,7 +77,7 @@ export async function signStellarUnsignedTx(
   kit: StellarWalletsKit,
   unsignedTxXdr: string
 ): Promise<string> {
-  // Same source as the kit was constructed with — do NOT read it back off the
+  // Same source as the kit was constructed with; do NOT read it back off the
   // kit's internal config (undocumented shape, and it silently fell back to a
   // hardcoded TESTNET default when the read failed).
   const signed = await kit.signTransaction(unsignedTxXdr, {
@@ -139,7 +139,7 @@ export async function signAndBroadcastSolanaUnsignedTx(
 
   // The server envelope carries the authoritative cluster + RPC URL (it built
   // the transaction). If it disagrees with this deployment's configured
-  // network, the two halves are pointed at different chains — the Solana twin
+  // network, the two halves are pointed at different chains: the Solana twin
   // of the Stellar passphrase bug. Surface it loudly; the envelope still wins,
   // because the transaction it describes is the one being signed.
   if (intent.cluster !== SOLANA_CLUSTER) {
@@ -181,7 +181,7 @@ export async function signAndBroadcastSolanaUnsignedTx(
 // ── Routed payments: an ORDERED ARRAY of transactions ────────────────────
 //
 // Contract §3 (changed 2026-08-07): a routed quote returns
-// `unsignedTransactions[]`, signed IN ARRAY ORDER — an "approve" leg may
+// `unsignedTransactions[]`, signed IN ARRAY ORDER: an "approve" leg may
 // precede the "transfer" leg, so the payer can be prompted more than once.
 // The direct path is unaffected and still single-signature.
 //
@@ -189,18 +189,18 @@ export async function signAndBroadcastSolanaUnsignedTx(
 // ExactOut tx, converts payer -> payer, inside the payer's OWN wallet) then
 // "transfer" (an ordinary SPL/SOL transfer of the exact destination amount,
 // payer -> recipient). The loop below does not special-case "swap" beyond
-// dispatching on `tx.chain` — it signs and broadcasts every leg through the
+// dispatching on `tx.chain`; it signs and broadcasts every leg through the
 // same per-chain helper, in order, and only remembers the hash of the leg
 // whose `kind === "transfer"`. That means: (a) both legs ARE broadcast on
 // Solana, sequentially, before this function returns, and (b) the hash hunted
-// down for the backend is always the transfer leg's, never the swap leg's —
+// down for the backend is always the transfer leg's, never the swap leg's;
 // see the `transferHash` bookkeeping below.
 //
 // On a routed payment the CLIENT broadcasts on every chain, including Stellar.
 // The backend's routed submit branch holds no verifier for an arbitrary source
 // chain: it records what it is handed as `transactionHash` and gives it to the
 // poller as a tx id (contract §4). So each leg here must return a broadcast tx
-// id, never a signed-but-unbroadcast payload — which is why Stellar goes to
+// id, never a signed-but-unbroadcast payload, which is why Stellar goes to
 // Horizon here rather than relying on the server fee-bump submit used by the
 // direct path.
 
@@ -222,7 +222,7 @@ async function signAndBroadcastStellarPayload(
   const payload = await response.json().catch(() => null);
 
   if (!response.ok || !payload?.hash) {
-    // Surface Horizon's own reason rather than a generic failure — a routed
+    // Surface Horizon's own reason rather than a generic failure: a routed
     // Stellar leg most often fails on a missing trustline or sequence, and
     // both are actionable by the payer.
     const reason =
@@ -251,7 +251,7 @@ async function signAndBroadcastSolanaPayload(
 
   const bytes = Uint8Array.from(atob(base64Tx), (c) => c.charCodeAt(0));
   // The router builds the transaction, including its blockhash. Deserialize
-  // whichever form it used and sign it AS BUILT — rewriting the blockhash or
+  // whichever form it used and sign it AS BUILT; rewriting the blockhash or
   // fee payer here would invalidate a router-constructed instruction set.
   let tx: Transaction | VersionedTransaction;
   try {
@@ -265,7 +265,7 @@ async function signAndBroadcastSolanaPayload(
 }
 
 export interface RoutedSigningContext {
-  /** Chain the payer signs on — `quote.chain`, the SOURCE chain when routed. */
+  /** Chain the payer signs on: `quote.chain`, the SOURCE chain when routed. */
   chain: string;
   address: string;
   /** Required when `chain === "stellar"`. */
@@ -281,17 +281,17 @@ export interface RoutedSigningContext {
 /**
  * Sign and broadcast every leg of a routed payment, in order.
  *
- * Returns the tx id of the "transfer" leg — the one that actually moves the
+ * Returns the tx id of the "transfer" leg: the one that actually moves the
  * funds and the only one the backend can track. "approve" and "swap" legs are
  * broadcast and awaited but their hash is not what submit wants.
  *
  * A throw partway through is honest and important, and means something
  * different depending on the leg that failed:
- * - if leg 1 is "approve" and it never went out, NO funds moved — an
+ * - if leg 1 is "approve" and it never went out, NO funds moved: an
  *   allowance is not a payment.
  * - if leg 1 is "swap" (Jupiter) and it succeeded but leg 2 ("transfer")
- *   then throws, the payer is NOT out of pocket — the swap converted inside
- *   their OWN wallet — but they now HOLD the swapped asset instead of what
+ *   then throws, the payer is NOT out of pocket; the swap converted inside
+ *   their OWN wallet, but they now HOLD the swapped asset instead of what
  *   they started with. The caller must not describe this as "nothing
  *   happened"; see the disclosure copy in quote-panel.tsx.
  * The caller can safely offer a retry in the "approve" case; in the "swap"

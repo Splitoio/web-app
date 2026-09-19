@@ -7,20 +7,20 @@
 // the headline here is our own short copy and the server's wording is demoted
 // to a subordinate line with the long keys condensed out.
 //
-// Branch on `reason` — the machine-readable code the controller sends beside
-// the message (request-money.controller.ts, `validateStellarDestination`) —
+// Branch on `reason`: the machine-readable code the controller sends beside
+// the message (request-money.controller.ts, `validateStellarDestination`);
 // never on the prose, which is free to change without notice.
 
 /** Long base32/base58 blobs (Stellar account ids, asset issuers, Solana keys). */
 const LONG_KEY = /\b[A-Za-z0-9]{32,}\b/g;
 
-/** `GBBD47IF…LFLA5` — enough to recognise, short enough to read. */
+/** `GBBD47IF…LFLA5`: enough to recognise, short enough to read. */
 export function condenseKeys(text: string): string {
   return text.replace(LONG_KEY, (k) => `${k.slice(0, 6)}…${k.slice(-4)}`);
 }
 
 export interface FormError {
-  /** One short human sentence — the headline. Never raw server prose. */
+  /** One short human sentence: the headline. Never raw server prose. */
   title: string;
   /** What to do about it, or the server's own wording, condensed. */
   detail?: string;
@@ -39,7 +39,7 @@ function humanizeReason(reason: string): string {
 
 /**
  * The create endpoint's unsupported-currency 400 (`Unsupported denomination
- * currency: <code>`, request-money.controller.ts) ships no `reason` field — the
+ * currency: <code>`, request-money.controller.ts) ships no `reason` field; the
  * only two the controller sends are the trustline pair below. Matching the
  * prose here is the one place we deliberately break the branch-on-code rule,
  * because there is no code to branch on and the bare message is a dead end.
@@ -49,7 +49,7 @@ const UNSUPPORTED_CURRENCY_MESSAGE = /^unsupported denomination currency\b/i;
 /**
  * `reason` codes the create endpoint can return today. Anything not listed
  * still degrades to a readable message via `humanizeReason` rather than
- * dumping prose — new backend codes do not need a client change to be safe.
+ * dumping prose: new backend codes do not need a client change to be safe.
  */
 const BY_REASON: Record<string, FormError> = {
   missing_trustline: {
@@ -82,7 +82,7 @@ function readString(source: unknown, key: string): string | undefined {
 
 /**
  * `err` is the response interceptor's normalized error
- * ({ code, message, data }) — see api-helpers/client.ts. `data` is the raw
+ * ({ code, message, data }); see api-helpers/client.ts. `data` is the raw
  * response body, which is where `reason` lives.
  */
 export function toFormError(err: unknown): FormError {
