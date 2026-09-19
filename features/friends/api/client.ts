@@ -41,7 +41,7 @@ const FriendSchema = z.object({
   email: z.string().email(),
   name: z.string(),
   balances: z.array(z.object({ currency: z.string(), amount: z.number() })),
-  // True when this person has been addressed but never signed up — the People
+  // True when this person has been addressed but never signed up: the People
   // row shows "Invited" instead of a balance. Defaulted so an older backend
   // (or the iOS build) that omits the field still parses.
   invited: z.boolean().default(false),

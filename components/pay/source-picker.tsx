@@ -12,8 +12,8 @@ import {
 /**
  * "What are you paying WITH?"
  *
- * The direct pair — payer already holds the destination asset on the
- * destination chain — is the happy path and is presented as such: first in
+ * The direct pair, payer already holds the destination asset on the
+ * destination chain, is the happy path and is presented as such: first in
  * the list, accented, and the only one that can honestly promise an exact
  * amount (".specs/2026-08-06-request-money-design.md" → "Direct path first";
  * ".specs/2026-08-06-router-selection.md" → "The direct path is the only
@@ -21,12 +21,12 @@ import {
  * is an ESTIMATE (Allbridge) or exact-output with the payer bearing a
  * ceiling instead (Stellar path payment / Jupiter,
  * ".specs/2026-08-07-router-alternatives.md") is decided per-quote, not
- * per-source, so this screen — which only ever sees a `{chain, asset}` pair,
- * never a quote — must not claim either; see the per-source copy below.
+ * per-source, so this screen (which only ever sees a `{chain, asset}` pair,
+ * never a quote) must not claim either; see the per-source copy below.
  *
  * This screen is only shown when there is a real choice to make. When the
  * payer connects a wallet on the destination chain and the direct pair is
- * available, the pay page auto-selects it and skips straight to the quote —
+ * available, the pay page auto-selects it and skips straight to the quote:
  * the happy path shows no routing vocabulary at all.
  */
 export function SourcePicker({
@@ -69,7 +69,7 @@ export function SourcePicker({
       <p className="text-[12.5px] leading-relaxed mb-4" style={{ color: T.dim }}>
         {hasDirect
           ? `They asked for ${assetSymbol(destinationAsset)} on ${chainName(destinationChain)}.`
-          : `They asked for ${assetSymbol(destinationAsset)} on ${chainName(destinationChain)}, which your connected wallet doesn't hold — anything you pick here has to be converted on the way.`}
+          : `They asked for ${assetSymbol(destinationAsset)} on ${chainName(destinationChain)}, which your connected wallet doesn't hold, so anything you pick here has to be converted on the way.`}
       </p>
 
       {/* Nothing this wallet can sign. Reachable for real now that the source
@@ -78,7 +78,7 @@ export function SourcePicker({
           valid option. Say that plainly instead of rendering an empty list. */}
       {ordered.length === 0 && (
         <p className="text-[12.5px] leading-relaxed" style={{ color: T.dim }}>
-          Your connected {chainName(connectedChain)} wallet can&rsquo;t pay this request — it only
+          Your connected {chainName(connectedChain)} wallet can&rsquo;t pay this request: it only
           accepts {assetSymbol(destinationAsset)} on {chainName(destinationChain)} right now.{" "}
           <button
             type="button"
@@ -121,8 +121,8 @@ export function SourcePicker({
                     </p>
                     <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: direct ? A : T.dim }}>
                       {direct
-                        ? "Direct — lands as the exact amount. Network fee only."
-                        : "Converted on the way — exact amount and any tolerance are confirmed on the next screen."}
+                        ? "Direct: lands as the exact amount. Network fee only."
+                        : "Converted on the way: exact amount and any tolerance are confirmed on the next screen."}
                     </p>
                   </div>
                 </div>
@@ -147,7 +147,7 @@ export function SourcePicker({
       {!hasDirect && ordered.length > 0 && (
         <p className="text-[11.5px] leading-relaxed mt-3.5" style={{ color: T.dim }}>
           Holding {assetSymbol(destinationAsset)} on {chainName(destinationChain)}? Connect that
-          wallet instead — it skips the conversion entirely and lands the exact amount.{" "}
+          wallet instead, it skips the conversion entirely and lands the exact amount.{" "}
           <button
             type="button"
             onClick={onSwitchWallet}

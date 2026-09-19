@@ -15,8 +15,8 @@ function fmtFreq(f: string | null | undefined): string {
 
 export function downloadContract(contract: Contract): void {
   const orgName = contract.organization?.name ?? "Organization";
-  const creatorName = contract.createdBy?.name ?? contract.createdBy?.email ?? "—";
-  const contractorName = contract.assignedTo?.name ?? contract.assignedToEmail ?? "—";
+  const creatorName = contract.createdBy?.name ?? contract.createdBy?.email ?? "-";
+  const contractorName = contract.assignedTo?.name ?? contract.assignedToEmail ?? "-";
   const contractorEmail = contract.assignedTo?.email ?? contract.assignedToEmail ?? "";
   const isSigned = !!contract.signedAt;
   const signerName = contract.signerName ?? contractorName;
@@ -126,7 +126,7 @@ ${sections.join("")}
     <p class="sig-meta">${esc(orgName)}</p>
   </div>
   <div class="sig-box">
-    <p class="sig-name" ${!isSigned ? 'style="color:#ccc"' : ""}>${isSigned ? esc(signerName) : "—"}</p>
+    <p class="sig-name" ${!isSigned ? 'style="color:#ccc"' : ""}>${isSigned ? esc(signerName) : "-"}</p>
     <p class="sig-label">${isSigned ? "Contractor Signature" : "Awaiting Signature"}</p>
     ${isSigned && contract.signedAt ? `<p class="sig-meta">Signed: ${fmtDateLong(contract.signedAt)}</p>` : ""}
   </div>

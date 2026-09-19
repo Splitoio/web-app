@@ -51,7 +51,7 @@ export interface AnalyticsReport {
   baseCurrency: string;
   totalSpend: number;
   transactionCount: number;
-  /** The row cap clipped the result — totals cover only the rows counted. */
+  /** The row cap clipped the result: totals cover only the rows counted. */
   truncated: boolean;
   byCategory: ReportBucket[];
   byCurrency: ReportBucket[];

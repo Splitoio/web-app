@@ -328,7 +328,7 @@ export default function GroupRequestsPage() {
     <div className="space-y-6">
       {byDate.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 20px" }}>
-          {/* mx-auto centres the icon — Tailwind preflight makes svg display:block,
+          {/* mx-auto centres the icon: Tailwind preflight makes svg display:block,
               so the parent's text-align alone (which centred the old emoji) no
               longer does; same idiom as pay/status-banner.tsx. */}
           <Receipt size={40} strokeWidth={1.5} color={T.faint} className="mx-auto" style={{ marginBottom: 18 }} />

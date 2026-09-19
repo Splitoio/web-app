@@ -135,8 +135,8 @@ function EmailActionModal({
  *
  * Both are OUTLINE buttons, not filled: they sit beside the shell's filled
  * "+ Create" (components/topbar.tsx), and a header row with two accent fills
- * has no primary action at all. Metrics track the neighbouring Create button —
- * RADIUS.control, 13px/700 — so the row reads as one set of controls.
+ * has no primary action at all. Metrics track the neighbouring Create button;
+ * RADIUS.control, 13px/700, so the row reads as one set of controls.
  */
 function PeopleActions({
   onAdd,
@@ -182,7 +182,7 @@ function PeopleScreen() {
 
   // Drop the shell's static subtitle for this screen. `pageMetaFor()` still
   // carries one for every other route, so this is an override, not an edit to
-  // lib/shell-nav.ts — an empty string is <Topbar/>'s "render no subtitle".
+  // lib/shell-nav.ts: an empty string is <Topbar/>'s "render no subtitle".
   usePageTitle("People", "");
 
   // The two actions live in the header row, beside the bell and "+ Create".
@@ -193,8 +193,8 @@ function PeopleScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      {/* Below 1025px the shell's own <Topbar/> isn't mounted (app/client-layout.tsx)
-          — this is the only heading in that range, and the only place the
+      {/* Below 1025px the shell's own <Topbar/> isn't mounted (app/client-layout.tsx),
+          so this is the only heading in that range, and the only place the
           header actions can go. At >=1025px the shell topbar renders both
           (usePageActions above), so this whole row stays hidden there. */}
       <div className="border-b border-white/[0.07] px-4 sm:px-7 sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10 flex min-[1025px]:hidden items-center gap-2.5 min-h-[70px] py-3 flex-wrap">
@@ -272,7 +272,7 @@ function PeopleScreen() {
  * The shell now renders its chrome for signed-out visitors too, so
  * `/people` is reachable without a session. Gate here, above PeopleScreen's
  * `useAddFriend`/`useInviteFriend` hooks and the `<FriendsList/>` it mounts
- * (which fetches its own list) — hooks can't be called conditionally, so the
+ * (which fetches its own list); hooks can't be called conditionally, so the
  * only way to keep those queries from firing for an anonymous visitor is to
  * never mount the component that owns them.
  */

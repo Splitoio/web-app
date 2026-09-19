@@ -2,13 +2,13 @@
  * Workspace model, shared by the edge proxy and the client.
  *
  * A workspace is either the user's personal money or one business they belong
- * to. There is exactly one app and one host — the *active workspace*, not a URL
+ * to. There is exactly one app and one host: the *active workspace*, not a URL
  * prefix, decides whether a screen renders its personal or business
  * arrangement. That is why every product route is top-level (`/requests`, not
  * `/organization/<id>/invoices`) and why the active id travels in a cookie: the
  * server render has to agree with the client on which workspace is showing.
  *
- * Keep this file free of axios/React imports — proxy.ts runs on the edge.
+ * Keep this file free of axios/React imports; proxy.ts runs on the edge.
  */
 
 export type WorkspaceKind = "personal" | "business";
@@ -25,7 +25,7 @@ export type Workspace = {
    * Org membership role ("OWNER" | "ADMIN" | "MEMBER") for a business
    * workspace.
    *
-   * `null` for the personal workspace — it is synthetic, has no `GroupUser`
+   * `null` for the personal workspace; it is synthetic, has no `GroupUser`
    * row, and so genuinely has no role. Null means "no org role", never
    * "role unknown, assume owner": every permission check must treat it as
    * *not* an admin of a business workspace (see isWorkspaceAdmin).
@@ -34,7 +34,7 @@ export type Workspace = {
 };
 
 /**
- * The personal workspace is synthetic — it is not a Group row, so it has a
+ * The personal workspace is synthetic; it is not a Group row, so it has a
  * fixed id rather than a cuid. `GET /api/workspaces` returns it first and it
  * always exists, even for a brand-new account.
  */
@@ -49,8 +49,8 @@ export const WORKSPACE_COOKIE = "splito_workspace";
 /**
  * The client-side fallback for personal, used before `GET /api/workspaces`
  * resolves and for anonymous visitors. Every field must match what
- * `personalWorkspaceCard()` returns on the backend (initials "PE", role null)
- * — otherwise the chip visibly changes when the query lands.
+ * `personalWorkspaceCard()` returns on the backend (initials "PE", role null),
+ * otherwise the chip visibly changes when the query lands.
  */
 export const PERSONAL_WORKSPACE: Workspace = {
   id: PERSONAL_WORKSPACE_ID,
@@ -68,9 +68,9 @@ export function isPersonalWorkspace(id: string | null | undefined): boolean {
 /**
  * Whether the user administers this workspace.
  *
- * Personal has no role, so it is never "admin of a business workspace" — the
+ * Personal has no role, so it is never "admin of a business workspace"; the
  * personal screens gate on `kind === "personal"`, not on this. OWNER counts
- * as admin here too — the backend gates approve/decline/mark-paid/clear to
+ * as admin here too: the backend gates approve/decline/mark-paid/clear to
  * OWNER or ADMIN (owner.controller.ts et al.), never ADMIN alone, so a check
  * that misses OWNER would silently strip the owner of their own admin
  * actions.
@@ -84,7 +84,7 @@ export function isWorkspaceAdmin(workspace: {
 
 /**
  * Where each retired `/organization/*` path now lives. Business screens moved
- * to the top level and lost their `[organizationId]` segment — the id becomes
+ * to the top level and lost their `[organizationId]` segment; the id becomes
  * the active-workspace cookie instead (see resolveOrganizationRedirect).
  *
  * `/organization/create` and `/organization/organizations` have no successor

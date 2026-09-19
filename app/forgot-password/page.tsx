@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
         redirectTo: "/reset-password",
       });
       setSent(true);
-      toast.success("Reset link sent — check your inbox.");
+      toast.success("Reset link sent: check your inbox.");
     } catch {
       toast.error("Failed to send reset email. Please try again.");
     }

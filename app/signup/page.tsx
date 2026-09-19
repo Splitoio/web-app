@@ -35,7 +35,7 @@ export default function SignupPage() {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    // Prefill only — see the same note on the login page.
+    // Prefill only; see the same note on the login page.
     email: searchParams.get("email") ?? "",
     phoneNumber: "",
     password: "",
@@ -45,7 +45,7 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Two responsive copies of this form share the DOM (desktop card below vs
-    // the sm:hidden mobile block) — only one is ever on screen, but both are
+    // the sm:hidden mobile block); only one is ever on screen, but both are
     // real <form> elements. offsetParent is null when an ancestor has
     // display:none, which is exactly how Tailwind's hidden/sm:hidden hides
     // the other copy, so this stops a submit on the off-screen copy (e.g. an
@@ -68,7 +68,7 @@ export default function SignupPage() {
         posthog.capture("user_signed_up", { method: "email" });
         toast.success("Account created! You can sign in now.");
         // Carry the invite destination (and the invited email) through the
-        // sign-in step — the login page honours both, and if better-auth has
+        // sign-in step: the login page honours both, and if better-auth has
         // already seated a session (autoSignIn), proxy.ts forwards this same
         // callbackUrl instead of dumping the new account on the dashboard.
         const params = new URLSearchParams();
@@ -80,12 +80,12 @@ export default function SignupPage() {
         // whether the app fetches the user is read in the ROOT layout
         // (app/layout.tsx → `hasSession`), and Next does not re-render the root
         // layout on a client-side navigation. With autoSignIn, proxy.ts bounces
-        // /login straight to "/" — so a pushed navigation lands the brand-new
+        // /login straight to "/", so a pushed navigation lands the brand-new
         // account on "/" with `hasSession` still false, and it renders the
         // signed-OUT console ("Guest session", locked features) to someone who
         // just created an account, until they happen to reload.
         window.location.href = query ? `/login?${query}` : "/login";
-        return; // Navigating away — don't reset the loading state.
+        return; // Navigating away: don't reset the loading state.
       }
     } catch (error) {
       const apiError = error as ApiError;

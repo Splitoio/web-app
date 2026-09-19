@@ -2,7 +2,7 @@
 
 // Small shared presentation bits for the requester-facing screens
 // (/requests and /requests/[id]). Kept out of lib/splito-design.tsx on
-// purpose — that module has 37 importers and is not the place for
+// purpose: that module has 37 importers and is not the place for
 // product-specific vocabulary.
 
 import { useState } from "react";
@@ -25,12 +25,12 @@ export const CHAIN_LABELS: Record<string, string> = {
 };
 
 export function assetLabel(asset: string | null): string {
-  if (!asset) return "—";
+  if (!asset) return "-";
   return ASSET_LABELS[asset] ?? asset.toUpperCase();
 }
 
 export function chainLabel(chain: string | null): string {
-  if (!chain) return "—";
+  if (!chain) return "-";
   return CHAIN_LABELS[chain] ?? chain[0].toUpperCase() + chain.slice(1);
 }
 
@@ -65,11 +65,11 @@ export function StatusChip({ status }: { status: RequestStatus }) {
 
 /**
  * "in 6 days" / "Expired". lib/utils.ts's formatRelativeTime only handles the
- * PAST — a future date comes back as "just now" — so expiry gets its own
+ * PAST: a future date comes back as "just now", so expiry gets its own
  * forward-looking formatter rather than a wrong-looking reuse.
  */
 export function expiryLabel(expiresAt: string | null): string {
-  if (!expiresAt) return "—";
+  if (!expiresAt) return "-";
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (ms <= 0) return "Expired";
   const min = Math.floor(ms / 60000);
@@ -80,7 +80,7 @@ export function expiryLabel(expiresAt: string | null): string {
   return `in ${day} days`;
 }
 
-/** "2 of 4 paid" — omitted entirely for a single payer, where the status chip already says it. */
+/** "2 of 4 paid": omitted entirely for a single payer, where the status chip already says it. */
 export function progressLabel(paidCount: number, payerCount: number): string | null {
   if (payerCount <= 1) return null;
   return `${paidCount} of ${payerCount} paid`;
@@ -88,7 +88,7 @@ export function progressLabel(paidCount: number, payerCount: number): string | n
 
 /**
  * The /requests list table's title-column subtitle. There is no invoice flag
- * in the data (see api-helpers/requests.ts RequestListItem) — payerCount is
+ * in the data (see api-helpers/requests.ts RequestListItem); payerCount is
  * still the signal listRowType below uses for "this got split". `group` (set
  * when the request was created via groupId, RequestListItem.group) is real
  * identity though, so a group-linked request names the group instead of the
@@ -109,7 +109,7 @@ export function listRowMeta(
  * Type pill for the list table. Personal workspaces frame a multi-payer
  * request as a "Group request"; business workspaces frame the same shape as
  * an "Expense" (cost shared across members) vs. an "Invoice" (billed to one
- * party) — there is no dedicated Payout/Bill/Payroll type in the data, so
+ * party); there is no dedicated Payout/Bill/Payroll type in the data, so
  * those design vocabulary words are not reachable from this endpoint.
  */
 export function listRowType(
@@ -155,7 +155,7 @@ export function CopyButton({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Couldn't copy — select and copy manually.");
+      toast.error("Couldn't copy; select and copy manually.");
     }
   };
 

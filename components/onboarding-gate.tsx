@@ -12,7 +12,7 @@ import { useAuthStore } from "@/stores/authStore";
 export function OnboardingGate() {
   const pathname = usePathname();
   // Gated on the session. This used to be an UNGATED useGetUser(), which was
-  // harmless while the shell only ever mounted for signed-in users — but the
+  // harmless while the shell only ever mounted for signed-in users, but the
   // shell is now what a signed-out visitor lands in (app/client-layout.tsx),
   // and an ungated call here 401s GET /api/users/me on every anonymous page
   // load. There is also nothing to onboard without an account, so the answer
@@ -23,7 +23,7 @@ export function OnboardingGate() {
   const { mutate: updateUser } = useUpdateUser();
   const [showTutorial, setShowTutorial] = useState(false);
 
-  // Never the URL — every route is shared between personal and business now.
+  // Never the URL: every route is shared between personal and business now.
   const workspace = useActiveWorkspace();
   const { isLoading: workspacesLoading } = useWorkspaces();
 
@@ -35,8 +35,8 @@ export function OnboardingGate() {
    * put themselves inside a business workspace. So the trigger is simply
    * "the active workspace is a business one", gated once per account on
    * `onboardedOrgInOrg`. In practice that first fires on the first business
-   * workspace the user lands in — the one they created, or the one they were
-   * invited into — and never again, whether they finished it or skipped it.
+   * workspace the user lands in: the one they created, or the one they were
+   * invited into, and never again, whether they finished it or skipped it.
    *
    * (The old account-level "no-org" tour, which pitched "Splito for Business"
    * to fresh signups on the personal dashboard, is deleted along with its
@@ -49,7 +49,7 @@ export function OnboardingGate() {
     isBusinessWorkspace && ["OWNER", "ADMIN"].includes(workspace.role?.toUpperCase() ?? "");
 
   // The tutorial component is organization-only; `mode` is now just the key it
-  // animates on. Personal still has NO first-run tour — see below.
+  // animates on. Personal still has NO first-run tour: see below.
   const mode: OnboardingMode = "organization";
 
   const isAuthPage = isAuthRoute(pathname ?? "");
@@ -65,12 +65,12 @@ export function OnboardingGate() {
   useEffect(() => {
     if (!userData?.id || isAuthPage || isLoading) return;
     // The workspace list decides `kind`, so it must have landed before anything
-    // is shown — the pre-load default is personal.
+    // is shown: the pre-load default is personal.
     if (workspacesLoading) return;
     if (isNewProfile) return;
 
     // There is still NO personal first-run tour. First run is "amount,
-    // currency, get link" — a request form that needs no explanation, and the
+    // currency, get link": a request form that needs no explanation, and the
     // old 5-step tour taught groups/friends/balances, i.e. exactly the framing
     // the product moved off. See .specs/2026-08-06-request-money-design.md
     // ("What gets deleted from app/"; "Rules that protect the framing" #3).

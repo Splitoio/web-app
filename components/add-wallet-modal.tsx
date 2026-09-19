@@ -52,7 +52,7 @@ const getChainMeta = (chainId: string) => {
 };
 
 /**
- * Not `export` — Aptos wallet functionality (the `useWallet()` call below)
+ * Not `export`: Aptos wallet functionality (the `useWallet()` call below)
  * only works inside an `AptosWalletAdapterProvider`. Mounting that provider
  * globally (components/providers.tsx used to) fires 4 mainnet RPC calls
  * (WalletCore construction) on EVERY page load, including signed-out pages
@@ -887,7 +887,7 @@ const AddWalletModalInner = ({ isOpen, onClose }: AddWalletModalProps) => {
   );
 };
 
-/** Public entry point — mounts the Aptos wallet-adapter client only while this modal exists. */
+/** Public entry point: mounts the Aptos wallet-adapter client only while this modal exists. */
 export const AddWalletModal = (props: AddWalletModalProps) => (
   <AptosWalletAdapterProvider>
     <AddWalletModalInner {...props} />

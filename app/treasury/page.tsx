@@ -13,12 +13,12 @@ import { Row } from "@/components/shell/row";
 import { Card, HeroCard, Eyebrow, Btn, Icons, T, TYPE, getUserColor, G as G_ACCENT, R } from "@/lib/splito-design";
 import { GatedScreen } from "@/components/shell/locked-feature";
 
-/** "Received 1 Aug" — the trailing date on a stream row (design line 1229). */
+/** "Received 1 Aug": the trailing date on a stream row (design line 1229). */
 function formatReceivedDate(date: Date): string {
   return `Received ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
 }
 
-/** "Spent 1 Aug" — the trailing date on an expense row. */
+/** "Spent 1 Aug": the trailing date on an expense row. */
 function formatSpentDate(date: Date): string {
   return `Spent ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
 }
@@ -28,7 +28,7 @@ function formatSpentDate(date: Date): string {
  * income-stream and expense lists, business workspaces only. Both halves are
  * organization-scoped and symmetric: `/api/organizations/:id/streams` and
  * `/api/organizations/:id/expenses`. The expense list is deliberately
- * READ-ONLY — logging an outgoing is not a Treasury Log action.
+ * READ-ONLY: logging an outgoing is not a Treasury Log action.
  *
  * The hero reads both totals off `workspaces/:id/summary`'s `treasury` field
  * rather than summing the rendered lists, so it always agrees with the
@@ -69,17 +69,17 @@ function TreasuryScreen() {
 
   const streamCount = treasury?.streamCount ?? streams?.length ?? 0;
   // Both halves come from the summary, so a failed expense LIST fetch no
-  // longer makes the expense total unknown — the old client-side sum had to
+  // longer makes the expense total unknown: the old client-side sum had to
   // fall back to income-only because an errored list silently read as a
   // confident 0. `?? 0` here is only the treasury-not-loaded case, which the
-  // `treasuryError` branch below renders as "—" rather than a number.
+  // `treasuryError` branch below renders as "-" rather than a number.
   const netTotal = (treasury?.streamsTotal ?? 0) - (treasury?.expensesTotal ?? 0);
 
   return (
     <div className="fade-up p-4 lg:p-0" style={{ maxWidth: 1000 }}>
       <HeroCard style={{ padding: 24, marginBottom: 18, position: "relative", overflow: "hidden" }}>
         {/* Same fill-the-width treatment as the dashboard's treasury hero
-            (business-dashboard.tsx) — a quiet radial glow behind the figure so
+            (business-dashboard.tsx), a quiet radial glow behind the figure so
             a short left-aligned block doesn't read as stranded in a wide card. */}
         <div
           style={{
@@ -101,7 +101,7 @@ function TreasuryScreen() {
             </div>
           ) : (
             <p style={{ margin: "8px 0 5px", color: T.white, lineHeight: 1, ...TYPE.hero }}>
-              {treasuryError ? "—" : formatCurrency(netTotal, treasury?.currency ?? "USD")}
+              {treasuryError ? "-" : formatCurrency(netTotal, treasury?.currency ?? "USD")}
             </p>
           )}
           <p style={{ margin: 0, fontSize: 12.5, color: T.sub }}>
@@ -247,7 +247,7 @@ function TreasuryScreen() {
  * TreasuryScreen's `useGetStreamsByOrganization`/`useWorkspaceTreasury`
  * hooks: those pass `enabled: isBusiness` to skip the network call, but the
  * hooks themselves still mount for an anonymous visitor with a workspace,
- * and hooks can't be called conditionally — so the only way to stop them is
+ * and hooks can't be called conditionally, so the only way to stop them is
  * to never mount the component that owns them.
  */
 export default function TreasuryPage() {

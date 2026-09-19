@@ -5,7 +5,7 @@ import { isWorkspaceAdmin } from "@/lib/workspace";
 /**
  * The shell's navigation and page titles.
  *
- * Routes are top-level and workspace-scoped — the active workspace decides
+ * Routes are top-level and workspace-scoped: the active workspace decides
  * whether `/requests` means "your requests" or "this business's requests &
  * invoices", so the same href appears in both navs with different copy.
  *
@@ -75,7 +75,7 @@ const BUSINESS_NAV: NavGroup[] = [
 ];
 
 /**
- * `isAdmin` drops "Needs approval" from a business nav for a MEMBER —
+ * `isAdmin` drops "Needs approval" from a business nav for a MEMBER:
  * approve/decline/mark-paid/clear are OWNER/ADMIN-only on the backend
  * (invoice.controller.ts), so a member following the link would only ever
  * land on a "not allowed" screen. Ignored for a personal workspace, which
@@ -99,8 +99,8 @@ export function isNavItemActive(href: string, pathname: string): boolean {
 /**
  * Stable DOM id for a nav item's rendered `<Link>`, derived from its href so
  * it can never silently drift out of sync with the sidebar the way the old
- * hand-written `sidebar-org-*-link` ids did (those named routes — dashboard,
- * invoices, streams, contracts, members — from the deleted `/organization/*`
+ * hand-written `sidebar-org-*-link` ids did (those named routes: dashboard,
+ * invoices, streams, contracts, members, from the deleted `/organization/*`
  * shell and were never updated when the nav moved to `navGroupsFor`).
  * Consumed by both `Sidebar` (sets the id) and `OnboardingTutorial` (targets
  * it), so the two can never disagree about what a step should spotlight.
@@ -149,7 +149,7 @@ function longestMatch(table: Record<string, MetaFactory>, pathname: string): str
  * Routes are only nav-linked from one workspace kind (`/members`/`/treasury`/
  * `/approvals` are business-only, never in `PERSONAL_META`), but they're still
  * real top-level pages reachable by direct URL regardless of which workspace
- * is currently active — nothing stops a personal-workspace user from landing
+ * is currently active: nothing stops a personal-workspace user from landing
  * on `/treasury`. So a miss in the active kind's table falls back to the
  * *other* table before defaulting to "/"; only a route unknown to both tables
  * gets the dashboard title.

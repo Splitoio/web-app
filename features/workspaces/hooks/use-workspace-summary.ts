@@ -5,7 +5,7 @@ import { getWorkspaceSummary, getWorkspaceTreasury } from "../api/client";
 /**
  * The active workspace's treasury totals (income streams received-to-date),
  * as reported by GET /api/workspaces/:id/summary. Kept separate from
- * `useWorkspaces` since it's per-workspace and only Treasury needs it —
+ * `useWorkspaces` since it's per-workspace and only Treasury needs it;
  * disabled outside a real (non-personal) workspace id.
  */
 export const useWorkspaceTreasury = (workspaceId: string, options?: { enabled?: boolean }) =>
@@ -16,7 +16,7 @@ export const useWorkspaceTreasury = (workspaceId: string, options?: { enabled?: 
   });
 
 /**
- * The full dashboard summary — totals, status counts, approval/treasury
+ * The full dashboard summary: totals, status counts, approval/treasury
  * counters, recent activity, and (personal workspace only) the split-balance
  * rollup. Same endpoint as `useWorkspaceTreasury` above but parses the whole
  * payload; kept on a distinct query key (rather than `WORKSPACE_SUMMARY`)

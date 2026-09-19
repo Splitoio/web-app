@@ -23,7 +23,7 @@ export type SessionStatus = "anonymous" | "loading" | "authenticated" | "error";
 
 // Defaults to "loading", never "anonymous". A consumer rendered outside the
 // provider by some future refactor would otherwise silently show the locked
-// "Sign in to …" state — the exact lie this module exists to prevent, and it
+// "Sign in to …" state, the exact lie this module exists to prevent, and it
 // would fail quietly. "loading" degrades to a spinner instead: visibly wrong
 // rather than confidently wrong.
 const SessionContext = createContext<SessionStatus>("loading");
@@ -43,7 +43,7 @@ export function useSessionStatus(): SessionStatus {
 }
 
 /**
- * True only for a genuinely signed-out visitor — the one case where showing
+ * True only for a genuinely signed-out visitor: the one case where showing
  * "Sign in to …" is the truth. Loading and error are NOT locked: see the type
  * above for why that distinction is load-bearing.
  */

@@ -12,15 +12,15 @@ import type { Quote } from "@/api-helpers/requests";
 
 /**
  * Terminal / in-flight payment states. STUCK is mandatory before launch per
- * the design doc (".specs/2026-08-06-request-money-design.md" — "STUCK is
- * mandatory and is the state teams forget") — it must have a visible
+ * the design doc (".specs/2026-08-06-request-money-design.md": "STUCK is
+ * mandatory and is the state teams forget"); it must have a visible
  * "we're on it" path, not be treated as a rare edge case handled later.
  */
 
 /**
  * The "Paid" / receipt screen (.design/splito-finance.dc.html:1578-1623).
  *
- * `quote` is the same Quote object the pay screen already fetched — this
+ * `quote` is the same Quote object the pay screen already fetched; this
  * never re-derives an amount or fee, only re-renders what was already quoted
  * and confirmed. It is null on the "already paid" cold-open (a payer who
  * opens a settled link never had a quote in THIS browser session), in which
@@ -227,7 +227,7 @@ export function PaymentFailed({ onRetry }: { onRetry: () => void }) {
 }
 
 /**
- * ROUTING — contract §4's third submit status, and a state that did not exist
+ * ROUTING: contract §4's third submit status, and a state that did not exist
  * before routing.
  *
  * The payer's SOURCE-chain transaction was broadcast and nothing has settled.
@@ -247,7 +247,7 @@ export function PaymentRouting({
 }: {
   /** SOURCE-chain tx id the payer broadcast. */
   hash: string | null;
-  /** The chain that hash lives on — the SOURCE chain, not the destination. */
+  /** The chain that hash lives on: the SOURCE chain, not the destination. */
   chain: string;
   /** Server-supplied explanation (submit's `message`). Rendered verbatim. */
   message: string | null;
@@ -262,14 +262,14 @@ export function PaymentRouting({
     <Card className="p-6 sm:p-8 text-center" style={{ marginTop: 16 }}>
       <Loader className="h-10 w-10 mx-auto mb-3 animate-spin" style={{ color: A }} />
       <p className="text-[16px] font-extrabold" style={{ color: T.bright }}>
-        Sent — now bridging to {chainName(destinationChain)}
+        Sent, now bridging to {chainName(destinationChain)}
       </p>
       <p className="text-[13px] mt-2 max-w-sm mx-auto leading-relaxed" style={{ color: T.muted }}>
         {message ??
-          `Your transaction was broadcast on ${chainName(chain)}. The funds have left your wallet and are on their way to the recipient — they have not arrived yet, and we won't say they have until they do.`}
+          `Your transaction was broadcast on ${chainName(chain)}. The funds have left your wallet and are on their way to the recipient; they have not arrived yet, and we won't say they have until they do.`}
       </p>
       <p className="text-[12px] mt-2 max-w-sm mx-auto leading-relaxed" style={{ color: T.dim }}>
-        Don&rsquo;t send it again — that would pay twice. You can safely close this page and come
+        Don&rsquo;t send it again, that would pay twice. You can safely close this page and come
         back to the same link.
       </p>
 
@@ -319,7 +319,7 @@ export function PaymentRouting({
 }
 
 /**
- * STUCK — funds left the payer and have not arrived.
+ * STUCK: funds left the payer and have not arrived.
  *
  * Reachable two ways, and the copy differs because what is KNOWN differs:
  *  - `hash` present: the transaction is on-chain. Funds definitely left. We
@@ -343,11 +343,11 @@ export function PaymentStuck({
 }: {
   hash: string | null;
   chain: string;
-  /** Routing is one CAUSE of stuck, not the only one — don't blame it on a
+  /** Routing is one CAUSE of stuck, not the only one; don't blame it on a
    *  direct payment that simply hasn't confirmed. */
   isRouted: boolean;
   /**
-   * The `recovery` object from contract §5 — the ONLY place STUCK now comes
+   * The `recovery` object from contract §5, the ONLY place STUCK now comes
    * from. Its `message` and support `contact` are server-owned copy, rendered
    * verbatim so the recovery path stated to the payer is the one operations
    * actually run, not a second copy of it that can drift.
@@ -364,7 +364,7 @@ export function PaymentStuck({
     <Card className="p-6 sm:p-8 text-center" style={{ marginTop: 16 }}>
       <Clock className="h-10 w-10 mx-auto mb-3" style={{ color: O }} />
       <p className="text-[16px] font-extrabold" style={{ color: T.bright }}>
-        {hash ? "Your funds left — we're tracking it" : "We lost track of this payment"}
+        {hash ? "Your funds left, we're tracking it" : "We lost track of this payment"}
       </p>
       <p className="text-[13px] mt-2 max-w-sm mx-auto leading-relaxed" style={{ color: T.muted }}>
         {recovery ? (
@@ -375,13 +375,13 @@ export function PaymentStuck({
             confirmed at the destination yet
             {isRouted ? ", which can happen when a payment is routed between chains" : ""}. We
             don&rsquo;t know yet whether it will arrive, and we won&rsquo;t say it has until it
-            does. Don&rsquo;t send it again — that would pay twice.
+            does. Don&rsquo;t send it again, that would pay twice.
           </>
         ) : (
           <>
             You signed, but we couldn&rsquo;t reach our server afterwards, so we can&rsquo;t tell
             you yet whether it was submitted. Check your wallet&rsquo;s own history before doing
-            anything else — if the transaction is there, it went out; if it isn&rsquo;t, nothing
+            anything else: if the transaction is there, it went out; if it isn&rsquo;t, nothing
             left. Don&rsquo;t send it again until you&rsquo;ve looked.
           </>
         )}
@@ -429,7 +429,7 @@ export function PaymentStuck({
           : "We check every few seconds automatically."}
       </p>
       <p className="mt-1.5 text-[11px] leading-relaxed max-w-sm mx-auto" style={{ color: T.dim }}>
-        This page updates itself when it resolves — you can safely leave it open, or come back to
+        This page updates itself when it resolves; you can safely leave it open, or come back to
         this same link later.
       </p>
       {recovery?.contact && (
@@ -464,7 +464,7 @@ export function RequestClosed({ reason }: { reason: "EXPIRED" | "CANCELLED" | "S
     },
     "not-found": {
       title: "We couldn't find this request",
-      body: "Check the link — it may have been copied incorrectly.",
+      body: "Check the link, it may have been copied incorrectly.",
     },
   };
   const c = copy[reason];

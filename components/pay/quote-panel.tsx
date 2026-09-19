@@ -11,7 +11,7 @@ const QUOTE_WINDOW_SECONDS = 60;
 
 /**
  * The router's own end-to-end estimate, in words. Returns null when the
- * provider reported nothing — the row is then omitted rather than filled with
+ * provider reported nothing: the row is then omitted rather than filled with
  * a guessed duration, for the same reason a fee is never synthesised.
  */
 function formatEta(ms: number | null | undefined): string | null {
@@ -28,7 +28,7 @@ function formatEta(ms: number | null | undefined): string | null {
  * Names the on-chain mechanism honestly for the converted-exact state
  * (`.specs/2026-08-07-router-alternatives.md` → "This fixes the firm-quote
  * problem"). Both are same-chain, exact-output providers, so the chain the
- * conversion happens on identifies which one — Stellar path payments enforce
+ * conversion happens on identifies which one: Stellar path payments enforce
  * `Destination amount` via `sendMax`; Jupiter enforces it via
  * `swapMode=ExactOut` / `otherAmountThreshold`. Falls back to a neutral label
  * rather than guessing when the chain is neither.
@@ -40,34 +40,34 @@ function conversionMechanism(chain: string): string {
 }
 
 /**
- * The cost breakdown, shown AFTER wallet connect and BEFORE signing — never
+ * The cost breakdown, shown AFTER wallet connect and BEFORE signing: never
  * hidden, never skipped (".plans/2026-08-06-request-money.md" → "UI direction
- * — settled": "The rate lock is the product; it has to be visible at the
+ * settled": "The rate lock is the product; it has to be visible at the
  * moment of commitment"). On expiry we re-quote; we never submit a stale
  * quote (design, "Edge cases, decided").
  *
- * ── Three states, driven by `isRouted` / `isEstimate` — never re-derived ──
+ * Three states, driven by `isRouted` / `isEstimate`, never re-derived.
  *
- * The test is `quote.isRouted` / `quote.isEstimate` — the server's explicit
+ * The test is `quote.isRouted` / `quote.isEstimate`, the server's explicit
  * statement of which path this is (contract §3, changed 2026-08-07). It is NOT
  * `quote.route == null`: `route` is a provider-supplied display label, and a
  * provider returning an empty one would make a routed payment render as direct
  * and print "exactly" over an estimate. Never re-derive the path from the
- * source/destination pair either — the server already decided.
+ * source/destination pair either: the server already decided.
  *
  * DIRECT (`isRouted === false`): the payer sends the exact destination asset
  * on the destination chain. Nothing converts between assets, so the amount
- * that lands IS the amount sent. This path may — and does — say "exactly".
+ * that lands IS the amount sent. This path may, and does, say "exactly".
  *
  * CONVERTED & EXACT (`isRouted === true`, `isEstimate === false`, ADDED
- * 2026-08-07 — `.specs/2026-08-07-router-alternatives.md`): a same-chain,
+ * 2026-08-07, `.specs/2026-08-07-router-alternatives.md`): a same-chain,
  * exact-output provider (Stellar path payment `sendMax`, Jupiter
  * `swapMode=ExactOut`) converts on the way. The recipient's landed amount is
- * protocol-enforced exact — guaranteed on-chain, or the transaction reverts.
+ * protocol-enforced exact: guaranteed on-chain, or the transaction reverts.
  * The uncertainty moves to the PAYER's side: `sourceAmountMax` is the ceiling
  * they authorize, not an estimate. This panel says "exactly"/"guaranteed"
  * about what LANDS, "up to" about what the payer SPENDS, and never uses
- * amber estimate styling here — it is a confident state, visually closer to
+ * amber estimate styling here: it is a confident state, visually closer to
  * direct than to the routed estimate below.
  *
  * ROUTED ESTIMATE (`isRouted === true`, `isEstimate === true`): a
@@ -78,7 +78,7 @@ function conversionMechanism(chain: string): string {
  * the number, not what the router will honour. So every amount on this path
  * is an ESTIMATE inside a slippage band, and this panel must never write
  * "exactly", "guaranteed", or "you will receive" on it. Landing outside the
- * band marks the share partially paid and shows the shortfall — it is not
+ * band marks the share partially paid and shows the shortfall; it is not
  * topped up.
  */
 export function QuotePanel({
@@ -99,17 +99,17 @@ export function QuotePanel({
   onChangeSource,
 }: {
   quote: Quote;
-  quoteExpiry: string; // ISO datetime, server-supplied — never client-computed
+  quoteExpiry: string; // ISO datetime, server-supplied; never client-computed
   sourceChain: string;
   sourceAsset: string;
   destinationChain: string;
   destinationAsset: string;
-  /** The currency the share is denominated in — USD in v1. */
+  /** The currency the share is denominated in (USD in v1). */
   denominationCurrency: string;
-  /** The payer's fiat share amount — drives the rate-lock note's "$X is $X" copy. */
+  /** The payer's fiat share amount; drives the rate-lock note's "$X is $X" copy. */
   amount: number;
   /**
-   * The `kind` of every transaction the payer must sign, IN ORDER — i.e.
+   * The `kind` of every transaction the payer must sign, IN ORDER: i.e.
    * `unsignedTransactions.map(t => t.kind)` on a routed payment, where an
    * "approve" leg can precede "transfer". Empty on the direct path, which is
    * always a single signature. Surfaced BEFORE the button so a second wallet
@@ -147,13 +147,13 @@ export function QuotePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpired]);
 
-  // The server's own verdict on which path this is — see the file header for
+  // The server's own verdict on which path this is; see the file header for
   // why this is not derived from `route` or from the chain pair.
   const isRouted = quote.isRouted;
   const isEstimate = quote.isEstimate;
   // Converted, but exact-output: a same-chain provider (Stellar path payment /
   // Jupiter ExactOut) converts on the way and still guarantees the landed
-  // amount. Never amber — see file header.
+  // amount. Never amber; see file header.
   const isConvertedExact = isRouted && !isEstimate;
   const srcSymbol = assetSymbol(quote.sourceAsset ?? sourceAsset);
   const dstSymbol = assetSymbol(quote.destinationAsset ?? destinationAsset);
@@ -206,7 +206,7 @@ export function QuotePanel({
           className="text-[11px] font-bold tracking-[0.08em] uppercase"
           style={{ color: T.muted }}
         >
-          {/* Lock 2 — the CONVERSION QUOTE (.specs/2026-08-06-request-money-design.md
+          {/* Lock 2: the CONVERSION QUOTE (.specs/2026-08-06-request-money-design.md
               → "The two-lock model"), never "rate locked": that phrase is
               reserved for Lock 1 (the request's own denomination lock) below,
               and reusing it here read as the page contradicting itself when
@@ -248,13 +248,13 @@ export function QuotePanel({
           <RefreshCw className="h-4 w-4 animate-spin" style={{ color: A }} />
           <p className="text-[13px] font-medium" style={{ color: T.muted }}>
             {isEstimate
-              ? "Estimate expired — recalculating…"
-              : "Quote expired — getting a fresh rate…"}
+              ? "Estimate expired, recalculating…"
+              : "Quote expired, getting a fresh rate…"}
           </p>
         </div>
       ) : (
         <>
-          {/* Path badge — the payer should never have to infer which one they're on. */}
+          {/* Path badge: the payer should never have to infer which one they're on. */}
           <div className="flex items-center justify-between gap-2 mb-3.5">
             {isEstimate ? (
               <span
@@ -334,7 +334,7 @@ export function QuotePanel({
               </div>
             )}
             {/* Every cost the router reported, itemised. No rows at all when it
-                reported none — a placeholder here would be a made-up number in
+                reported none; a placeholder here would be a made-up number in
                 the one place it matters most. */}
             {feeRows.map((f) => (
               <div key={f.key} className="flex items-center justify-between gap-3">
@@ -392,14 +392,14 @@ export function QuotePanel({
             )}
           </div>
 
-          {/* Lock 1 — the request's own DENOMINATION lock
+          {/* Lock 1: the request's own DENOMINATION lock
               (.design/splito-finance.dc.html:1546-1548;
               .specs/2026-08-06-request-money-design.md → "The two-lock
               model"). `quote.rateLocked` is the server's own verdict on
               which rate was actually charged (contract change,
               request-money.controller.ts ~line 906): true only when the
               requester's Lock-1 rate from request creation was used.
-              Deliberately never says "rate locked" up here — that phrase now
+              Deliberately never says "rate locked" up here; that phrase now
               belongs solely to the Lock-2 countdown header above, and this
               note calls out "the quote above" explicitly so the two read as
               complementary (creation-time lock vs. this-minute quote), not
@@ -423,7 +423,7 @@ export function QuotePanel({
             <p className="text-[11.5px] leading-relaxed" style={{ color: T.mid }}>
               {quote.rateLocked ? (
                 <>
-                  The sender locked this request&rsquo;s rate when they created it —{" "}
+                  The sender locked this request&rsquo;s rate when they created it:{" "}
                   <span style={{ color: T.main, fontWeight: 700 }}>
                     {formatCurrency(amount, denominationCurrency)}
                   </span>{" "}
@@ -431,7 +431,7 @@ export function QuotePanel({
                   The quote above is a separate, shorter hold on today&rsquo;s conversion.
                 </>
               ) : (
-                "The sender didn't lock a rate when they created this request — today's conversion is the quote above, fetched live just now."
+                "The sender didn't lock a rate when they created this request: today's conversion is the quote above, fetched live just now."
               )}
             </p>
           </div>
@@ -467,7 +467,7 @@ export function QuotePanel({
                   guarantee.</strong>{" "}
                   Your {srcSymbol} is converted by a third-party router that calculates a price
                   but does not reserve one, so what lands can move by up to ±{slippagePct}% either
-                  way. Our {QUOTE_WINDOW_SECONDS} seconds is how long we hold this number — not a
+                  way. Our {QUOTE_WINDOW_SECONDS} seconds is how long we hold this number, not a
                   promise from the router. If it lands short of your share, your share is marked
                   partially paid and the shortfall is shown; we do not top it up.
                   {onChangeSource
@@ -476,10 +476,10 @@ export function QuotePanel({
                 </>
               ) : isConvertedExact ? (
                 <>
-                  This converts through <strong style={{ color: A }}>{mechanismLabel}</strong> —
+                  This converts through <strong style={{ color: A }}>{mechanismLabel}</strong>:
                   the recipient receives exactly {quote.destinationAmount} {dstSymbol}, guaranteed
                   on-chain. If the price moves too far before you sign, the transaction{" "}
-                  <strong style={{ color: T.bright }}>reverts rather than underpaying</strong> —
+                  <strong style={{ color: T.bright }}>reverts rather than underpaying</strong>;
                   there is no partial fill. What varies is what you spend:{" "}
                   {sourceCeiling
                     ? `your wallet authorizes up to ${sourceCeiling} ${srcSymbol}, and only what the conversion actually needs is used.`
@@ -490,7 +490,7 @@ export function QuotePanel({
               ) : (
                 <>
                   You&rsquo;re sending the exact asset the recipient asked for, so no conversion
-                  happens on the way — {quote.destinationAmount} {dstSymbol}{" "}
+                  happens on the way: {quote.destinationAmount} {dstSymbol}{" "}
                   is exactly what lands, minus only the network&rsquo;s own fee. Funds go straight to their wallet: there
                   is no escrow, and each person&rsquo;s payment lands on its own, so this is not
                   all-or-nothing. If this quote expires before you sign we&rsquo;ll get a fresh
@@ -502,24 +502,24 @@ export function QuotePanel({
 
           {isRouted && (
             <p className="text-[11px] leading-relaxed mt-2.5" style={{ color: T.dim }}>
-              Funds go straight to the recipient&rsquo;s wallet — no escrow, and each person&rsquo;s
+              Funds go straight to the recipient&rsquo;s wallet: no escrow, and each person&rsquo;s
               payment lands on its own, so this is not all-or-nothing.
             </p>
           )}
 
           {/* MULTI-SIGNATURE, DISCLOSED BEFORE THE BUTTON. A routed payment can
-              need an allowance ("approve") signed before the transfer, or —
-              for a same-chain Jupiter conversion — a "swap" leg (converts
+              need an allowance ("approve") signed before the transfer, or,
+              for a same-chain Jupiter conversion, a "swap" leg (converts
               inside the payer's OWN wallet) before the "transfer" leg that
               actually pays the recipient. Either way the wallet prompts more
               than once, and an unannounced second prompt reads as a duplicate
-              charge — so the count is stated up front and the button counts
+              charge, so the count is stated up front and the button counts
               the steps off.
 
               The "swap" case gets its OWN copy, not the "approve" one: an
               approve that never completes truly leaves nothing sent, but a
               swap that completes and is followed by a failed transfer is NOT
-              a no-op — the payer is not out of pocket, but they now hold a
+              a no-op: the payer is not out of pocket, but they now hold a
               different asset than they started with. Saying "nothing is
               sent" here would be false, and calling this atomic would be
               worse. */}
@@ -539,18 +539,18 @@ export function QuotePanel({
                 {signatureKinds[0] === "approve" ? (
                   "The first approves the router to move your funds; the last one actually sends them. This is one payment, not " +
                   String(signatureCount) +
-                  " — you are only charged once. Approve every prompt, or nothing is sent."
+                  ": you are only charged once. Approve every prompt, or nothing is sent."
                 ) : signatureKinds[0] === "swap" ? (
                   <>
                     The first converts {srcSymbol} inside your OWN wallet; the second sends the
                     converted amount to the recipient. <strong style={{ color: T.bright }}>These
                     two steps are not one atomic action.</strong> If the first succeeds and the
-                    second fails, you are not out of pocket — but you will be holding the
+                    second fails, you are not out of pocket, but you will be holding the
                     converted asset in your wallet instead of {srcSymbol}, not a completed
                     payment. Approve every prompt to complete the payment in one go.
                   </>
                 ) : (
-                  `This is one payment, not ${signatureCount} — you are only charged once. Approve every prompt, or nothing is sent.`
+                  `This is one payment, not ${signatureCount}: you are only charged once. Approve every prompt, or nothing is sent.`
                 )}
               </p>
             </div>

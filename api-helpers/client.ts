@@ -17,7 +17,7 @@ const redirectToLogin = () => {
     // Clear any auth tokens
     Cookies.remove("sessionToken");
     // The session is gone, so every in-flight 401 that lands after this one is
-    // now case 1 (anonymous) rather than case 2 (expiry) — see the interceptor.
+    // now case 1 (anonymous) rather than case 2 (expiry); see the interceptor.
     setSessionPresent(false);
 
     // Only redirect if we're not already on the login page
@@ -48,7 +48,7 @@ export const apiClient = axios.create({
   headers: { "Cache-Control": "no-cache" }
 });
 
-// Request interceptor — deliberately a pass-through.
+// Request interceptor: deliberately a pass-through.
 //
 // There is no client-side auth decision to make here: better-auth's session
 // cookie is httpOnly, so this code cannot read it, and `withCredentials` sends
@@ -59,7 +59,7 @@ export const apiClient = axios.create({
 // array and threw the result away. Beyond being dead, it was a SECOND source of
 // truth for "public" that could drift from lib/middleware-session.ts, and it
 // shadowed the isPublicRoute imported above. If you ever need a route check
-// here, import it from lib/middleware-session.ts — never re-declare the list.
+// here, import it from lib/middleware-session.ts; never re-declare the list.
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => config,
   (error) => {
@@ -85,7 +85,7 @@ apiClient.interceptors.response.use(
     // Diagnostic only, and deliberately console.log rather than console.error:
     // per the comment below, a 401 here is the EXPECTED answer for an anonymous
     // visitor browsing the logged-out console, and Next dev echoes console.error
-    // to the server terminal with a code frame — which would render normal
+    // to the server terminal with a code frame, which would render normal
     // behaviour as a crash on every page load.
     //
     // This is NOT a user-facing surface. Every caller that can fail visibly must
@@ -98,20 +98,20 @@ apiClient.interceptors.response.use(
     //
     //   1. An ANONYMOUS VISITOR browsing the logged-out console. Every locked
     //      feature is real UI backed by a real endpoint, so 401s are the
-    //      expected answer, on ANY route — not just the public ones. Redirecting
+    //      expected answer, on ANY route, not just the public ones. Redirecting
     //      them to /login is precisely the behaviour the logged-out console
     //      exists to remove.
     //   2. An EXPIRED / REVOKED SESSION. The visitor had a session, the server
     //      just rejected it, and they must be sent to /login.
     //
-    // The HTTP layer cannot tell them apart — the discriminator is whether a
+    // The HTTP layer cannot tell them apart: the discriminator is whether a
     // session cookie was present when the server rendered this page
     // (app/layout.tsx → AuthProvider → lib/session-presence.ts). No cookie ever
     // means case 1, full stop. A cookie means case 2.
     //
     // The public-route check is kept ON TOP of that, because it answers a
     // different question: /pay/*, /invite/* and "/" must never bounce ANYONE,
-    // signed in or not — a signed-in user paying someone else's link whose
+    // signed in or not: a signed-in user paying someone else's link whose
     // session lapses mid-flight should stay on the payer page.
     if (normalizedError.code === 401 && typeof window !== "undefined") {
       const currentPath = window.location.pathname;
@@ -129,12 +129,12 @@ apiClient.interceptors.response.use(
  * Did this rejection mean "no valid session", as opposed to "the server broke"?
  *
  * The response interceptor above rejects with `normalizedError`, a plain
- * {code, message, data, name} object — NOT an AxiosError — so `.response.status`
+ * {code, message, data, name} object, NOT an AxiosError, so `.response.status`
  * is undefined on anything that reached it. The AxiosError read stays as a
  * fallback for callers that reject before normalization.
  *
  * Two very different consumers need this exact test and must never disagree:
- * the retry policy below (never retry a 401 — it will not spontaneously start
+ * the retry policy below (never retry a 401, it will not spontaneously start
  * working) and components/AuthProvider.tsx, which turns a 401 on the user fetch
  * into "anonymous" rather than "error". Getting that wrong on "/" strands an
  * expired session on a permanent "you're still signed in" screen, because "/"

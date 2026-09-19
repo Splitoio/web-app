@@ -45,7 +45,7 @@ import {
   signStellarUnsignedTx,
 } from "@/components/pay/pay-wallet";
 
-/** "allbridge" -> "Allbridge" — display only, never used to decide a path. */
+/** "allbridge" -> "Allbridge"; display only, never used to decide a path. */
 function humanizeProvider(id: string | null | undefined): string | null {
   if (!id) return null;
   return id.charAt(0).toUpperCase() + id.slice(1);
@@ -104,7 +104,7 @@ function errorMessage(err: unknown): string {
  * Turns a failed quote/submit call into payer-facing copy plus a retryable
  * flag. Neither endpoint ships a machine-readable `reason` field the way
  * POST /requests does (checked in backend/src/controllers/request-money.
- * controller.ts — quoteRequest/submitRequest only ever send `{ error }`), so
+ * controller.ts: quoteRequest/submitRequest only ever send `{ error }`), so
  * this branches on HTTP status instead: 404/409 mean the request or attempt
  * itself moved on (deleted, expired, already paid, already in flight
  * elsewhere) and retrying the SAME step cannot succeed. Everything else
@@ -123,7 +123,7 @@ function classifyRecoverable(
   if (/quote has expired/i.test(message)) {
     return {
       title: "Your quote expired.",
-      detail: "Rates only hold for a short window — get a fresh one and you're set.",
+      detail: "Rates only hold for a short window; get a fresh one and you're set.",
       retryable: true,
       expiredQuote: true,
     };
@@ -146,7 +146,7 @@ function classifyRecoverable(
   }
   return {
     title: fallbackTitle,
-    detail: "This is usually temporary — try again.",
+    detail: "This is usually temporary; try again.",
     retryable: true,
     expiredQuote: false,
   };
@@ -173,10 +173,10 @@ export default function PayRequestPage() {
   const [quote, setQuote] = useState<QuoteRequestResponse | null>(null);
   const [submitResult, setSubmitResult] = useState<SubmitRequestResponse | null>(null);
   // Set independently of `submitResult` because the STUCK state is often
-  // reached WITHOUT a submit response — see handleConfirmSign.
+  // reached WITHOUT a submit response: see handleConfirmSign.
   const [stuckHash, setStuckHash] = useState<string | null>(null);
   // The attempt being tracked, and the last §5 read of it. `attemptId` is set
-  // the moment we sign, NOT when submit returns — if submit never answers we
+  // the moment we sign, NOT when submit returns; if submit never answers we
   // still need something to poll.
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [attempt, setAttempt] = useState<PublicPaymentAttemptResponse | null>(null);
@@ -185,7 +185,7 @@ export default function PayRequestPage() {
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   // Recoverable failure from a quote/sign/submit step, rendered inline in the
-  // SummaryPanel's route slot — see components/pay/action-error.tsx. Cleared
+  // SummaryPanel's route slot: see components/pay/action-error.tsx. Cleared
   // at the start of every fresh attempt (requestQuote, handleConfirmSign) so
   // a retry never leaves a stale message sitting over a new in-flight step.
   const [actionError, setActionError] = useState<PayActionError | null>(null);
@@ -236,7 +236,7 @@ export default function PayRequestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // What the payer may pay WITH — server-owned and request-specific
+  // What the payer may pay WITH: server-owned and request-specific
   // (contract §2b). Failure keeps the direct pair set above rather than
   // widening to a guess, so the payer can always still pay.
   useEffect(() => {
@@ -260,7 +260,7 @@ export default function PayRequestPage() {
    * The request-level endpoint only reports whether a payer's share is paid;
    * it cannot tell in-flight from stuck, carries no destination hash, and has
    * no recovery copy. §5 has all three, so it is the only thing worth polling
-   * once a payment is in flight — and STUCK now comes from here alone, never
+   * once a payment is in flight, and STUCK now comes from here alone, never
    * from submit.
    */
   const checkStatus = useCallback(async () => {
@@ -290,7 +290,7 @@ export default function PayRequestPage() {
     }
   }, [attemptId, token]);
 
-  // Poll while the payment is in flight or stuck — the backend resolves both
+  // Poll while the payment is in flight or stuck: the backend resolves both
   // without the payer doing anything, and the page must reflect it without a
   // manual reload.
   useEffect(() => {
@@ -327,7 +327,7 @@ export default function PayRequestPage() {
         setActionError({
           title: info.title,
           detail: info.detail,
-          // Same wallet, same source — re-running the quote is a one-click
+          // Same wallet, same source: re-running the quote is a one-click
           // retry, not a reconnect. `w`/`source` are this call's own
           // arguments, still valid when the button fires later.
           onRetry: info.retryable ? () => requestQuote(w, source) : undefined,
@@ -364,7 +364,7 @@ export default function PayRequestPage() {
         return;
       }
 
-      // Exactly one thing they could pay with — a picker with one option is a
+      // Exactly one thing they could pay with: a picker with one option is a
       // speed bump, not a choice. Quote it and let the panel disclose it.
       if (available.length === 1) {
         setSelectedSource(available[0]);
@@ -406,8 +406,8 @@ export default function PayRequestPage() {
   const handleConfirmSign = useCallback(async () => {
     if (!wallet || !quote) return;
 
-    // `quote.chain` — NOT the request's destination chain and not the wallet's
-    // own idea of itself — is what selects the adapter. Contract §3 (changed
+    // `quote.chain` (NOT the request's destination chain and not the wallet's
+    // own idea of itself) is what selects the adapter. Contract §3 (changed
     // 2026-08-07): it is the destination chain when direct and the SOURCE
     // chain when routed. Signing a routed payment with the destination
     // adapter would hand a source-chain payload to the wrong wallet.
@@ -439,7 +439,7 @@ export default function PayRequestPage() {
 
     // ── Step 1: sign. On the direct path a throw here means nothing left the
     // wallet. On a routed multi-leg payment a throw after an "approve" leg
-    // also means no funds moved — an allowance is not a payment. ──
+    // also means no funds moved: an allowance is not a payment. ──
     let signedTx: string;
     try {
       if (quote.isRouted) {
@@ -467,7 +467,7 @@ export default function PayRequestPage() {
         signedTx = await signAndBroadcastSolanaUnsignedTx(wallet.address, quote.unsignedTx);
       }
     } catch (err) {
-      // Nothing left the wallet on this path — the throw happened before or
+      // Nothing left the wallet on this path: the throw happened before or
       // during signing. Retry re-runs handleConfirmSign from the top with
       // the same quote and wallet still in state, i.e. it re-prompts the
       // wallet rather than restarting the flow.
@@ -481,7 +481,7 @@ export default function PayRequestPage() {
     }
 
     // ── Step 2: hand it to the server. What a failure MEANS depends on who
-    // broadcast. Submit's union is CONFIRMED | FAILED | ROUTING — STUCK is no
+    // broadcast. Submit's union is CONFIRMED | FAILED | ROUTING; STUCK is no
     // longer returned here at all (contract §4, changed 2026-08-07). ──
     try {
       const result = await submitRequestPayment(token, {
@@ -534,7 +534,7 @@ export default function PayRequestPage() {
         onRetry: !info.retryable
           ? undefined
           : info.expiredQuote
-            ? // The stored quote is stale server-side — resubmitting the same
+            ? // The stored quote is stale server-side: resubmitting the same
               // signedTx would just fail again. Get a fresh quote instead,
               // for the same wallet/source already selected.
               () => {
@@ -554,7 +554,7 @@ export default function PayRequestPage() {
     setSubmitResult(null);
     setStuckHash(null);
     setActionError(null);
-    // A retry is a NEW attempt — keeping the old id would poll a dead one and
+    // A retry is a NEW attempt: keeping the old id would poll a dead one and
     // re-render its terminal state over the fresh quote.
     setAttemptId(null);
     setAttempt(null);
@@ -575,7 +575,7 @@ export default function PayRequestPage() {
    * The ONLY two places this page knows about accounts. Both fail open: a
    * guest, a failed lookup, or a signed-in payer with nothing saved on this
    * chain all land back on the untouched anonymous flow. See
-   * components/pay/use-payer-identity.ts — in particular why the page has to
+   * components/pay/use-payer-identity.ts, in particular why the page has to
    * ask for the session itself rather than read useSessionStatus().
    *
    * Nothing here is passed to the public API. `payerId` is still the only
@@ -596,7 +596,7 @@ export default function PayRequestPage() {
   }, [request?.destinationChain, savedAddress]);
 
   // "Paid"/"already-paid" is the design's separate full-page receipt state
-  // (.design/splito-finance.dc.html:1578-1623) — no top header row, more top
+  // (.design/splito-finance.dc.html:1578-1623): no top header row, more top
   // padding instead. Every other phase gets the guest-checkout header
   // (logo, "Paying as guest", "Back to app") from the "isPay" screen.
   const isReceipt = phase === "confirmed" || phase === "already-paid";
@@ -690,11 +690,11 @@ export default function PayRequestPage() {
               )}
 
               {/* Design 1482-1575 keeps the picked chain/token tiles visible in
-                  the left column even once chosen, not collapsed away — the
+                  the left column even once chosen, not collapsed away: the
                   wallet address readout plus a PERSISTENT SourcePicker (not
                   gated to only the "select-source" phase) is that for us:
-                  it's real content (what you're paying with, and — when
-                  there's more than one option — the ability to change it),
+                  it's real content (what you're paying with, and, when
+                  there's more than one option, the ability to change it),
                   not filler. Excluded during "submitting" so a click can't
                   race a signature already in flight. */}
               {wallet &&
@@ -720,7 +720,7 @@ export default function PayRequestPage() {
                 )}
 
               {/* Unconditional on phase: a quote failure lands on
-                  "select-source", a signing/submit failure stays on "ready" —
+                  "select-source", a signing/submit failure stays on "ready":
                   this is the one slot that's visible across all of them. */}
               {actionError && (
                 <PayActionErrorNotice error={actionError} onDismiss={() => setActionError(null)} />
@@ -838,7 +838,7 @@ export default function PayRequestPage() {
               (!!selectedSource &&
                 !isDirectSource(selectedSource, request.destinationChain, request.destinationAsset))
             }
-            // Server-owned copy from §5 — rendered verbatim when present.
+            // Server-owned copy from §5: rendered verbatim when present.
             recovery={attempt?.recovery ?? null}
             onCheckNow={checkStatus}
             isChecking={isChecking}

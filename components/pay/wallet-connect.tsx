@@ -16,7 +16,7 @@ export interface ConnectedWallet {
   stellarKit?: StellarWalletsKit;
 }
 
-/** "GABCDEF…UVWXYZ" — recognisable at a glance, never the full string. */
+/** "GABCDEF…UVWXYZ": recognisable at a glance, never the full string. */
 function shortAddress(address: string): string {
   return address.length > 16 ? `${address.slice(0, 6)}…${address.slice(-6)}` : address;
 }
@@ -28,7 +28,7 @@ const CHAIN_LABEL: Record<PayWalletChain, string> = {
 
 /**
  * Lowest-intimidation wallet step. Destinations in scope are Stellar and
- * Solana only (contract §0.1) — offer whichever wallet the payer already
+ * Solana only (contract §0.1): offer whichever wallet the payer already
  * has, not a long chain picker.
  */
 export function WalletConnect({
@@ -38,18 +38,18 @@ export function WalletConnect({
   onConnected: (wallet: ConnectedWallet) => void;
   /**
    * The signed-in payer's saved address for this request's destination chain,
-   * when exactly one is unambiguous — see use-payer-identity.ts. Null for a
+   * when exactly one is unambiguous, see use-payer-identity.ts. Null for a
    * guest, and when it is null this component renders EXACTLY what it always
    * did, down to the button styling.
    *
    * It is a pre-selection, not a shortcut. Paying requires a signature and a
    * signature requires the live wallet (Stellar Wallets Kit / Phantom), so a
-   * stored address can never stand in for connecting — see pay-wallet.ts,
+   * stored address can never stand in for connecting, see pay-wallet.ts,
    * where signing needs the `StellarWalletsKit` instance the connect step
    * builds, and where Phantom refuses to sign for an address it isn't
    * currently unlocked to. What this DOES remove is the "which chain am I
    * paying from?" decision, and it tells the payer up front which of their
-   * accounts we expect — instead of making them work it out from scratch.
+   * accounts we expect, instead of making them work it out from scratch.
    */
   savedWallet?: { chain: PayWalletChain; address: string } | null;
 }) {
@@ -96,7 +96,7 @@ export function WalletConnect({
 
       {/* The saved-wallet block and the demotion below it are BOTH gated on
           `savedWallet`. A guest renders the original two-button grid with the
-          original styling — this whole branch is invisible to them. */}
+          original styling: this whole branch is invisible to them. */}
       {savedWallet && (
         <div className="mb-5">
           <button
@@ -144,7 +144,7 @@ export function WalletConnect({
               : "flex items-center justify-center gap-2 rounded-xl py-3.5 text-[13.5px] font-extrabold transition-all hover:opacity-90 disabled:opacity-50"
           }
           // With a saved wallet suggested above, the accent belongs to THAT
-          // button — two primaries would be two "do this first"s.
+          // button: two primaries would be two "do this first"s.
           style={
             savedWallet
               ? { borderColor: "rgba(255,255,255,0.14)", color: T.bright }

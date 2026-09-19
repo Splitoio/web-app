@@ -97,7 +97,7 @@ function contractPayLabel(c: Contract): string | null {
 /**
  * An invite's own state, which is NOT the same as a member's. Nobody is seated
  * until they accept, so this is the only truthful thing the screen can say
- * about an invited person — it never claims they were added.
+ * about an invited person: it never claims they were added.
  */
 function inviteStatusMeta(invite: OrganizationInvite): { label: string; color: string } {
   if (invite.status === "REVOKED") return { label: "Revoked", color: R };
@@ -155,7 +155,7 @@ function MembersScreen() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
   // Member, not Admin. Admin can revoke invites, change roles and remove
-  // people — that is a deliberate grant, never what you get by not touching
+  // people: that is a deliberate grant, never what you get by not touching
   // the toggle.
   const [role, setRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const [withContract, setWithContract] = useState(false);
@@ -227,7 +227,7 @@ function MembersScreen() {
       await navigator.clipboard.writeText(url);
       toast.success("Invite link copied");
     } catch {
-      toast.error("Couldn't copy — the link is in the invite email too");
+      toast.error("Couldn't copy, the link is in the invite email too");
     }
   };
 
@@ -266,7 +266,7 @@ function MembersScreen() {
         },
         {
           onSuccess: () => {
-            toast.success("Contract sent — they join once they sign");
+            toast.success("Contract sent, they join once they sign");
             closeInvite();
           },
           onError: (err: unknown) => toast.error(errMsg(err, "Failed to create contract")),
@@ -284,7 +284,7 @@ function MembersScreen() {
           if (invite.emailDelivered === false) {
             toast.warning(
               invite.deliveryError ??
-                `Invite created, but the email to ${trimmedEmail} couldn't be sent — share the link manually`
+                `Invite created, but the email to ${trimmedEmail} couldn't be sent; share the link manually`
             );
             if (invite.inviteUrl) void copyLink(invite.inviteUrl);
           } else {
@@ -297,7 +297,7 @@ function MembersScreen() {
     );
   };
 
-  /** A shareable link invite — no email, so it defaults to whatever role is picked. */
+  /** A shareable link invite: no email, so it defaults to whatever role is picked. */
   const handleCreateLinkInvite = () => {
     createInvite.mutate(
       { organizationId, payload: { role } },
@@ -340,7 +340,7 @@ function MembersScreen() {
     if (!revokeTarget) return;
     revoke.mutate(revokeTarget.id, {
       onSuccess: () => {
-        toast.success("Invite revoked — that link no longer works");
+        toast.success("Invite revoked, that link no longer works");
         setRevokeTarget(null);
       },
       onError: (err: unknown) => toast.error(errMsg(err, "Failed to revoke invite")),
@@ -353,15 +353,15 @@ function MembersScreen() {
         if (updated.emailDelivered === false) {
           toast.warning(
             updated.deliveryError ??
-              "New link created, but the email couldn't be sent — share the link manually"
+              "New link created, but the email couldn't be sent; share the link manually"
           );
           if (updated.inviteUrl) void copyLink(updated.inviteUrl);
           return;
         }
         toast.success(
           invite.kind === "email"
-            ? "Invite re-sent — the previous link has stopped working"
-            : "New link created — the previous link has stopped working"
+            ? "Invite re-sent, the previous link has stopped working"
+            : "New link created, the previous link has stopped working"
         );
         if (invite.kind === "link" && updated.inviteUrl) void copyLink(updated.inviteUrl);
       },
@@ -425,7 +425,7 @@ function MembersScreen() {
             <div>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#fff" }}>Invite someone</p>
               <p style={{ margin: "3px 0 0", fontSize: 12.5, color: T.sub }}>
-                They join {workspace.name} when they accept — nothing changes here until they do.
+                They join {workspace.name} when they accept, nothing changes here until they do.
               </p>
             </div>
             <div style={{ flex: 1 }} />
@@ -508,7 +508,7 @@ function MembersScreen() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: A }}>Require a signed contract</p>
               <p style={{ margin: "4px 0 0", fontSize: 11.5, lineHeight: 1.55, color: T.muted, maxWidth: 520 }}>
-                They only get access once they sign — no contract means no workspace access, ever.
+                They only get access once they sign; no contract means no workspace access, ever.
                 Signing always makes them a Member; promote to Admin afterward if needed.
               </p>
             </div>
@@ -520,7 +520,7 @@ function MembersScreen() {
               <p style={eyebrow()}>The contract</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12, marginBottom: 12 }}>
                 <Field label="Contract name" small>
-                  <input value={cTitle} onChange={(e) => setCTitle(e.target.value)} placeholder="e.g. Content Manager — Jackie" style={inputStyleSm} />
+                  <input value={cTitle} onChange={(e) => setCTitle(e.target.value)} placeholder="e.g. Content Manager, Jackie" style={inputStyleSm} />
                 </Field>
                 <Field label="Job title" small>
                   <input value={cJobTitle} onChange={(e) => setCJobTitle(e.target.value)} placeholder="e.g. Content Manager" style={inputStyleSm} />
@@ -1029,7 +1029,7 @@ const sendBtnStyle: React.CSSProperties = {
  * The shell now renders its chrome for signed-out visitors too, so
  * `/members` is reachable without a session. Gate here, above
  * MembersScreen's `useGetOrganizationMembers`/`useGetContractsByOrganization`/
- * `useGetOrganizationInvites` hooks — hooks can't be called conditionally, so
+ * `useGetOrganizationInvites` hooks: hooks can't be called conditionally, so
  * the only way to keep those queries from firing for an anonymous visitor is
  * to never mount the component that owns them.
  */

@@ -22,7 +22,7 @@ export function ClientLayout({
   hasSession?: boolean;
 }) {
   const pathname = usePathname();
-  // "/pay" is the public, no-account payer flow — never mount the
+  // "/pay" is the public, no-account payer flow: never mount the
   // authenticated chrome (Sidebar, OnboardingGate) there, since those fire
   // session-requiring queries that 401 an anonymous visitor straight to
   // /login. See .plans/2026-08-06-request-money.md "NO AUTH, EVER".
@@ -32,7 +32,7 @@ export function ClientLayout({
   // authenticated chrome (the shell is global nav, every page). Only
   // /login-style auth pages and /pay are chrome-free. If you add a new
   // no-chrome route, check components/AuthProvider.tsx and
-  // api-helpers/client.ts too — they source from lib/middleware-session.ts and
+  // api-helpers/client.ts too: they source from lib/middleware-session.ts and
   // may need the route added there instead.
   // "/invite/*" is chrome-free for the same reason: a signed-out visitor lands
   // there straight from an invite email, and the shell's session-requiring
@@ -46,12 +46,12 @@ export function ClientLayout({
     pathname?.startsWith("/invite") ||
     pathname?.startsWith("/docs");
 
-  // A signed-out visitor on "/" USED TO get a chrome-free card here — logo,
+  // A signed-out visitor on "/" USED TO get a chrome-free card here: logo,
   // "Log in", and a stripped-down request form. That branch is gone. The
   // logged-out visitor now lands in the same shell as everyone else and sees
   // the real console: the sidebar (with its "Guest session" panel), the topbar,
   // the mobile nav, all of it. What they cannot use is rendered disabled with a
-  // reason rather than hidden — see components/shell/locked-feature.tsx and
+  // reason rather than hidden: see components/shell/locked-feature.tsx and
   // app/page.tsx.
   //
   // Two things make that safe, and both must hold or an anonymous visitor gets
@@ -59,7 +59,7 @@ export function ClientLayout({
   //   1. Every session-requiring query in the shell is gated on
   //      `isAuthenticated` (OnboardingGate below, contexts/workspace.tsx).
   //   2. The 401 interceptor only redirects when a session cookie was actually
-  //      present — api-helpers/client.ts, lib/session-presence.ts.
+  //      present: api-helpers/client.ts, lib/session-presence.ts.
   //
   // /pay/* and /invite/* stay chrome-free (isAuthPage above): those are the
   // no-account payer/invite flows, not the console.

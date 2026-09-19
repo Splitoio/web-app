@@ -4,13 +4,13 @@ import React from "react";
 import { Card, T } from "@/lib/splito-design";
 import { RowShell } from "./row";
 
-/** Design's requests/invoices/bills grid — INDEX.md §1 "Common grids". */
+/** Design's requests/invoices/bills grid: INDEX.md §1 "Common grids". */
 export const DEFAULT_DATA_TABLE_COLUMNS = "2.2fr 1fr 1fr 1.1fr 1fr 0.8fr";
 
 export interface DataTableColumn<T> {
   key: string;
   header: string;
-  /** Right-align the header + cell — use for trailing numeric/age columns. */
+  /** Right-align the header + cell: use for trailing numeric/age columns. */
   align?: "left" | "right";
   render: (row: T) => React.ReactNode;
 }
@@ -33,7 +33,7 @@ export interface DataTableProps<T> {
  * The list-screen table card (design lines 462-496): a surface card, an
  * uppercase column-header row, and `.rw` data rows built on `RowShell`.
  * Columns are fully configurable so the same table can render the requests,
- * invoices, or bills grids — each with its own field shapes.
+ * invoices, or bills grids: each with its own field shapes.
  */
 export function DataTable<T>({
   columns,

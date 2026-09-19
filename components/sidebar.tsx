@@ -39,7 +39,7 @@ const SIDEBAR_WIDTH = 258;
 
 /**
  * The switcher's resting row. Split out of <Sidebar/> so the signed-out console
- * can render the SAME control inside a lock wrapper — a separate disabled copy
+ * can render the SAME control inside a lock wrapper: a separate disabled copy
  * would be one more thing to keep in sync with this one.
  */
 function WorkspaceSwitcherButton({
@@ -52,7 +52,7 @@ function WorkspaceSwitcherButton({
   workspace: Workspace;
   color: string;
   onClick: () => void;
-  /** No workspace list to open — see the three-way branch in <Sidebar/>. */
+  /** No workspace list to open: see the three-way branch in <Sidebar/>. */
   disabled?: boolean;
   title?: string;
 }) {
@@ -101,7 +101,7 @@ function WorkspaceSwitcherButton({
 }
 
 /**
- * The one sidebar. There is no personal/business fork in the chrome itself —
+ * The one sidebar. There is no personal/business fork in the chrome itself:
  * only the nav groups differ, and which set renders is decided by the active
  * workspace, never by the URL.
  */
@@ -133,7 +133,7 @@ export function Sidebar() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  // Pending invites are addressed to the account, not the active workspace —
+  // Pending invites are addressed to the account, not the active workspace:
   // one query drives both the sidebar badge and the topbar bell dot.
   const { data: myInvites } = useMyInvites({ enabled: isAuthenticated });
   const pendingInviteCount = myInvites?.length ?? 0;
@@ -150,7 +150,7 @@ export function Sidebar() {
   );
   const wsColor = activeWorkspace.color || A;
   // The cap is the server's verdict (`GET /api/workspaces`), not local
-  // arithmetic — the row is disabled with a reason rather than failing on submit.
+  // arithmetic: the row is disabled with a reason rather than failing on submit.
   const capReason = canCreateBusiness
     ? undefined
     : `You've reached the limit of ${businessCap} workspaces`;
@@ -190,7 +190,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Workspace switcher — three ways, because there are three reasons the
+        {/* Workspace switcher: three ways, because there are three reasons the
             list can be empty and they are not the same thing.
 
             ANONYMOUS: exactly one workspace exists to show (the "Personal"
@@ -200,7 +200,7 @@ export function Sidebar() {
             that 401s.
 
             LOADING / ERROR: the list is equally unavailable, but "sign in" is
-            the wrong explanation — this visitor has a session. Same disabled
+            the wrong explanation; this visitor has a session. Same disabled
             treatment, honest tooltip, no lock copy. Letting it stay live here
             was the bug: it opened onto an empty menu plus that same 401-ing
             button, which is precisely what the anonymous case avoids. */}
@@ -335,7 +335,7 @@ export function Sidebar() {
         </div>
         )}
 
-        {/* Search — ⌘K opens it once the palette lands. Until then this is
+        {/* Search: ⌘K opens it once the palette lands. Until then this is
             rendered as a visibly gated affordance rather than a live-looking
             control that silently does nothing when clicked. */}
         <button
@@ -431,7 +431,7 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Account panel — guest upsell, or the signed-in user row. */}
+        {/* Account panel: guest upsell, or the signed-in user row. */}
         {user ? (
           <Link
             href="/settings"

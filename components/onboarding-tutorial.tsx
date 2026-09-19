@@ -29,7 +29,7 @@ interface Step {
 }
 
 // There is deliberately NO personal-mode tour. The personal surface is the
-// request form — amount, currency, get link — which needs no explanation, and
+// request form (amount, currency, get link) which needs no explanation, and
 // the tour that used to live here taught groups/friends/balances (the framing
 // the product moved off) while pointing at sidebar targets that no longer
 // exist. See .specs/2026-08-06-request-money-design.md → "What gets deleted
@@ -38,7 +38,7 @@ interface Step {
 
 // There is deliberately NO tour for an account with no business workspace
 // either. Business framing must not reach a consumer signup before they have
-// opted in by creating a workspace — the sidebar's "New workspace" entry is
+// opted in by creating a workspace: the sidebar's "New workspace" entry is
 // that opt-in, and these tours only run once the user is inside one.
 
 const ORG_STEPS_ADMIN: Step[] = [
@@ -59,15 +59,15 @@ const ORG_STEPS_ADMIN: Step[] = [
   {
     id: "invoices",
     title: "Invoices",
-    content: "Members raise invoices here — approve or decline them as the admin.",
+    content: "Members raise invoices here: approve or decline them as the admin.",
     targetId: navItemId("/requests"),
     position: "right",
   },
   {
     id: "streams",
     title: "Income Streams",
-    content: "Log and track income streams for your organization — the same totals your dashboard reads.",
-    // Income streams have no standalone nav destination anymore — they live
+    content: "Log and track income streams for your organization: the same totals your dashboard reads.",
+    // Income streams have no standalone nav destination anymore: they live
     // on the Treasury page (app/treasury/page.tsx: useGetStreamsByOrganization
     // + LogIncomeModal), so that's what this step now spotlights.
     targetId: navItemId("/treasury"),
@@ -77,7 +77,7 @@ const ORG_STEPS_ADMIN: Step[] = [
     id: "members",
     title: "Members",
     content: "Invite people, manage their roles and permissions, and create and track contracts with compensation and scope of work.",
-    // Contracts have no standalone nav destination — they're created and
+    // Contracts have no standalone nav destination: they're created and
     // managed from the Members page (app/members/page.tsx: useCreateContract,
     // ContractDetailModal) alongside team management, so this single step
     // covers both rather than spotlighting the same nav item twice.
@@ -112,7 +112,7 @@ const ORG_STEPS_MEMBER: Step[] = [
     id: "contracts",
     title: "Contracts",
     content: "View and sign contracts assigned to you.",
-    // Same repoint as the admin tour's contracts step — contracts live on
+    // Same repoint as the admin tour's contracts step: contracts live on
     // the Members page, which members can see (only /approvals is admin-only,
     // see navGroupsFor in lib/shell-nav.ts).
     targetId: navItemId("/members"),
@@ -127,7 +127,7 @@ const ORG_STEPS_MEMBER: Step[] = [
   },
 ];
 
-/** "personal" is still a valid *gate* mode — it simply renders no tutorial. */
+/** "personal" is still a valid *gate* mode: it simply renders no tutorial. */
 export type OnboardingMode = "personal" | "organization";
 
 // Step icon map
@@ -147,15 +147,15 @@ const STEP_ICONS: Record<string, LucideIcon> = {
  *
  * The tour used to read as two disjoint events: the ring landed on the sidebar
  * item, and the text turned up roughly half a second later. That was
- * `AnimatePresence mode="wait"` around the card — it holds the incoming card
+ * `AnimatePresence mode="wait"` around the card: it holds the incoming card
  * until the outgoing card's exit *spring* has fully settled (~500ms for an
- * opacity spring at stiffness 400) — plus a spotlight keyed per step, so it
+ * opacity spring at stiffness 400), plus a spotlight keyed per step, so it
  * never travelled between targets; it flew in from the viewport origin because
  * its `initial` omitted x/y/width/height.
  *
  * Both now animate the same properties on the same curve, started in the same
  * frame, off a rect measured in a layout effect (i.e. before paint). Change
- * this constant and both move together — never give one of them its own timing.
+ * this constant and both move together: never give one of them its own timing.
  */
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const DURATION = 0.28;
@@ -218,7 +218,7 @@ export function OnboardingTutorial({
   const handleSkip = useCallback(() => onComplete(), [onComplete]);
 
   const updateSpotlight = useCallback(() => {
-    // On mobile (< 640px) skip spotlight — just show the centered card for all steps
+    // On mobile (< 640px) skip spotlight: just show the centered card for all steps
     if (window.innerWidth < 640) {
       setTargetRect(null);
       return;
@@ -234,7 +234,7 @@ export function OnboardingTutorial({
 
   // Layout effect, NOT effect: the rect has to exist before the browser paints
   // the new step, otherwise the first painted frame still holds the previous
-  // step's rect — and on welcome → first spotlit step it holds `null`, which
+  // step's rect, and on welcome → first spotlit step it holds `null`, which
   // paints the *centered* card for a frame before it jumps to the sidebar.
   useLayoutEffect(() => {
     updateSpotlight();
@@ -250,7 +250,7 @@ export function OnboardingTutorial({
   }, [updateSpotlight]);
 
   // Measure the real card so it centres on the target instead of on a guess.
-  // No dep array on purpose — content height changes per step; the equality
+  // No dep array on purpose: content height changes per step; the equality
   // check is what stops the loop.
   useLayoutEffect(() => {
     const h = cardRef.current?.offsetHeight;
@@ -264,7 +264,7 @@ export function OnboardingTutorial({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Let a focused button handle its own Enter — otherwise "Skip tour" would
+      // Let a focused button handle its own Enter: otherwise "Skip tour" would
       // both skip and advance.
       const onButton = (e.target as HTMLElement | null)?.closest?.("button");
       if (e.key === "Escape") { e.preventDefault(); handleSkip(); }
@@ -279,7 +279,7 @@ export function OnboardingTutorial({
 
   /**
    * Card position and the nub's offset inside it, both derived from the same
-   * rect the spotlight animates to — so they cannot drift apart.
+   * rect the spotlight animates to, so they cannot drift apart.
    */
   const anchored = useMemo(() => {
     if (!targetRect) return null;
@@ -311,7 +311,7 @@ export function OnboardingTutorial({
     <div className="fixed inset-0 z-[200] pointer-events-none">
       {/*
         Backdrop. When a target is spotlit this goes fully transparent and the
-        ring's own 9999px shadow does the dimming — otherwise the two stack and
+        ring's own 9999px shadow does the dimming: otherwise the two stack and
         the "highlighted" nav item ends up dimmed by 75% like everything else,
         which is why the highlight used to read so weakly.
       */}
@@ -325,7 +325,7 @@ export function OnboardingTutorial({
       />
 
       {/*
-        Spotlight. Stable key — it is ONE element for the whole tour, so moving
+        Spotlight. Stable key: it is ONE element for the whole tour, so moving
         between steps is a continuous glide rather than a fade-out plus a
         fade-in somewhere else. Its `initial` carries the target geometry
         (slightly loosened) so the first reveal tightens onto the target instead
@@ -362,7 +362,7 @@ export function OnboardingTutorial({
       </AnimatePresence>
 
       {/*
-        Card. Keyed by *shape* (anchored vs centred), not by step — so across
+        Card. Keyed by *shape* (anchored vs centred), not by step: so across
         spotlit steps this is the same element gliding on the same curve as the
         ring above, carrying its text with it. No `mode="wait"`: the one real
         swap (centred ↔ anchored) crossfades in place rather than queueing.
@@ -380,7 +380,7 @@ export function OnboardingTutorial({
             style={{ left: 0, top: 0, width: CARD_W, zIndex: 202 }}
           >
             <div ref={cardRef} style={{ position: "relative" }}>
-              {/* Connector — points back at the ring so the two read as one object. */}
+              {/* Connector: points back at the ring so the two read as one object. */}
               <motion.div
                 aria-hidden
                 initial={false}
@@ -395,7 +395,7 @@ export function OnboardingTutorial({
                   background: "#131313",
                   borderLeft: PANEL_BORDER,
                   borderBottom: PANEL_BORDER,
-                  // `rotate` as a motion style, never `transform` — Framer owns
+                  // `rotate` as a motion style, never `transform`: Framer owns
                   // the transform string and would drop a static one.
                   rotate: 45,
                   borderBottomLeftRadius: 3,
@@ -405,7 +405,7 @@ export function OnboardingTutorial({
             </div>
           </motion.div>
         ) : (
-          // The direct child of AnimatePresence must be the motion component —
+          // The direct child of AnimatePresence must be the motion component:
           // a plain wrapper here means the exit animation is silently skipped.
           <motion.div
             key="tour-card-centered"
@@ -434,7 +434,7 @@ export function OnboardingTutorial({
 
 /**
  * The card body. Deliberately ONE component for both the centred and the
- * anchored placement — they used to be two near-identical copies, which is how
+ * anchored placement: they used to be two near-identical copies, which is how
  * the mobile drag handle and the sheet radius ended up on only one of them.
  */
 function TourCard({

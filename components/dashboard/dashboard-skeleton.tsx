@@ -2,7 +2,7 @@
 
 import { card, heroCard } from "@/lib/splito-design";
 
-/** A single pulsing placeholder bar — never a spinner, so nothing shifts once real content lands. */
+/** A single pulsing placeholder bar: never a spinner, so nothing shifts once real content lands. */
 function Bar({
   w,
   h = 14,
@@ -24,7 +24,7 @@ function TileSkeleton({ height = 108 }: { height?: number }) {
   return <div className="animate-pulse" style={{ ...card(), height }} />;
 }
 
-/** Loading state for the personal dashboard — hero, settle-up grid, groups + activity. */
+/** Loading state for the personal dashboard: hero, settle-up grid, groups + activity. */
 export function PersonalDashboardSkeleton() {
   return (
     <div>
@@ -66,7 +66,7 @@ export function PersonalDashboardSkeleton() {
   );
 }
 
-/** Loading state for the business dashboard — used for both the org and studio arrangements. */
+/** Loading state for the business dashboard: used for both the org and studio arrangements. */
 export function BusinessDashboardSkeleton() {
   return (
     <div>

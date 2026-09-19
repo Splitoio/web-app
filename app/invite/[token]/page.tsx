@@ -23,7 +23,7 @@ import {
 } from "@/lib/splito-design";
 
 /**
- * `/invite/[token]` — the one landing page for a business-workspace invite.
+ * `/invite/[token]`: the one landing page for a business-workspace invite.
  *
  * It is PUBLIC (lib/middleware-session.ts) because the whole point is that a
  * visitor with no account can see WHICH workspace invited WHICH email before
@@ -60,7 +60,7 @@ export default function InvitePage() {
 
   const { data: invite, isPending: lookupPending, error: lookupError } = useLookupInvite(token);
   // Same query key as AuthProvider's, so this shares one request rather than
-  // adding a second /users/me. A 401 here just means "anonymous visitor" —
+  // adding a second /users/me. A 401 here just means "anonymous visitor";
   // /invite is a public route, so it does not bounce to /login.
   const { data: user, isPending: userPending } = useGetUser();
   const accept = useAcceptInvite();
@@ -95,7 +95,7 @@ export default function InvitePage() {
     );
   }
 
-  // An unknown token is indistinguishable from a deleted one on purpose — the
+  // An unknown token is indistinguishable from a deleted one on purpose: the
   // lookup endpoint 404s both, so there is nothing to probe.
   if (lookupError || !invite) {
     return (
@@ -130,7 +130,7 @@ export default function InvitePage() {
     </div>
   );
 
-  // Revoked / expired / already used — the lookup already knows, so say it
+  // Revoked / expired / already used: the lookup already knows, so say it
   // before asking anyone to sign in for a link that cannot work.
   if (!invite.acceptable) {
     const reason =
@@ -191,7 +191,7 @@ export default function InvitePage() {
           {invite.email ? (
             <>
               The invite was sent to <Strong>{invite.email}</Strong>. Create your account with that
-              email — or sign in if you already have one — and you&apos;ll join as {roleLabel}.
+              email (or sign in if you already have one), and you&apos;ll join as {roleLabel}.
             </>
           ) : (
             <>Create an account or sign in, and you&apos;ll join {orgName} as {roleLabel}.</>
@@ -213,7 +213,7 @@ export default function InvitePage() {
   // someone else is a lie the accept call then has to correct.
   const invitedEmail = acceptError?.data?.invitedEmail ?? invite.email;
   // Mirrors checkInviteAcceptable() in backend/src/services/organization/
-  // invite.service.ts exactly — normalizeEmail() is trim + lowercase, and a
+  // invite.service.ts exactly: normalizeEmail() is trim + lowercase, and a
   // link invite (email === null) is acceptable by whoever holds the token. So
   // this pre-empts the 403 rather than guessing at it.
   const emailMismatch =
@@ -228,7 +228,7 @@ export default function InvitePage() {
       <Body>
         {invitedEmail ? (
           <>
-            This invite was sent to <Strong>{invitedEmail}</Strong> — it joins as{" "}
+            This invite was sent to <Strong>{invitedEmail}</Strong>, and it joins as{" "}
             <Strong>{roleLabel}</Strong>.
           </>
         ) : (
@@ -331,7 +331,7 @@ export default function InvitePage() {
 
       {invite.contractId && (
         <p style={{ margin: "16px 0 0", fontSize: 11.5, lineHeight: 1.55, color: G }}>
-          There&apos;s a contract attached to this invite — you&apos;ll be asked to sign it.
+          There&apos;s a contract attached to this invite. You&apos;ll be asked to sign it.
         </p>
       )}
     </Shell>

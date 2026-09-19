@@ -35,7 +35,7 @@ type Friend = {
   name: string;
   email?: string | null;
   /**
-   * Addressed but never signed up — the backend reads this off "has no Account
+   * Addressed but never signed up: the backend reads this off "has no Account
    * row" (backend/src/services/split.service.ts, PERSON_SELECT). Their row
    * shows "Invited" and no balance: a number you cannot settle with someone
    * who has no account is worse than no number.
@@ -355,7 +355,7 @@ function PersonModal({
               : net < 0
                 ? "Owes you"
                 : "You owe",
-        net: friend.invited ? "—" : isLoading ? "…" : formatCurrency(Math.abs(net), defaultCurrency),
+        net: friend.invited ? "-" : isLoading ? "…" : formatCurrency(Math.abs(net), defaultCurrency),
         netColor: friend.invited ? T.dim : isLoading ? T.dim : net === 0 ? T.main : net < 0 ? G : R,
       }}
       balances={balances}

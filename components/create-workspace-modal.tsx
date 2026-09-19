@@ -25,12 +25,12 @@ import {
 } from "@/lib/splito-design";
 
 /**
- * "New workspace" — the create half of the sidebar switcher.
+ * "New workspace": the create half of the sidebar switcher.
  *
  * A business workspace is an `Organization`; there is no `POST /api/workspaces`.
  * `name` is the only field `POST /api/organizations` requires
  * (organization.controller.ts createOrganization), so that is the only
- * required field here — description and accent are optional conveniences.
+ * required field here; description and accent are optional conveniences.
  *
  * The cap is the server's call, not ours: the switcher hides the entry point
  * when `canCreateBusiness` is false, and if the server 400s anyway (a second
@@ -86,7 +86,7 @@ export function CreateWorkspaceModal({
         onSuccess: (organization) => {
           toast.success(`${organization.name} is ready`);
           handleClose();
-          // Land the user *in* the workspace they just made — the switcher
+          // Land the user *in* the workspace they just made: the switcher
           // list has already refetched by now (see use-create-workspace).
           setActiveWorkspace(organization.id);
           router.push("/");
@@ -134,7 +134,7 @@ export function CreateWorkspaceModal({
                   New workspace
                 </h2>
                 <p className="text-[12px]" style={{ color: T.muted }}>
-                  A separate space for a business — its own requests, members and treasury.
+                  A separate space for a business: its own requests, members and treasury.
                 </p>
               </div>
             </div>

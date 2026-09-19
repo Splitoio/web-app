@@ -157,7 +157,7 @@ export const useUpdateGroup = () => {
   });
 };
 
-// `useUpdateMemberRole` is gone with the endpoint — split groups have no roles.
+// `useUpdateMemberRole` is gone with the endpoint; split groups have no roles.
 // See features/business/hooks/use-organizations.ts for organization roles.
 
 export const useRemoveMemberFromGroup = () => {

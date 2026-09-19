@@ -57,7 +57,7 @@ function Arrow() {
 
 /**
  * The sticky right-hand panel on the public pay page
- * (.design/splito-finance.dc.html:1520-1567) — request summary header, a
+ * (.design/splito-finance.dc.html:1520-1567): request summary header, a
  * route visualization once a source is known, and whatever comes next
  * (wallet-connect nudge / quote breakdown+CTA) as `children`.
  *

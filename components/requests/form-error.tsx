@@ -9,7 +9,7 @@ import type { FormError } from "@/lib/request-errors";
  *
  * Deliberately NOT a toast. This is a blocking validation error the user has
  * to act on (add a trustline, fix the address), so it stays until they dismiss
- * it or change the offending field — a 4s auto-dismiss meant anyone reading
+ * it or change the offending field: a 4s auto-dismiss meant anyone reading
  * their own typing missed it entirely. Mirrors the treatment the client-side
  * address check already gets: red border on the field, message beneath it.
  */

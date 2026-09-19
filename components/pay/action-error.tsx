@@ -5,7 +5,7 @@ import { R, T } from "@/lib/splito-design";
 
 /**
  * A recoverable failure on the pay flow, rendered inline where the failed
- * step lives (the SummaryPanel's route slot) — NOT a toast. This is the
+ * step lives (the SummaryPanel's route slot), NOT a toast. This is the
  * public payer surface: no account, one shot at the link, so an error that
  * auto-dismisses in 4s before they've read it just means they stare at a
  * frozen page with no idea what happened. Mirrors
@@ -15,9 +15,9 @@ import { R, T } from "@/lib/splito-design";
  * or re-pick a source they already chose.
  */
 export interface PayActionError {
-  /** One short payer-facing sentence — never raw provider/server prose. */
+  /** One short payer-facing sentence: never raw provider/server prose. */
   title: string;
-  /** Optional supporting line — plain language, no operator detail. */
+  /** Optional supporting line: plain language, no operator detail. */
   detail?: string;
   /**
    * Present only when the failed step can be safely re-run as-is (transient

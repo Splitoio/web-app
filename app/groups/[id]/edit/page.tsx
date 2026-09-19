@@ -41,9 +41,9 @@ const fieldStyle: React.CSSProperties = {
 };
 
 /**
- * Group Settings — design's gSettings panel (1340-1391): name, photo &
+ * Group Settings: design's gSettings panel (1340-1391): name, photo &
  * colour, add someone, "lock the rate", delete group. Colour is display-only
- * (the backend never gained a PATCH for it — it's set once at creation, same
+ * (the backend never gained a PATCH for it; it's set once at creation, same
  * as before this pass); invite-link generation was removed from the frontend
  * in an earlier PR and isn't resurrected here.
  */

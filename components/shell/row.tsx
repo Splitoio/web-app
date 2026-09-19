@@ -8,14 +8,14 @@ export interface RowShellProps {
   children: React.ReactNode;
   onClick?: () => void;
   href?: string;
-  /** Suppress the bottom divider — e.g. the last row in a card. */
+  /** Suppress the bottom divider, e.g. the last row in a card. */
   noDivider?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
 
 /**
- * The bare `.rw` wrapper — hover chrome, divider, and click/href handling
+ * The bare `.rw` wrapper: hover chrome, divider, and click/href handling
  * with no opinion on internal layout. `Row` (flex, 3-slot) and
  * `DataTable` (CSS grid, N columns) both build their rows on this.
  */
@@ -56,15 +56,15 @@ export function RowShell({
 }
 
 export interface RowProps {
-  /** Avatar, AvatarChip, or a small status dot — rendered flush-left. */
+  /** Avatar, AvatarChip, or a small status dot, rendered flush-left. */
   leading?: React.ReactNode;
   title: React.ReactNode;
   meta?: React.ReactNode;
-  /** Amount, status pill, chevron — rendered flush-right, never shrinks. */
+  /** Amount, status pill, chevron, rendered flush-right, never shrinks. */
   trailing?: React.ReactNode;
   onClick?: () => void;
   href?: string;
-  /** Suppress the bottom divider — e.g. the last row in a card. */
+  /** Suppress the bottom divider, e.g. the last row in a card. */
   noDivider?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -75,7 +75,7 @@ export interface RowProps {
  * patterns"): horizontal flex row with an optional leading avatar/dot, a
  * title+meta stack, and a trailing value/status slot. Reused verbatim by
  * list rows, activity feeds, payer rows, group balances/requests, and
- * treasury streams — screens supply the slot content, this owns the layout,
+ * treasury streams: screens supply the slot content, this owns the layout,
  * the `.rw` hover class, and the divider.
  */
 export function Row({

@@ -209,7 +209,7 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
             </div>
           </div>
 
-          {/* Body — overflow-visible on step 2 so CurrencyDropdown popup isn't clipped */}
+          {/* Body: overflow-visible on step 2 so CurrencyDropdown popup isn't clipped */}
           <div className={step === 2 ? "px-6 py-5 space-y-4" : "px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto"}>
             {step === 1 && (
               <>
